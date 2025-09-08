@@ -1,45 +1,44 @@
 <script setup>
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
-import { useUserStore } from '@/stores/user'
-import axios from 'axios'
+import { ref } from "vue";
+import { useRouter } from "vue-router";
+import { useUserStore } from "@/stores/user";
+import api, { setAuthToken } from "@/utils/api";
 
-const email = ref('')
-const password = ref('')
-const router = useRouter()
-const userStore = useUserStore()
+const user = ref("");
+const pwd = ref("");
+const message = ref("");
 
-const handleLogin = async () => {
-  if (!email.value.trim() || !password.value.trim()) {
-    return alert('Ingresá email y contraseña')
+const router = useRouter();
+const userStore = useUserStore();
+
+async function handleLogin() {
+  if (!user.value.trim() || !pwd.value.trim()) {
+    return alert("Ingresá usuario y contraseña");
   }
 
   try {
-    const res = await axios.get('https://685c760b769de2bf085ccc90.mockapi.io/taskapi/users')
-    const usuarios = res.data
+    const res = await api.post("/login", {
+      user: user.value,
+      pwd: pwd.value,
+    });
 
-    console.log('Usuarios obtenidos:', usuarios)
+    // ⚡ El backend devuelve el token
+    const token = res.data.token;
+    setAuthToken(token);
 
-    const usuario = usuarios.find(u =>
-      u.email === email.value && u.contrasenia === password.value
-    )
-
-    if (!usuario) {
-      return alert('Credenciales inválidas')
-    }
-
+    // 👉 Guardar usuario y token en el store (podés mejorar con datos reales)
     userStore.login({
-      id: usuario.id,
-      email: usuario.email,
-      nombre: usuario.nombre,
-      admin: usuario.admin
-    })
+      nombre: user.value,
+      token: token,
+    });
 
-    alert(`Bienvenido ${usuario.nombre}`)
-    router.push('/')
+    message.value = "✅ Login exitoso";
+
+    // 👉 Redirigir al home
+    router.push("/");
   } catch (err) {
-    console.error('Error en login:', err.response?.data || err.message || err)
-    alert('Error al intentar loguear')
+    console.error(err.response?.data || err.message);
+    message.value = "❌ Credenciales inválidas o error en servidor";
   }
 }
 </script>
@@ -47,42 +46,9 @@ const handleLogin = async () => {
 <template>
   <main class="login-container">
     <h2>Iniciar Sesión</h2>
-    <input v-model="email" placeholder="Email" />
-    <input v-model="password" type="password" placeholder="Contraseña" />
+    <input v-model="user" placeholder="Usuario" />
+    <input v-model="pwd" type="password" placeholder="Contraseña" />
     <button @click="handleLogin">Entrar</button>
+    <p>{{ message }}</p>
   </main>
 </template>
-
-<style scoped>
-.login-container {
-  max-width: 400px;
-  margin: 4rem auto;
-  padding: 2rem;
-  background-color: var(--card-color, white);
-  border-radius: 12px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-input {
-  padding: 0.7rem;
-  border-radius: 8px;
-  border: 1px solid #ccc;
-}
-
-button {
-  background-color: var(--primary-color, #3b82f6);
-  color: white;
-  border: none;
-  padding: 0.7rem;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: bold;
-}
-
-button:hover {
-  background-color: var(--secondary-color, #2563eb);
-}
-</style>
