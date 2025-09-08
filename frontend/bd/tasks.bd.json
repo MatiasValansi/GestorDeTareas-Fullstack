@@ -1,0 +1,47 @@
+[
+  {
+    "id": 1,
+    "user_id": "Juan Pérez",
+    "title": "Comprar pintura para el local",
+    "description": "Ir a la pinturería y comprar 5 litros de látex blanco",
+    "date": "2025-06-28T00:00:00.000Z",
+    "city": "Buenos Aires",
+    "weather": "cielo despejado, 22°C",
+    "is_holiday": false,
+    "holiday_name": null,
+    "budget": 2000,
+    "currency": "ARS",
+    "usd_amount": 2.20,
+    "created_at": "2025-06-21T13:05:00.000Z"
+  },
+  {
+    "id": 2,
+    "user_id": "María González",
+    "title": "Revisar inventario",
+    "description": "Controlar stock de mercadería antes del cierre mensual",
+    "date": "2025-06-25T00:00:00.000Z",
+    "city": "Buenos Aires",
+    "weather": "lluvia ligera, 17°C",
+    "is_holiday": true,
+    "holiday_name": "Día de la Bandera",
+    "budget": null,
+    "currency": null,
+    "usd_amount": null,
+    "created_at": "2025-06-21T13:15:00.000Z"
+  },
+  {
+    "id": 3,
+    "user_id": "Carlos López",
+    "title": "Entregar pedido a cliente",
+    "description": "Coordinar entrega de pedido n°435 en zona centro",
+    "date": "2025-06-26T00:00:00.000Z",
+    "city": "Buenos Aires",
+    "weather": "nubes dispersas, 20°C",
+    "is_holiday": false,
+    "holiday_name": null,
+    "budget": 5000,
+    "currency": "ARS",
+    "usd_amount": 5.50,
+    "created_at": "2025-06-21T13:25:00.000Z"
+  }
+]

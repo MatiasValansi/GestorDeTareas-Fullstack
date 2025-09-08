@@ -1,0 +1,14 @@
+@base=https://gestordetareapp.onrender.com
+@token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiYWRtaW4iLCJwYXNzd29yZCI6IioqKioqKioiLCJyb2wiOiJPd25lciIsImlhdCI6MTc1MDg5OTExM30.rfvRBeKjENddQl_nxChWLs6g7hGcTqxFXfVzSc6gdPU
+
+GET {{base}}/login
+Content-Type: application/json
+
+{
+    "user": "admin",
+    "pwd": "1234"
+}
+
+###
+GET {{base}}/users/allUsers
+Authorization: Bearer {{token}}

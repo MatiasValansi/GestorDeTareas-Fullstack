@@ -1,0 +1,46 @@
+###
+GET http://127.0.0.1:3004/tasks/task/68518c972f6e375b7ef05f6b
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiYWRtaW4iLCJwYXNzd29yZCI6IioqKioqKioiLCJyb2wiOiJPd25lciIsImlhdCI6MTc1MDE3NDY3N30._HsbnTxvXTOhfYkfXXkrhQyxSL82wXJENeG4xXTQ4Xg
+
+###
+GET http://127.0.0.1:3004/tasks/allTasks
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiYWRtaW4iLCJwYXNzd29yZCI6IioqKioqKioiLCJyb2wiOiJPd25lciIsImlhdCI6MTc1MDE3NDY3N30._HsbnTxvXTOhfYkfXXkrhQyxSL82wXJENeG4xXTQ4Xg
+
+###
+POST http://127.0.0.1:3004/tasks/task
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiYWRtaW4iLCJwYXNzd29yZCI6IioqKioqKioiLCJyb2wiOiJPd25lciIsImlhdCI6MTc1MDE3NDY3N30._HsbnTxvXTOhfYkfXXkrhQyxSL82wXJENeG4xXTQ4Xg
+Content-Type: application/json
+
+{
+  "task": {
+    "title": "MVP - Gestor de Tareas",
+    "description": "Entregar el MVP del Trabajo Práctico de TP II",
+    "date": "2025-06-16",
+    "assignedTo": "684f627f00cef237d803146b"
+  }
+}
+
+
+
+
+###
+DELETE http://127.0.0.1:3004/tasks/task/6850906a8d0e08406ad5eb5a
+
+###
+PUT http://127.0.0.1:3004/tasks/task/685090d1e3f80be157fa7784
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiYWRtaW4iLCJwYXNzd29yZCI6IioqKioqKioiLCJyb2wiOiJPd25lciIsImlhdCI6MTc1MDE3NDY3N30._HsbnTxvXTOhfYkfXXkrhQyxSL82wXJENeG4xXTQ4Xg
+Content-Type: application/json
+
+{
+    "title": "TEST DE UPDATE - N°234542",
+    "description": "Estamos testeando el Update con el team"
+}
+
+### Realizo las pruebas con JWT
+GET http://127.0.0.1:3004/login
+Content-Type: application/json
+
+{
+    "user": "admin",
+    "pwd": "1234"
+}

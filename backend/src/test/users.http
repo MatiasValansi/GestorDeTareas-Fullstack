@@ -1,0 +1,63 @@
+###
+GET http://127.0.0.1:3004/users/user/10
+
+###
+GET http://127.0.0.1:3004/users/user/684f627f00cef237d803146b
+
+###
+POST http://127.0.0.1:3004/users/user
+Content-Type: application/json
+
+{
+    "user": {
+        "name": "Gianni Infantino",
+        "email": "favitoorsi@gmail.com"        
+    }
+}
+
+###
+DELETE http://127.0.0.1:3004/users/user/2ad636e8-1aa6-411d-ada0-fcb6db08ac38
+
+###
+PUT http://127.0.0.1:3004/users/user/8ae59503-7fc7-4712-91a9-523898f8a0a6
+Content-Type: application/json
+
+{    
+    "name": "Lionel Andrés Messi 10",
+    "email": "leomessi10@gmail.com"
+}
+
+### Realizo las pruebas con JWT
+GET http://127.0.0.1:3004/login
+Content-Type: application/json
+
+{
+    "user": "admin",
+    "pwd": "1234"
+}
+
+###Ahora, realizamos el GET en el que añadimos el middleware
+GET http://127.0.0.1:3004/users/allUsers
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiYWRtaW4iLCJwYXNzd29yZCI6IioqKioqKioiLCJyb2wiOiJPd25lciIsImlhdCI6MTc1MDEwMDA3M30.8t52wDO-SuKLEnGqhSl5TqCTkVlugzTAGW9sGzgs5jA
+
+###
+POST http://127.0.0.1:3004/users/user
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiYWRtaW4iLCJwYXNzd29yZCI6IioqKioqKioiLCJyb2wiOiJPd25lciIsImlhdCI6MTc1MDEwMDA3M30.8t52wDO-SuKLEnGqhSl5TqCTkVlugzTAGW9sGzgs5jA
+Content-Type: application/json
+
+{
+    "user": {
+        "name": "Prueba con tokern",
+        "email": "estoesunaprueba@gmail.com"        
+    } 
+}
+
+###
+POST http://127.0.0.1:3004/login
+Content-Type: application/json
+
+{
+  "user": "admin",
+  "pwd": "1234"
+}
+
