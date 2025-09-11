@@ -1,5 +1,6 @@
 // src/services/users.js
 import api from "@/utils/api";
+import { userAdapter } from "../../adapters/userAdapter.js";
 
 /**
  Será el encargado de hacer las peticiones al backend de la entidad User.
@@ -9,7 +10,34 @@ import api from "@/utils/api";
 // Obtener todos los usuarios
 export const getAllUsers = async () => {
   const { data } = await api.get("/users/allUsers");
-  return data.payload;
+  return data.payload.map(userAdapter);
+  /**
+   * OBS: ASÍ COMO MAPEE EL RETURN CON userAdapter,
+   * PUEDE QUE DEBA HACERLO CON EL RESTO DE LOS MÉTODOS,
+   * EJ:
+    * 
+    // ✅ Obtener un usuario por id
+    export const getUserById = async (id) => {
+    const res = await axios.get(`${API}/users/user/${id}`);
+    return userAdapter(res.data.payload);
+    };
+
+    // ✅ Crear usuario
+    export const createUser = async (user) => {
+    const res = await axios.post(`${API}/users/user`, user);
+    return userAdapter(res.data.payload);
+    };
+
+    // ✅ Actualizar usuario
+    export const updateUser = async (id, user) => {
+    const res = await axios.put(`${API}/users/user/${id}`, user);
+    return userAdapter(res.data.payload);
+    };
+
+    // ✅ Eliminar usuario
+    export const deleteUser = async (id) => {
+    await axios.delete(`${API}/users/user/${id}`);
+   */
 };
 
 // Obtener usuario por ID
