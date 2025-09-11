@@ -4,10 +4,10 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 
-const router = useRouter()
+import { getAllUsers, deleteUser } from '@/services/users'
+import { getAllTasks } from '@/services/tasks'
 
-const MOCKAPI_USERS = 'https://685c760b769de2bf085ccc90.mockapi.io/taskapi/users'
-const MOCKAPI_TASKS = 'https://685c760b769de2bf085ccc90.mockapi.io/taskapi/tasks'
+const router = useRouter()
 
 const usuarios = ref([])
 const tareas = ref([])
@@ -15,47 +15,20 @@ const cargando = ref(false)
 const error = ref("")
 const store = useUserStore()
 
-// const mostrarUsuariosYTareas = async () => {
-//   cargando.value = true
-//   try {
-//     const [resUsuarios, resTareas] = await Promise.all([
-//       axios.get(MOCKAPI_USERS),
-//       axios.get(MOCKAPI_TASKS)
-//     ])
-//     usuarios.value = resUsuarios.data.map(usuario => {
-//       const tareasDelUsuario = resTareas.data.filter(t => t.userId == usuario.id)
-//       const completadas = tareasDelUsuario.filter(t => t.completada).length
-//       return {
-//         ...usuario,
-//         cantTareas: tareasDelUsuario.length,
-//         cantCompletadas: completadas
-//       }
-//     })
-//   } catch (err) {
-//     error.value = 'Error al cargar usuarios y tareas.'
-//     console.error(err)
-//   } finally {
-//     cargando.value = false
-//   }
-// }
+
 
 const mostrarUsuariosYTareas = async () => {
   cargando.value = true
   try {
     const [resUsuarios, resTareas] = await Promise.all([
-      axios.get(MOCKAPI_USERS),
-      axios.get(MOCKAPI_TASKS)
+      getAllUsers(),
+      getAllTasks()
     ])
 
-    let usuariosFiltrados = resUsuarios.data
-
-    
-    // if (!store.user.admin) {
-    //   usuariosFiltrados = usuariosFiltrados.filter(u => u.id == store.user.id)
-    // }
+    let usuariosFiltrados = resUsuarios
 
     usuarios.value = usuariosFiltrados.map(usuario => {
-      const tareasDelUsuario = resTareas.data.filter(t => t.userId == usuario.id)
+      const tareasDelUsuario = resTareas.filter(t => t.userId == usuario.id)
       const completadas = tareasDelUsuario.filter(t => t.completada).length
       return {
         ...usuario,
@@ -82,7 +55,8 @@ const irANuevaVistaUsuario = () => {
 const eliminarUsuario = async (id, nombre) => {
   if (!confirm(`❌¿Eliminar a "${nombre}"?`)) return
   try {
-    await axios.delete(`${MOCKAPI_USERS}/${id}`)
+    await deleteUser(id)
+    alert(`Usuario "${nombre}" eliminado.`)
     await mostrarUsuariosYTareas()
   } catch (err) {
     console.error('Error al eliminar usuario', err)
@@ -110,17 +84,17 @@ const verDetalleUsuario = (id) => {
     <p v-else-if="error" class="error">{{ error }}</p>
 
     <div v-else-if="usuarios.length" class="task-list">
-      <div v-for="u in usuarios" :key="u.id" class="task-card">
-        <h3>👨‍🎓 {{ u.nombre }}</h3>
-        <p>ID: {{ u.id }}</p>
-        <p>📧 Email: {{ u.email }}</p>
-        <p>📋 Tareas: {{ u.cantTareas }}</p>
-        <p>✅ Completadas: {{ u.cantCompletadas }}</p>
+      <div v-for="cadaUsuario in usuarios" :key="cadaUsuario.id" class="task-card">
+        <h3>👨‍🎓 {{ cadaUsuario.nombre }}</h3>
+        <p>ID: {{ cadaUsuario.id }}</p>
+        <p>📧 Email: {{ cadaUsuario.email }}</p>
+        <p>📋 Tareas: {{ cadaUsuario.cantTareas }}</p>
+        <p>✅ Completadas: {{ cadaUsuario.cantCompletadas }}</p>
         <div class="actions">
-          <button class="button info" @click="verDetalleUsuario(u.id)">Detalles</button>
+          <button class="button info" @click="verDetalleUsuario(cadaUsuario.id)">Detalles</button>
           <template v-if="store.user.admin">
-          <button class="button danger" @click="eliminarUsuario(u.id, u.nombre)">Eliminar</button>
-          <button class="button secondary" @click="editarUsuario(u.id)">Editar</button>
+          <button class="button danger" @click="eliminarUsuario(cadaUsuario.id, cadaUsuario.nombre)">Eliminar</button>
+          <button class="button secondary" @click="editarUsuario(cadaUsuario.id)">Editar</button>
           </template>
         </div>
       </div>

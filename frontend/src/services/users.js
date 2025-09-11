@@ -1,10 +1,15 @@
 // src/services/users.js
 import api from "@/utils/api";
 
+/**
+ Será el encargado de hacer las peticiones al backend de la entidad User.
+ Es el nexo entre el frontend y el backend.
+ */
+
 // Obtener todos los usuarios
 export const getAllUsers = async () => {
   const { data } = await api.get("/users/allUsers");
-  return data;
+  return data.payload;
 };
 
 // Obtener usuario por ID
@@ -28,5 +33,9 @@ export const updateUser = async (id, user) => {
 // Eliminar usuario por ID
 export const deleteUser = async (id) => {
   const { data } = await api.delete(`/users/user/${id}`);
+  console.log("DELETE USER");
+  
+  console.log(data);
+  
   return data;
 };
