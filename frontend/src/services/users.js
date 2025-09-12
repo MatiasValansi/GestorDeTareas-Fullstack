@@ -60,10 +60,6 @@ export const updateUser = async (id, user) => {
 
 // Eliminar usuario por ID
 export const deleteUser = async (id) => {
-  const { data } = await api.delete(`/users/user/${id}`);
-  console.log("DELETE USER");
-  
-  console.log(data);
-  
+  const { data } = await api.delete(`/users/user/${id}`);  
   return data;
 };

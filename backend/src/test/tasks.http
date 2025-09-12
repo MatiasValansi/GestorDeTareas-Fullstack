@@ -37,10 +37,30 @@ Content-Type: application/json
 }
 
 ### Realizo las pruebas con JWT
-GET http://127.0.0.1:3004/login
+POST http://127.0.0.1:3004/login
 Content-Type: application/json
 
 {
     "user": "admin",
     "pwd": "1234"
 }
+
+###
+POST http://127.0.0.1:3004/tasks/task
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiYWRtaW4iLCJwYXNzd29yZCI6IioqKioqKioiLCJyb2wiOiJPd25lciIsImlhdCI6MTc1NzYyOTE4OH0.v2wybEef8hF5xc9b4EDRF9HYL8-VEcpShXO04nONbVw
+Content-Type: application/json
+
+{
+  "task": {
+    "title": "MVP - Gestor de Tareas",
+    "description": "Entregar el MVP del Trabajo Práctico de TP II",
+    "date": "2025-06-16",
+    "assignedTo": "6893d913fbd0fefd97970c33",
+    "deadline": "2025-06-30",
+    "completed": false
+  }
+}
+
+###
+DELETE http://127.0.0.1:3004/tasks/task/68c36e74bf76245c1b03b667
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiYWRtaW4iLCJwYXNzd29yZCI6IioqKioqKioiLCJyb2wiOiJPd25lciIsImlhdCI6MTc1NzYyOTE4OH0.v2wybEef8hF5xc9b4EDRF9HYL8-VEcpShXO04nONbVw

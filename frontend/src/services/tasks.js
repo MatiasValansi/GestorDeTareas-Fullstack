@@ -8,7 +8,7 @@ import api from "@/utils/api";
 
 // Obtener todas las tareas
 export const getAllTasks = async () => {
-  const { data } = await api.get("/tasks/allTasks");  
+  const { data } = await api.get("/tasks/allTasks");    
   return data.payload; //.payload retorna directamente el array de tareas, tal como se ve en la estructura del Backend.
 };
 

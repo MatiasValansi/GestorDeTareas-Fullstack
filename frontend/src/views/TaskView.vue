@@ -4,9 +4,10 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 
+import { getAllTasks, deleteTask } from '@/services/tasks'
+import { getAllUsers } from '@/services/users'
+
 const router = useRouter()
-const MOCKAPI = 'https://685c760b769de2bf085ccc90.mockapi.io/taskapi/tasks'
-const USERAPI = 'https://685c760b769de2bf085ccc90.mockapi.io/taskapi/users'
 
 const tareas = ref([])
 const nuevaTarea = ref("")
@@ -32,8 +33,12 @@ const store = useUserStore()
 const mostrarTareas = async () => {
   cargando.value = true
   try {
-    const res = await axios.get(MOCKAPI)
-    const todasLasTareas = res.data
+    const res = await getAllTasks()    
+    
+    const todasLasTareas = res
+    console.log("GET ALL TASKS")
+    console.log(todasLasTareas);
+    
 
     // Si el usuario es admin, ve todas. Si no, solo las suyas.
     tareas.value = store.user.admin
@@ -50,8 +55,10 @@ const mostrarTareas = async () => {
 
 const obtenerUsuarios = async () => {
   try {
-    const res = await axios.get(USERAPI)
-    usuarios.value = res.data
+    const res = await getAllUsers()
+    
+    usuarios.value = res
+    
   } catch (err) {
     console.error('Error al cargar usuarios', err)
   }
@@ -62,25 +69,13 @@ onMounted(async () => {
   await obtenerUsuarios()
 })
 
-const agregarTarea = async () => {
-  if (nuevaTarea.value.trim() === '') return
-  try {
-    await axios.post(MOCKAPI, {
-      titulo: nuevaTarea.value,
-      completada: false,
-      userId: Math.floor(Math.random() * 100) + 1
-    })
-    nuevaTarea.value = ''
-    await mostrarTareas()
-  } catch (err) {
-    console.error('Error al agregar tarea', err)
-  }
-}
+
 
 const eliminarTarea = async (id, titulo) => {
   if (!confirm(`❌¿Eliminar "${titulo}"?`)) return
   try {
-    await axios.delete(`${MOCKAPI}/${id}`)
+    await deleteTask(id)
+    alert(`Tarea "${titulo}" eliminada.`)
     await mostrarTareas()
   } catch (err) {
     console.error('Error al eliminar tarea', err)
@@ -136,7 +131,7 @@ const verDetalleTarea = (id) => {
 
     <div v-else-if="tareas.length" class="task-list">
       <div v-for="cadaTarea in tareas" :key="cadaTarea.id" class="task-card">
-        <h3>{{ cadaTarea.titulo }}</h3>
+        <h3>{{ cadaTarea.title }}</h3>
         <div> 
           <p>📅 Fecha límite: {{ formatFecha(cadaTarea.deadline) }}</p>
         </div>
@@ -148,12 +143,12 @@ const verDetalleTarea = (id) => {
   </label>
   <span class="estado-text">{{ cadaTarea.completada ? 'Completada' : 'Pendiente' }}</span>
 </div>
-        <p>📌 ID Usuario: {{ cadaTarea.userId }}</p>
-        <p>👨‍🎓 Usuario: {{ getUserNameById(cadaTarea.userId) }}</p>
+        <p>📌 ID Usuario: {{ cadaTarea.assignedToUser }}</p>
+        <p>👨‍🎓 Usuario: {{ getUserNameById(cadaTarea.assignedTo) }}</p>
         <div class="actions">
           <button class="button info" @click="verDetalleTarea(cadaTarea.id)">Detalles</button>
           <template v-if="store.user.admin">
-          <button class="button danger" @click="eliminarTarea(cadaTarea.id, cadaTarea.titulo)">Eliminar</button>
+          <button class="button danger" @click="eliminarTarea(cadaTarea._id, cadaTarea.title)">Eliminar</button>
           <button class="button secondary" @click="editarTarea(cadaTarea.id)">Editar</button>
           </template>
         </div>
