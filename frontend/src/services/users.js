@@ -48,7 +48,7 @@ export const getUserById = async (id) => {
 
 // Crear usuario
 export const createUser = async (user) => {
-  const { data } = await api.post("/users/user", user);
+  const { data } = await api.post("/users/user", { user });
   return data;
 };
 

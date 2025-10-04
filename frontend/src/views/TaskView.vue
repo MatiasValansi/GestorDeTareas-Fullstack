@@ -35,10 +35,7 @@ const mostrarTareas = async () => {
   try {
     const res = await getAllTasks()    
     
-    const todasLasTareas = res
-    console.log("GET ALL TASKS")
-    console.log(todasLasTareas);
-    
+    const todasLasTareas = res  
 
     // Si el usuario es admin, ve todas. Si no, solo las suyas.
     tareas.value = store.user.admin
