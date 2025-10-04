@@ -7,10 +7,7 @@ import { userAdapter } from "../../adapters/userAdapter.js";
  Es el nexo entre el frontend y el backend.
  */
 
-// Obtener todos los usuarios
-export const getAllUsers = async () => {
-  const { data } = await api.get("/users/allUsers");
-  return data.payload.map(userAdapter);
+;
   /**
    * OBS: ASÍ COMO MAPEE EL RETURN CON userAdapter,
    * PUEDE QUE DEBA HACERLO CON EL RESTO DE LOS MÉTODOS,
@@ -38,12 +35,24 @@ export const getAllUsers = async () => {
     export const deleteUser = async (id) => {
     await axios.delete(`${API}/users/user/${id}`);
    */
-};
+
 
 // Obtener usuario por ID
 export const getUserById = async (id) => {
   const { data } = await api.get(`/users/user/${id}`);
-  return data;
+
+  // 🔧 tomar el doc real
+  const doc = data?.payload?.userFoundById ?? data?.payload ?? data;
+
+  // opcional: log
+  // console.log('getUserById doc:', doc);
+
+  return userAdapter(doc);
+};
+
+export const getAllUsers = async () => {
+  const { data } = await api.get('/users/allUsers');
+  return data.payload.map(userAdapter);
 };
 
 // Crear usuario
