@@ -41,11 +41,7 @@ import { userAdapter } from "../../adapters/userAdapter.js";
 export const getUserById = async (id) => {
   const { data } = await api.get(`/users/user/${id}`);
 
-  // 🔧 tomar el doc real
   const doc = data?.payload?.userFoundById ?? data?.payload ?? data;
-
-  // opcional: log
-  // console.log('getUserById doc:', doc);
 
   return userAdapter(doc);
 };
@@ -62,8 +58,9 @@ export const createUser = async (user) => {
 };
 
 // Actualizar usuario por ID
-export const updateUser = async (id, user) => {
-  const { data } = await api.put(`/users/user/${id}`, user);
+export const updateUser = async (id, body) => {
+  // body: { name, email }
+  const { data } = await api.put(`/users/user/${id}`, body);
   return data;
 };
 

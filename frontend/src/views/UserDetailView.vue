@@ -3,11 +3,9 @@ import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 
-// Services
 import { getUserById } from '@/services/users'
 import { getAllTasks } from '@/services/tasks'
 
-// Chart
 import { Doughnut } from 'vue-chartjs'
 import { Chart as ChartJS, Title, Tooltip, Legend, ArcElement } from 'chart.js'
 ChartJS.register(Title, Tooltip, Legend, ArcElement)
@@ -24,7 +22,7 @@ const tareasCompletadas = ref(0)
 
 function formatFecha(fechaEntrada) {
   if (!fechaEntrada) return 'Fecha no disponible'
-  const fecha = new Date(fechaEntrada) // acepta ISO/Date/millis
+  const fecha = new Date(fechaEntrada) 
   if (isNaN(fecha)) return 'Fecha inválida'
 
   return new Intl.DateTimeFormat('es-AR', {
@@ -35,18 +33,12 @@ function formatFecha(fechaEntrada) {
 }
 
 const cargarDatos = async () => {
-  try {
-    // 1) Usuario (adaptado por el service: { id, nombre, email })
+  try {    
     const id = route.params.id
     usuario.value = await getUserById(id)
     console.log('User adaptado:', usuario.value);
-
-    // 2) Tareas (traigo todas y filtro por assignedToUser === id)
-    //    Si ya tenés taskAdapter en el service (id, titulo, descripcion, deadline, completada, userId),
-    //    esto queda impecable. Si no, abajo hago un mapeo defensivo.
     const allTasks = await getAllTasks()
 
-    // Mapeo defensivo por si todavía no adaptaste tasks en el service:
     const tasksAdaptadas = allTasks.map(t => ({
       id: t._id || t.id,
       titulo: t.title || t.titulo,
@@ -169,7 +161,7 @@ const volverAlMenu = () => {
   .email-inline {
     display: inline-flex;
     align-items: center;
-    gap: 6px;            /* espacio pequeño entre mail y logo */
+    gap: 6px;           
   }
 
   .gmail-link {
@@ -179,7 +171,7 @@ const volverAlMenu = () => {
   }
 
   .gmail-icon {
-    width: 32px;         /* 👈 tamaño pequeño */
+    width: 32px;
     height: 32px;
     vertical-align: middle;
   }
