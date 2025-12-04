@@ -1,72 +1,101 @@
 <script setup>
-import { ref, onMounted } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
-import { getTaskById, updateTask } from '@/services/tasks';
+import { ref, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { getTaskById, updateTask } from '@/services/tasks'
 
 const router = useRouter()
 const route = useRoute()
+
 const titulo = ref('')
 const descripcion = ref('')
-const completada = ref('')
-const userId = ref('')
-const deadline = ref('')
+const completada = ref('')   // string: "true" | "false"
+const userId = ref('')       // id del usuario asignado
+const deadline = ref('')     // "YYYY-MM-DD"
 
-const taskId = route.params.id
+const taskId = route.params.id   // viene de /editTask/:id
 
-const taskToEdit = ref({
-  titulo: '',
-  descripcion: '',
-  completada: '',
-  userId: '',
-  deadline: ''
-})
+// Solo para tener la referencia cruda si la necesitamos
+const taskToEdit = ref(null)
 
 const cargarTareaAEditar = async () => {
+  if (!taskId) {
+    alert('No se recibió el id de la tarea para editar.')
+    router.push('/task')
+    return
+  }
+
   try {
     const data = await getTaskById(taskId)
-    const doc = data?.payload?.taskFoundById ?? data?.payload ?? data
+
+    // Soportamos distintas formas de respuesta
+    const doc =
+      data?.payload?.taskFoundById ??
+      data?.payload ??
+      data
+
+    if (!doc) {
+      throw new Error('No se encontró la tarea en la respuesta del backend')
+    }
 
     taskToEdit.value = doc
+    console.log('Tarea para editar (raw):', doc)
 
-    titulo.value = doc.title ?? doc.titulo
-    descripcion.value = doc.description ?? doc.descripcion
-    completada.value = doc.completed ?? doc.completada
-    userId.value = doc.userId
+    // Campos básicos
+    titulo.value       = doc.title        ?? doc.titulo       ?? ''
+    descripcion.value  = doc.description  ?? doc.descripcion  ?? ''
+
+    // completed / completada -> string para el <select>
+    const completedRaw = doc.completed ?? doc.completada ?? false
+    completada.value = completedRaw ? 'true' : 'false'
+
+    // Usuario asignado: backend la guarda como assignedTo
+    userId.value = doc.assignedTo ?? doc.userId ?? ''
+
+    // Deadline: lo pasamos a "YYYY-MM-DD" para el input date
     if (doc.deadline) {
       deadline.value = new Date(doc.deadline).toISOString().split('T')[0]
     }
   } catch (error) {
     console.error('Error al cargar la tarea para editar', error)
+    alert('No se pudo cargar la tarea para editar.')
+    router.push('/task')
   }
 }
 
 const editarTarea = async () => {
   const confirmar = confirm(`¿Guardar cambios de "${titulo.value}"?`)
-  if (confirmar) {
-    try {
-      const tareaActualizada = {
-        title: titulo.value,
-        description: descripcion.value,
-        completed: completada.value === 'true',
-        userId: userId.value,
-        deadline: deadline.value
-      }
+  if (!confirmar) return
 
-      await updateTask(taskId, tareaActualizada)
-      alert(`✅ Tarea "${titulo.value}" editada con éxito`)
-      router.push('/task')
-    } catch (error) {
-      console.log('Error al editar tarea', error)
+  try {
+    const tareaActualizada = {
+      // nombres que espera tu TaskModel (title, description, completed, assignedTo, deadline)
+      title:       titulo.value,
+      description: descripcion.value,
+      completed:   completada.value === 'true',
+      assignedTo:  userId.value || (taskToEdit.value?.assignedTo ?? taskToEdit.value?.userId),
+      deadline:    deadline.value || null,
     }
+
+    console.log('Enviando tarea actualizada al backend:', tareaActualizada)
+
+    // NO tocamos el service, asumimos que ya hace el { task: ... } si hace falta
+    await updateTask(taskId, tareaActualizada)
+
+    alert(`✅ Tarea "${titulo.value}" editada con éxito`)
+    router.push('/task')
+  } catch (error) {
+    console.error('Error al editar tarea', error)
+    alert('❌ No se pudo editar la tarea. Revisá la consola.')
   }
 }
 
 const volverAlMenu = () => {
-  router.push(`/task`)
+  router.push('/task')
 }
 
 onMounted(cargarTareaAEditar)
 </script>
+
 
 <template>
   

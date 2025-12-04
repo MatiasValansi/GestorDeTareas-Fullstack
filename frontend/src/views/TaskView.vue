@@ -144,7 +144,7 @@ const verDetalleTarea = (id) => {
           <button class="button info" @click="verDetalleTarea(cadaTarea.id)">Detalles</button>
           <template v-if="store.user.admin">
           <button class="button danger" @click="eliminarTarea(cadaTarea._id, cadaTarea.title)">Eliminar</button>
-          <button class="button secondary" @click="editarTarea(cadaTarea.id)">Editar</button>
+          <button class="button secondary" @click="editarTarea(cadaTarea._id)">Editar</button>
           </template>
         </div>
       </div>
