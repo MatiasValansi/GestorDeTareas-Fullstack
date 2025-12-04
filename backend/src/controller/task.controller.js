@@ -94,7 +94,15 @@ export const TaskController = {
 
 	taskUpdateOne: async (req, res) => {
 		const { id } = req.params;
-		const { title, description } = req.body;
+		const { title, description, completada, completed } = req.body;
+
+		// armamos objeto dinámico sólo con campos enviados
+		const updateData = {};
+		if (title !== undefined) updateData.title = title;
+		if (description !== undefined) updateData.description = description;
+		// soporta tanto "completada" (frontend actual) como "completed" (nombre del modelo)
+		if (completada !== undefined) updateData.completed = completada;
+		if (completed !== undefined) updateData.completed = completed;
 
 		/*
 		const taskUpdated = await TaskService.serviceTaskUpdate(
@@ -103,7 +111,7 @@ export const TaskController = {
 			description,
 		);
 		*/
-		const taskUpdated = await mongoTask.updateOne(id, { title, description });
+		const taskUpdated = await mongoTask.updateOne(id, updateData);
 
 		if (!taskUpdated) {
 			res.status(404).json({

@@ -3,7 +3,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 
-import { getAllTasks, deleteTask } from '@/services/tasks'
+import { getAllTasks, deleteTask, updateTask } from '@/services/tasks'
 import { getAllUsers } from '@/services/users'
 
 const router = useRouter()
@@ -83,14 +83,20 @@ const editarTarea = (id) => {
 }
 
 const toggleCompletada = async (tarea) => {
+  const id = tarea._id || tarea.id
+  if (!id) return
+
+  // Optimistic UI: cambiamos primero en el frontend
+  const estadoAnterior = tarea.completada
+  tarea.completada = !estadoAnterior
+
   try {
-    // Idealmente usaríamos updateTask del servicio, pero
-    // depende de cómo hayas definido el update en el backend.
-    // Aquí solo actualizamos el estado en memoria y refrescamos.
-    tarea.completed = !tarea.completed
-    await mostrarTareas()
+    await updateTask(id, { completada: tarea.completada })
   } catch (err) {
     console.error('Error al actualizar tarea', err)
+    // Revertimos si falló
+    tarea.completada = estadoAnterior
+    alert('No se pudo actualizar el estado de la tarea.')
   }
 }
 
