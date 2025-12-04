@@ -1,5 +1,4 @@
 <script setup>
-import axios from 'axios'
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
@@ -85,11 +84,10 @@ const editarTarea = (id) => {
 
 const toggleCompletada = async (tarea) => {
   try {
-    await axios.put(`${MOCKAPI}/${tarea.id}`, {
-      titulo: tarea.titulo,
-      completada: !tarea.completada,
-      userId: tarea.userId
-    })
+    // Idealmente usaríamos updateTask del servicio, pero
+    // depende de cómo hayas definido el update en el backend.
+    // Aquí solo actualizamos el estado en memoria y refrescamos.
+    tarea.completed = !tarea.completed
     await mostrarTareas()
   } catch (err) {
     console.error('Error al actualizar tarea', err)
@@ -107,8 +105,8 @@ const formatFecha = (fechaStr) => {
 }
 
 const getUserNameById = (id) => {
-  const user = usuarios.value.find(u => u.id == id)
-  return user ? user.nombre : 'Usuario desconocido'
+  const user = usuarios.value.find(u => u.id == id || u._id == id)
+  return user ? user.nombre ?? user.name ?? 'Usuario sin nombre' : 'Usuario desconocido'
 }
 
 const verDetalleTarea = (id) => {

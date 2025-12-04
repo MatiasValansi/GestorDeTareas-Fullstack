@@ -2,14 +2,12 @@
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
-// Services reales
 import { getUserById, updateUser } from '@/services/users'
 
 const router = useRouter()
 const route = useRoute()
 const idUsuario = route.params.id
 
-// Sólo estos dos campos porque así se guarda en tu BD
 const nombre = ref('')
 const email = ref('')
 
@@ -40,7 +38,6 @@ const guardarCambios = async () => {
   if (!confirmar) return
 
   try {
-    // Tu backend espera body plano { name, email }
     await updateUser(idUsuario, { name: nombre.value, email: email.value })
     alert('✅ Usuario actualizado con éxito')
     router.push('/users')
@@ -94,7 +91,6 @@ onMounted(cargarUsuario)
 </template>
 
 <style scoped>
-/* Reutilizo tu mismo estilo; dejé solo lo necesario */
 .form-container {
   max-width: 600px;
   margin: 0 auto;

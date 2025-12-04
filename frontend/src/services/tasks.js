@@ -8,8 +8,15 @@ import api from "@/utils/api";
 
 // Obtener todas las tareas
 export const getAllTasks = async () => {
-  const { data } = await api.get("/tasks/allTasks");    
-  return data.payload; //.payload retorna directamente el array de tareas, tal como se ve en la estructura del Backend.
+  const { data } = await api.get("/tasks/allTasks");
+  return data.payload || [];
+};
+
+// Crear una nueva tarea
+export const createTask = async (task) => {
+  // 👇 el backend espera { task: {...} }
+  const { data } = await api.post("/tasks/task", { task });
+  return data;
 };
 
 // Obtener tarea por ID
@@ -18,11 +25,6 @@ export const getTaskById = async (id) => {
   return data;
 };
 
-// Crear nueva tarea
-export const createTask = async (task) => {
-  const { data } = await api.post("/tasks/task", task);
-  return data;
-};
 
 // Actualizar tarea por ID
 export const updateTask = async (id, task) => {

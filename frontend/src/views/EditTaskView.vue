@@ -1,9 +1,7 @@
 <script setup>
-import axios from 'axios';
 import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-
-const MOCKAPI = 'https://685c760b769de2bf085ccc90.mockapi.io/taskapi/tasks'
+import { getTaskById, updateTask } from '@/services/tasks';
 
 const router = useRouter()
 const route = useRoute()
@@ -25,18 +23,20 @@ const taskToEdit = ref({
 
 const cargarTareaAEditar = async () => {
   try {
-    const response = await axios.get(`${MOCKAPI}/${taskId}`)
-    taskToEdit.value = response.data
+    const data = await getTaskById(taskId)
+    const doc = data?.payload?.taskFoundById ?? data?.payload ?? data
 
-    titulo.value = taskToEdit.value.titulo
-    descripcion.value = taskToEdit.value.descripcion
-    completada.value = taskToEdit.value.completada
-    userId.value = taskToEdit.value.userId
-    deadline.value = new Date(taskToEdit.value.deadline).toISOString().split('T')[0]
+    taskToEdit.value = doc
 
-    console.log('Tarea Cargada: ', taskToEdit)
+    titulo.value = doc.title ?? doc.titulo
+    descripcion.value = doc.description ?? doc.descripcion
+    completada.value = doc.completed ?? doc.completada
+    userId.value = doc.userId
+    if (doc.deadline) {
+      deadline.value = new Date(doc.deadline).toISOString().split('T')[0]
+    }
   } catch (error) {
-    console.error('Error al cargar la tarea para editar')
+    console.error('Error al cargar la tarea para editar', error)
   }
 }
 
@@ -45,14 +45,14 @@ const editarTarea = async () => {
   if (confirmar) {
     try {
       const tareaActualizada = {
-        titulo: titulo.value,
-        descripcion: descripcion.value,
-        completada: completada.value === 'true',
-        userId: taskToEdit.value.userId,
+        title: titulo.value,
+        description: descripcion.value,
+        completed: completada.value === 'true',
+        userId: userId.value,
         deadline: deadline.value
       }
 
-      await axios.put(`${MOCKAPI}/${taskToEdit.value.id}`, tareaActualizada)
+      await updateTask(taskId, tareaActualizada)
       alert(`✅ Tarea "${titulo.value}" editada con éxito`)
       router.push('/task')
     } catch (error) {

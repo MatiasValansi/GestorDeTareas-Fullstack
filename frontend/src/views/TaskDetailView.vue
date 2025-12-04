@@ -1,8 +1,9 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import axios from 'axios'
 import { useUserStore } from '@/stores/user'
+import { getTaskById, deleteTask } from '@/services/tasks'
+import { getUserById } from '@/services/users'
 
 const route = useRoute()
 const router = useRouter()
@@ -11,18 +12,16 @@ const nombreUsuario = ref('')
 const idUsuario = ref('')
 const store = useUserStore()
 
-const TASK_API = 'https://685c760b769de2bf085ccc90.mockapi.io/taskapi/tasks'
-const USER_API = 'https://685c760b769de2bf085ccc90.mockapi.io/taskapi/users'
-
 onMounted(async () => {
   try {
-    const res = await axios.get(`${TASK_API}/${route.params.id}`)
-    tarea.value = res.data
+    const data = await getTaskById(route.params.id)
+    const doc = data?.payload?.taskFoundById ?? data?.payload ?? data
 
-    idUsuario.value = tarea.value.userId
+    tarea.value = doc
+    idUsuario.value = doc.userId
 
-    const resUser = await axios.get(`${USER_API}/${tarea.value.userId}`)
-    nombreUsuario.value = resUser.data.nombre
+    const user = await getUserById(doc.userId)
+    nombreUsuario.value = user.nombre ?? user.name
   } catch (err) {
     console.error('Error al cargar datos de tarea o usuario:', err)
   }
@@ -50,15 +49,15 @@ const volverAlMenu = () => {
 }
 
 const editarTarea = () => {
-  router.push(`/editTask/${tarea.value.id}`)
+  router.push(`/editTask/${tarea.value._id ?? tarea.value.id}`)
 }
 
 const eliminarTarea = async () => {
-  const confirmacion = confirm(`¿Eliminar la tarea "${tarea.value.titulo}"?`)
+  const confirmacion = confirm(`¿Eliminar la tarea "${tarea.value.title ?? tarea.value.titulo}"?`)
   if (!confirmacion) return
 
   try {
-    await axios.delete(`${TASK_API}/${tarea.value.id}`)
+    await deleteTask(tarea.value._id ?? tarea.value.id)
     router.push('/task')
   } catch (err) {
     console.error('Error al eliminar tarea', err)
@@ -79,17 +78,17 @@ const eliminarTarea = async () => {
   </div>
   
   <main v-if="tarea">
-    <p><strong>ID Tarea:</strong> {{ tarea.id }}</p>
-    <p><strong>Título:</strong> {{ tarea.titulo }}</p>
-    <p><strong>Descripción:</strong> {{ tarea.descripcion || 'No ingresada' }}</p>
+    <p><strong>ID Tarea:</strong> {{ tarea._id || tarea.id }}</p>
+    <p><strong>Título:</strong> {{ tarea.title || tarea.titulo }}</p>
+    <p><strong>Descripción:</strong> {{ tarea.description || tarea.descripcion || 'No ingresada' }}</p>
     <p><strong>ID Usuario asignado:</strong> {{ idUsuario }}</p>
     <p>
       <strong>Nombre Usuario asignado: </strong>
       <span class="usuario-link" @click="verDetalleUsuario">{{ nombreUsuario }}</span>
     </p>
-    <p><strong>Completada:</strong> {{ tarea.completada ? 'Sí' : 'No' }}</p>
+    <p><strong>Completada:</strong> {{ tarea.completed || tarea.completada ? 'Sí' : 'No' }}</p>
     <p><strong>Fecha límite:</strong> {{ formatFecha(tarea.deadline) || 'No asignada' }}</p>
-    <p><strong>Fecha de creación tarea:</strong> {{ formatFecha(tarea.creada) }}</p>
+    <p><strong>Fecha de creación tarea:</strong> {{ formatFecha(tarea.createdAt || tarea.creada) }}</p>
   </main>
 
   <div class="acciones">
