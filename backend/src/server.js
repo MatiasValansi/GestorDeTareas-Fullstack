@@ -1,6 +1,6 @@
+import app from "./app.js";
 import { config } from "./config/config.js";
 import mongoConnectionInstance from "./database/mongoose.database.js";
-import app from "./app.js";
 
 const startServer = async () => {
 	try {
@@ -14,7 +14,7 @@ const startServer = async () => {
 		console.error("Server is not running properly.");
 		console.error(e);
 		console.log("URI:", config.MONGODB_URI);
-	console.log("Tipo:", typeof config.MONGODB_URI);
+		console.log("Tipo:", typeof config.MONGODB_URI);
 	}
 };
 

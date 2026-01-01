@@ -7,31 +7,53 @@
 // }
 
 import mongoose from "mongoose";
+import bcrypt from "bcrypt";
+
+const USER_SECTORS = [
+  "TECNOLOGIA_INFORMATICA",
+];
 
 const userSchema = new mongoose.Schema(
 	{
-		name: { type: String, require: true, maxlength: 100, trim: true },
+		name: { type: String, required: true, maxlength: 100, trim: true },
 		email: {
 			type: String,
-			require: true,
+			required: true,
 			maxlength: 100,
 			unique: true,
 			lowercase: true,
 			trim: true,
 		},
-		/* array de tareas:
-		OJO ---> Pero normalmente no se hace esto en MongoDB, ya que las tareas pueden ser muchas, y no se recomienda cargar grandes arrays dentro del documento User
-
-		tasks: [{
-		type: mongoose.Schema.Types.ObjectId,
-		ref: "Task"
-		}]
-		*/
+		password: {
+			type: String,
+			required: true,
+			select: false,
+		},
+		sector: {
+			type: String,
+			enum: USER_SECTORS,
+			required: true,
+		},
+		isSupervisor: {
+			type: Boolean,
+			default: false,
+		},
 	},
 	{
 		timestamps: true,
 	},
-	{ collection: "users" },
 );
+userSchema.pre("save", async function (next) {
+  // Solo hashea si la password fue creada o modificada
+  if (!this.isModified("password")) return next();
+
+  try {
+    const saltRounds = 10;
+    this.password = await bcrypt.hash(this.password, saltRounds);
+    next();
+  } catch (error) {
+    next(error);
+  }
+});
 
 export const UserModel = mongoose.model("User", userSchema);

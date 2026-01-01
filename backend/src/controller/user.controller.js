@@ -51,9 +51,9 @@ export const UserController = {
 			//const userResponse = await UserService.serviceUserCreation(user);
 			const userResponse = await mongoUser.createOne(user);
 			console.log("Controller User");
-			
+
 			console.log(userResponse);
-			
+
 			res.status(200).json({
 				message: "Success --> El usuario ha sido creado",
 				payload: { ...userResponse, usuario: userResponse.fullname },

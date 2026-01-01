@@ -49,4 +49,26 @@ export const TaskService = {
 
 		return tasks;
 	},
+
+	async markExpiredTasks() {
+		const now = new Date();
+		await TaskModel.updateMany(
+			{
+				status: { $ne: "COMPLETADA" },
+				deadline: { $lt: now },
+			},
+			{
+				$set: { status: "VENCIDA" },
+			},
+		);
+	},
+
+	async getTasksBetween(from, to, userIds) {
+		await this.markExpiredTasks();
+
+		return TaskModel.find({
+			assignedTo: { $in: userIds },
+			deadline: { $gte: from, $lte: to },
+		});
+	},
 };

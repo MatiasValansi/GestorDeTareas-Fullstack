@@ -10,6 +10,8 @@
 
 import mongoose, { Schema } from "mongoose";
 
+const TASK_STATUS = ["PENDIENTE", "COMPLETADA", "VENCIDA"];
+
 const taskSchema = new mongoose.Schema(
 	{
 		title: {
@@ -19,7 +21,7 @@ const taskSchema = new mongoose.Schema(
 		description: {
 			type: String,
 		},
-		date: {
+		deadline: {
 			type: Date,
 			required: true,
 		},
@@ -29,19 +31,36 @@ const taskSchema = new mongoose.Schema(
 			ref: "User",
 			required: true,
 		},
-		deadline: {
-			type: Date,
-		},
-		completed: {
-			type: Boolean,
-			default: false,
+		status: {
+			type: String,
+			enum: TASK_STATUS,
+			default: "PENDIENTE",
 			required: true,
-		}
+			index: true,
+		},
+		recurringTaskId: {
+			type: mongoose.Schema.Types.ObjectId,
+			ref: "RecurringTask",
+			default: null,
+		},
 	},
 	{
 		timestamps: true,
 	},
-	{ collection: "tasks" },
 );
+
+taskSchema.index(
+	{ recurringTaskId: 1, assignedTo: 1, deadline: 1 },
+	{
+		unique: true,
+		partialFilterExpression: {
+			recurringTaskId: { $ne: null },
+		},
+	},
+);
+
+// Índices para optimizar consultas comunes
+taskSchema.index({ assignedTo: 1, deadline: 1 });
+taskSchema.index({ assignedTo: 1, status: 1 });
 
 export const TaskModel = mongoose.model("Task", taskSchema);

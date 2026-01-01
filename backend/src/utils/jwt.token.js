@@ -1,10 +1,8 @@
-import jwt from "jsonwebtoken"
+import jwt from "jsonwebtoken";
 import { config } from "../config/config.js";
 
-const { SECRET_KEY, JWT_CONFIG } = config
+const { SECRET_KEY, JWT_CONFIG } = config;
 
 export const userToken = (data) => {
-    return jwt.sign(
-        data, SECRET_KEY
-    )
-}
+	return jwt.sign(data, SECRET_KEY);
+};
