@@ -7,7 +7,7 @@
 //     this.status = status; // estado inicial (pending, completed, etc.)
 //   }
 // }
-
+//prueba
 import mongoose, { Schema } from "mongoose";
 
 const TASK_STATUS = ["PENDIENTE", "COMPLETADA", "VENCIDA"];

@@ -62,10 +62,6 @@ const recurringTaskSchema = new mongoose.Schema(
 			type: Boolean,
 			default: true,
 		},
-        materializedUntil: {
-            type: Date,
-            default: null,
-        },
 	},
 	{
 		timestamps: true,
