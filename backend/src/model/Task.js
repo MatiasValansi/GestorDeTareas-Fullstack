@@ -25,10 +25,16 @@ const taskSchema = new mongoose.Schema(
 			type: Date,
 			required: true,
 		},
-		//Establecemos la relación entre Task y User
+		//Establecemos la relación entre Task y User (1 a 1..n)
 		assignedTo: {
-			type: mongoose.Schema.Types.ObjectId,
-			ref: "User",
+			type: [
+				{
+					type: Schema.Types.ObjectId,
+					ref: "User",
+				},
+				
+			],
+			// Requerimos al menos una asignación (array no nulo)
 			required: true,
 		},
 		status: {

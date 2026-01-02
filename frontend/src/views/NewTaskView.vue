@@ -12,7 +12,8 @@ const router = useRouter()
 const titulo = ref('')
 const descripcion = ref('')
 const completada = ref('')
-const userId = ref('')
+// ahora permitimos seleccionar uno o varios usuarios
+const userIds = ref([])
 const deadline = ref('')
 const usuarios = ref([])
 
@@ -27,7 +28,7 @@ const obtenerUsuarios = async () => {
 const agregarTarea = async () => {
   if (
     titulo.value.trim() === '' ||
-    userId.value.trim() === '' ||
+    userIds.value.length === 0 ||
     descripcion.value.trim() === '' ||
     completada.value === ''
   ) {
@@ -35,7 +36,6 @@ const agregarTarea = async () => {
   }
 
   try {
-    const usuario = usuarios.value.find(u => u.id === userId.value)
     const ahora = new Date()
 
     // 👇 EXACTAMENTE como tu TaskModel:
@@ -43,7 +43,8 @@ const agregarTarea = async () => {
       title: titulo.value,
       description: descripcion.value,
       completed: completada.value === 'true',
-      assignedTo: userId.value,
+      // enviamos siempre un array de ids (1..n)
+      assignedTo: userIds.value,
       date: ahora.toISOString(),
       deadline: deadline.value ? new Date(deadline.value).toISOString() : null
     }
@@ -99,9 +100,9 @@ onMounted(obtenerUsuarios)
       </div>
 
       <div>
-        <label>Asignar a Usuario</label>
-        <select v-model="userId" required>
-          <option value="">Seleccionar usuario...</option>
+        <label>Asignar a Usuario(s)</label>
+        <select v-model="userIds" multiple required>
+          <option value="" disabled>Seleccionar uno o más usuarios...</option>
           <option
             v-for="usuario in usuarios"
             :key="usuario.id"
