@@ -25,6 +25,11 @@ const taskSchema = new mongoose.Schema(
 			type: Date,
 			required: true,
 		},
+		createdBy: {
+			type: Schema.Types.ObjectId,
+			ref: "User",
+			required: true,
+		},
 		//Establecemos la relación entre Task y User (1 a 1..n)
 		assignedTo: {
 			type: [
