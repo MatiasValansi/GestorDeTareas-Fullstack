@@ -5,7 +5,7 @@ import mongoConnectionInstance from "./database/mongoose.database.js";
 import { statusRouter } from "./routes/statusRouter.js";
 import { taskRouter } from "./routes/taskRouter.js";
 import { userRouter } from "./routes/userRouter.js";
-import { userToken } from "./utils/jwt.token.js";
+import { authRouter } from "./routes/authRouter.js";
 
 const app = express();
 
@@ -19,30 +19,6 @@ app.use(
 
 app.use(express.json());
 
-app.post("/login", (req, res) => {
-	const ADMIN_LOCAL = {
-		name: "admin",
-		password: "1234",
-		rol: "Owner",
-	};
-
-	const { user, pwd } = req.body;
-
-	const { name: ADMIN, password: PWD } = ADMIN_LOCAL;
-
-	const isValid = user === ADMIN && pwd === PWD;
-
-	if (!isValid) {
-		return res.status(403).json({
-			error: "Credentials do not match | Credenciales incorrectas",
-		});
-	}
-
-	const token = userToken({ ...ADMIN_LOCAL, password: "*******" });
-
-	return res.status(200).json({ token });
-});
-
 app.get("/", async (req, res) => {
 	return res.json({
 		message: "API Gestor de Tareas funcionando correctamente 🚀",
@@ -50,6 +26,7 @@ app.get("/", async (req, res) => {
 });
 
 app.use("/api", statusRouter);
+app.use("/auth", authRouter);
 app.use("/tasks", taskRouter);
 app.use("/users", userRouter);
 

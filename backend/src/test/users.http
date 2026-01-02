@@ -61,3 +61,35 @@ Content-Type: application/json
   "pwd": "1234"
 }
 
+### TESTS NUEVOS CON MONGODB Y JWT
+POST http://127.0.0.1:3004/users/user
+Content-Type: application/json
+
+{
+  "user": {
+    "name": "Supervisor Demo",
+    "email": "supervisor@example.com",
+    "password": "123456",
+    "sector": "TECNOLOGIA_INFORMATICA",
+    "isSupervisor": true
+  }
+}
+
+###
+POST http://localhost:3004/auth/login
+Content-Type: application/json
+
+{
+  "email": "supervisor@example.com",
+  "password": "123456"
+}
+
+### GET para obtener los datos del usuario autenticado
+GET http://localhost:3004/auth/me
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2OTU4NDAwZGZlMjdkY2U2YWI4YTdiOTgiLCJlbWFpbCI6InN1cGVydmlzb3JAZXhhbXBsZS5jb20iLCJpc1N1cGVydmlzb3IiOnRydWUsInNlY3RvciI6IlRFQ05PTE9HSUFfSU5GT1JNQVRJQ0EiLCJpYXQiOjE3NjczOTEzMTMsImV4cCI6MTc2Nzk5NjExM30.1eoA7i4A1mmvxGQDyMCt91-fSyZB-ToFUPSQ7HECs6Q
+Content-Type: application/json
+
+### GET para obtener todos los usuarios (solo para supervisores)
+GET http://localhost:3004/users/allUsers
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2OTU4NDAwZGZlMjdkY2U2YWI4YTdiOTgiLCJlbWFpbCI6InN1cGVydmlzb3JAZXhhbXBsZS5jb20iLCJpc1N1cGVydmlzb3IiOnRydWUsInNlY3RvciI6IlRFQ05PTE9HSUFfSU5GT1JNQVRJQ0EiLCJpYXQiOjE3NjczOTEzMTMsImV4cCI6MTc2Nzk5NjExM30.1eoA7i4A1mmvxGQDyMCt91-fSyZB-ToFUPSQ7HECs6Q
+Content-Type: application/json
