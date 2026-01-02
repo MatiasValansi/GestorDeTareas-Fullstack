@@ -2,24 +2,23 @@
 import { ref } from "vue";
 import api, { setAuthToken } from "@/utils/api";
 
-const user = ref("");
-const pwd = ref("");
+const email = ref("");
+const password = ref("");
 const message = ref("");
 
 async function login() {
   try {
-    const res = await api.post("/login", {
-      user: user.value,
-      pwd: pwd.value,
+    const res = await api.post("/auth/login", {
+      email: email.value,
+      password: password.value,
     });
 
-    // ⚡ Tu backend devuelve el token con esta key
-    const token = res.data.token;
+    const { token, user } = res.data;
     setAuthToken(token);
 
-    message.value = "✅ Login exitoso, token guardado en localStorage";
+    message.value = `✅ Login ok. Usuario: ${user?.email}`;
   } catch (err) {
-    console.error(err);
+    console.error(err.response?.data || err.message);
     message.value = "❌ Error al iniciar sesión";
   }
 }
@@ -28,8 +27,8 @@ async function login() {
 <template>
   <div>
     <h2>Prueba Login</h2>
-    <input v-model="user" placeholder="Usuario" />
-    <input v-model="pwd" placeholder="Contraseña" type="password" />
+    <input v-model="email" placeholder="Email" />
+    <input v-model="password" placeholder="Contraseña" type="password" />
     <button @click="login">Login</button>
 
     <p>{{ message }}</p>

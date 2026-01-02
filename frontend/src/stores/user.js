@@ -6,7 +6,9 @@ export const useUserStore = defineStore('user', {
   }),
   getters: {
     isLoggedIn: (state) => !!state.user,
-    isAdmin: (state) => state.user?.admin === true
+    // Compatibilidad: tratamos isAdmin como alias de isSupervisor
+    isSupervisor: (state) => state.user?.isSupervisor === true,
+    isSupervisor: (state) => state.user?.isSupervisor === true
   },
   actions: {
     login(user) {
