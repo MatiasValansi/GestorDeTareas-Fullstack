@@ -6,6 +6,7 @@ import { statusRouter } from "./routes/statusRouter.js";
 import { taskRouter } from "./routes/taskRouter.js";
 import { userRouter } from "./routes/userRouter.js";
 import { authRouter } from "./routes/authRouter.js";
+import { recurringTaskRouter } from "./routes/recurringTaskRouter.js";
 
 const app = express();
 
@@ -29,6 +30,7 @@ app.use("/api", statusRouter);
 app.use("/auth", authRouter);
 app.use("/tasks", taskRouter);
 app.use("/users", userRouter);
+app.use("/recurringTask", recurringTaskRouter);
 
 export default app;
 /*

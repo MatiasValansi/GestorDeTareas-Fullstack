@@ -19,6 +19,7 @@ export const RecurringTaskService = {
 	 * @param {string} params.title - Task title
 	 * @param {string} params.description - Task description
 	 * @param {string[]} params.assignedTo - Array of user ObjectIds
+	 * @param {string} params.createdBy - User ObjectId of the creator (supervisor)
 	 * @param {string} params.recurrenceType - "DAILY_PATTERN" or "NUMERIC_PATTERN"
 	 * @param {string} params.periodicity - "DIARIA", "SEMANAL", "QUINCENAL" (for DAILY_PATTERN)
 	 * @param {string} params.datePattern - Day of week for DAILY_PATTERN (e.g., "LUNES")
@@ -32,6 +33,7 @@ export const RecurringTaskService = {
 			title,
 			description,
 			assignedTo,
+			createdBy,
 			recurrenceType,
 			periodicity,
 			datePattern,
@@ -102,7 +104,8 @@ export const RecurringTaskService = {
 					title,
 					description,
 					deadline: occurrenceDate,
-					assignedTo: userId,
+					createdBy,
+					assignedTo: [userId],
 					status: "PENDIENTE",
 					recurringTaskId: createdRecurringTask._id,
 				});
