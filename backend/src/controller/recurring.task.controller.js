@@ -19,7 +19,6 @@ export const RecurringTaskController = {
 				maxWindow,
 			} = req.body;
 
-			console.log(req.body);
 
 			const result = await RecurringTaskService.create({
 				title,
@@ -34,7 +33,6 @@ export const RecurringTaskController = {
 				maxWindow,
 			});
 
-			console.log(result);
 
 			return res.status(201).json({
 				message: "Tarea recurrente creada correctamente",
@@ -138,11 +136,12 @@ export const RecurringTaskController = {
 		try {
 			const { id } = req.params;
 			const { newStartFrom, newWindow } = req.body;
-
+			const createdBy = req.user?.id;
 			const result = await RecurringTaskService.regenerateTasks(
 				id,
 				newStartFrom,
 				newWindow,
+				createdBy,
 			);
 
 			return res.status(200).json({

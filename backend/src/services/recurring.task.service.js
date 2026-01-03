@@ -318,9 +318,10 @@ export const RecurringTaskService = {
 	 * @param {string} id - MongoDB ObjectId of the recurring task
 	 * @param {Date} newStartFrom - New starting date for generation
 	 * @param {number} newWindow - New window in days
+	 * @param {string} createdBy - User ObjectId of the creator (supervisor)
 	 * @returns {Promise<Object>} The generated tasks info
 	 */
-	async regenerateTasks(id, newStartFrom, newWindow) {
+	async regenerateTasks(id, newStartFrom, newWindow, createdBy) {
 		const recurringTask = await RecurringTaskRepository.getById(id);
 
 		if (!recurringTask || !recurringTask.active) {
@@ -358,7 +359,8 @@ export const RecurringTaskService = {
 					title: recurringTask.title,
 					description: recurringTask.description,
 					deadline: occurrenceDate,
-					assignedTo: userId,
+					createdBy,
+					assignedTo: [userId],
 					status: "PENDIENTE",
 					recurringTaskId: recurringTask._id,
 				});
