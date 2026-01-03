@@ -70,8 +70,21 @@ router.beforeEach((to, from, next) => {
   if (!store.isLoggedIn && to.path !== '/login') {
     return next('/login')
   }
+
+  // Si ya está logueado, evitar volver a /login
   if (store.isLoggedIn && to.path === '/login') {
     return next('/')
+  }
+
+  // Rutas solo para supervisores
+  const supervisorOnlyPaths = ['/users', '/newUser']
+  const isSupervisorRoute =
+    supervisorOnlyPaths.includes(to.path) ||
+    to.path.startsWith('/editUser') ||
+    to.path.startsWith('/userDetail')
+
+  if (isSupervisorRoute && !store.isSupervisor) {
+    return next('/task')
   }
   next()
 })

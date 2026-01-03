@@ -34,12 +34,19 @@ const mostrarTareas = async () => {
   try {
     const res = await getAllTasks()    
     
-    const todasLasTareas = res  
+    const todasLasTareas = res
 
-    // Si el usuario es admin, ve todas. Si no, solo las suyas.
-    tareas.value = store.user.admin
-      ? todasLasTareas
-      : todasLasTareas.filter(t => t.userId == store.user.id)
+    // Si el usuario es supervisor, ve todas.
+    // Si no, solo las tareas en las que está asignado.
+    if (store.isSupervisor) {
+      tareas.value = todasLasTareas
+    } else {
+      const myId = store.user?.id
+      tareas.value = todasLasTareas.filter((t) => {
+        const assigned = Array.isArray(t.assignedTo) ? t.assignedTo : []
+        return assigned.includes(myId)
+      })
+    }
   } catch (err) {
     error.value = 'Error al cargar tareas.'
     console.error(err)
@@ -123,8 +130,12 @@ const verDetalleTarea = (id) => {
 <template>
   <main class="task-container">
     <h2>Lista de tareas:</h2>
-    <button v-if="store.user.admin"
-    class="button modern" @click="irANuevaVistaTarea">+ Agregar Tarea</button>
+    <button
+      class="button modern"
+      @click="irANuevaVistaTarea"
+    >
+      + Agregar Tarea
+    </button>
 
     <div class="divider"></div>
     <div v-if="cargando">⏳ Cargando tareas...</div>
@@ -144,11 +155,11 @@ const verDetalleTarea = (id) => {
   </label>
   <span class="estado-text">{{ cadaTarea.completada ? 'Completada' : 'Pendiente' }}</span>
 </div>
-        <p>📌 ID Usuario: {{ cadaTarea.assignedToUser }}</p>
-        <p>👨‍🎓 Usuario: {{ getUserNameById(cadaTarea.assignedTo) }}</p>
+        <p>📌 ID Usuario asignado: {{ (cadaTarea.assignedTo && cadaTarea.assignedTo[0]) || 'N/A' }}</p>
+        <p>👨‍🎓 Usuario: {{ getUserNameById(cadaTarea.assignedTo && cadaTarea.assignedTo[0]) }}</p>
         <div class="actions">
           <button class="button info" @click="verDetalleTarea(cadaTarea.id)">Detalles</button>
-          <template v-if="store.user.admin">
+          <template v-if="store.isSupervisor">
           <button class="button danger" @click="eliminarTarea(cadaTarea._id, cadaTarea.title)">Eliminar</button>
           <button class="button secondary" @click="editarTarea(cadaTarea._id)">Editar</button>
           </template>

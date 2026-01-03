@@ -24,8 +24,6 @@ userRouter.get(
 ); //GetAll
 userRouter.post(
 	"/user",
-	authByToken,
-	requireSupervisor,
 	UserController.userCreateOne,
 );
 userRouter.put(

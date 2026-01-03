@@ -62,7 +62,8 @@ watch(darkMode, (value) => {
           🔐 Logueado como: <strong>{{ store.user.email }}</strong>
         </span>
         <span class="login-role">
-          Permisos de <strong>{{ store.user.admin ? 'Administrador' : 'Usuario' }}</strong>
+          Permisos de
+          <strong>{{ store.isSupervisor ? 'Supervisor' : 'Usuario' }}</strong>
         </span>
       </div>
 
@@ -88,7 +89,14 @@ watch(darkMode, (value) => {
           <nav class="navbar">
             <RouterLink to="/" class="nav-button" :class="{ active: route.path === '/' }">Inicio</RouterLink>
             <RouterLink to="/task" class="nav-button" :class="{ active: route.path === '/task' }">Ver Tareas</RouterLink>
-            <RouterLink to="/users" class="nav-button" :class="{ active: route.path === '/users' }">Ver Usuarios</RouterLink>
+            <RouterLink
+              v-if="store.isSupervisor"
+              to="/users"
+              class="nav-button"
+              :class="{ active: route.path === '/users' }"
+            >
+              Ver Usuarios
+            </RouterLink>
           </nav>
         </div>
       </div>
@@ -101,14 +109,16 @@ watch(darkMode, (value) => {
 
           
     <div v-if="route.path === '/'">
-      <div v-if="store.user.admin">
+      <div v-if="store.isSupervisor">
         <h2>📊 Estadísticas Generales</h2>
         <DashboardStats />
         <GraficoTareas />
       </div>
       <div v-else>
-        <h2>Bienvenido, {{ store.user.nombre }}</h2>
-        <p class="rol-alert">Estás logueado como <strong>Usuario</strong>. No tenés acceso a las estadísticas del inicio.</p>
+        <h2>Bienvenido, {{ store.user.name || store.user.nombre }}</h2>
+        <p class="rol-alert">
+          Estás logueado como <strong>Usuario</strong>. No tenés acceso a las estadísticas del inicio.
+        </p>
       </div>
     </div>
     </div>

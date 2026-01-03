@@ -62,6 +62,8 @@ Content-Type: application/json
 }
 
 ### TESTS NUEVOS CON MONGODB Y JWT
+
+### TEST SUPERVISOR
 POST http://127.0.0.1:3004/users/user
 Content-Type: application/json
 
@@ -93,3 +95,26 @@ Content-Type: application/json
 GET http://localhost:3004/users/allUsers
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2OTU4NDAwZGZlMjdkY2U2YWI4YTdiOTgiLCJlbWFpbCI6InN1cGVydmlzb3JAZXhhbXBsZS5jb20iLCJpc1N1cGVydmlzb3IiOnRydWUsInNlY3RvciI6IlRFQ05PTE9HSUFfSU5GT1JNQVRJQ0EiLCJpYXQiOjE3NjczOTEzMTMsImV4cCI6MTc2Nzk5NjExM30.1eoA7i4A1mmvxGQDyMCt91-fSyZB-ToFUPSQ7HECs6Q
 Content-Type: application/json
+
+### TEST USUARIO COMUN
+POST http://127.0.0.1:3004/users/user
+Content-Type: application/json
+
+{
+  "user": {
+    "name": "Usuario",
+    "email": "usuario@gmail.com",
+    "password": "123456",
+    "sector": "TECNOLOGIA_INFORMATICA",
+    "isSupervisor": false
+  }
+}
+
+###
+POST http://localhost:3004/auth/login
+Content-Type: application/json
+
+{
+  "email": "usuario@gmail.com",
+  "password": "123456"
+}

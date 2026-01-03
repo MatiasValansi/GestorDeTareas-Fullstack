@@ -76,7 +76,7 @@ const verDetalleUsuario = (id) => {
   <main class="task-container">
     <h2>Usuarios registrados</h2>
     
-    <button v-if="store.user.admin"class="button modern" @click="irANuevaVistaUsuario">+ Agregar Usuario</button>
+    <button v-if="store.isSupervisor" class="button modern" @click="irANuevaVistaUsuario">+ Agregar Usuario</button>
     
     <div class="divider"></div>
     <div v-if="cargando">⏳ Cargando Usuarios...</div>
@@ -91,7 +91,7 @@ const verDetalleUsuario = (id) => {
         <p>✅ Completadas: {{ cadaUsuario.cantCompletadas }}</p>
         <div class="actions">
           <button class="button info" @click="verDetalleUsuario(cadaUsuario.id)">Detalles</button>
-          <template v-if="store.user.admin">
+          <template v-if="store.isSupervisor">
           <button class="button danger" @click="eliminarUsuario(cadaUsuario.id, cadaUsuario.nombre)">Eliminar</button>
           <button class="button secondary" @click="editarUsuario(cadaUsuario.id)">Editar</button>
           </template>
