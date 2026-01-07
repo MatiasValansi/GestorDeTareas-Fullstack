@@ -3,10 +3,9 @@ import { RecurringTaskRepository } from "../repository/recurring.task.repository
 
 export const RecurringTaskController = {
 	// POST /recurring-tasks
-	// Crea una tarea recurrente y las tareas individuales asociadas
+	// Crea una tarea recurrente (solo la definición, sin tareas individuales)
 	create: async (req, res) => {
 		try {
-			const createdBy = req.user?.id;
 			const {
 				title,
 				description,
@@ -16,7 +15,6 @@ export const RecurringTaskController = {
 				datePattern,
 				numberPattern,
 				startingFrom,
-				maxWindow,
 			} = req.body;
 
 
@@ -24,13 +22,11 @@ export const RecurringTaskController = {
 				title,
 				description,
 				assignedTo,
-				createdBy,
 				recurrenceType,
 				periodicity,
 				datePattern,
 				numberPattern,
 				startingFrom,
-				maxWindow,
 			});
 
 
@@ -130,42 +126,51 @@ export const RecurringTaskController = {
 		}
 	},
 
-	// POST /recurring-tasks/:id/regenerate
-	// Regenera tareas individuales dentro de una nueva ventana
-	regenerate: async (req, res) => {
+	// POST /recurring-tasks/generate/:year/:month
+	// Genera tareas individuales para un mes específico (llamado cuando el usuario ve el calendario)
+	generateTasksForMonth: async (req, res) => {
 		try {
-			const { id } = req.params;
-			const { newStartFrom, newWindow } = req.body;
+			const { year, month } = req.params;
 			const createdBy = req.user?.id;
-			const result = await RecurringTaskService.regenerateTasks(
-				id,
-				newStartFrom,
-				newWindow,
-				createdBy,
+
+			const yearNum = parseInt(year, 10);
+			const monthNum = parseInt(month, 10);
+
+			if (isNaN(yearNum) || isNaN(monthNum) || monthNum < 1 || monthNum > 12) {
+				return res.status(400).json({
+					ok: false,
+					message: "Año y mes inválidos. Mes debe ser entre 1 y 12",
+				});
+			}
+
+			const result = await RecurringTaskService.generateTasksForMonth(
+				yearNum,
+				monthNum,
+				createdBy
 			);
 
 			return res.status(200).json({
-				message: "Tareas individuales regeneradas correctamente",
+				message: `Tareas generadas para ${monthNum}/${yearNum}`,
 				payload: result,
 				ok: true,
 			});
 		} catch (error) {
-			console.error("Error al regenerar tareas", error);
-			return res.status(400).json({
+			console.error("Error al generar tareas para el mes", error);
+			return res.status(500).json({
 				ok: false,
-				message: error.message || "No se pudieron regenerar las tareas",
+				message: error.message || "No se pudieron generar las tareas",
 			});
 		}
 	},
 
 	// DELETE /recurring-tasks/:id
-	// Elimina la tarea recurrente
+	// Elimina la tarea recurrente Y todas sus tareas individuales asociadas
 	delete: async (req, res) => {
 		try {
 			const { id } = req.params;
-			const deleted = await RecurringTaskRepository.deleteById(id);
+			const result = await RecurringTaskService.delete(id);
 
-			if (!deleted) {
+			if (!result) {
 				return res.status(404).json({
 					ok: false,
 					message: "Tarea recurrente no encontrada",
@@ -174,8 +179,8 @@ export const RecurringTaskController = {
 			}
 
 			return res.status(200).json({
-				message: "Tarea recurrente eliminada",
-				payload: deleted,
+				message: `Tarea recurrente eliminada junto con ${result.deletedIndividualTasks} tareas individuales`,
+				payload: result,
 				ok: true,
 			});
 		} catch (error) {

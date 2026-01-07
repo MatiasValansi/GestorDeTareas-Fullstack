@@ -5,11 +5,11 @@ Content-Type: application/json
 
 {
   "user": {
-    "name": "Supervisor Recurring",
-    "email": "supervisor.recurring@example.com",
+    "name": "Senior pruebas",
+    "email": "Test@test.com",
     "password": "123456",
     "sector": "TECNOLOGIA_INFORMATICA",
-    "isSupervisor": true
+    "isSupervisor": false
   }
 }
 
@@ -22,6 +22,10 @@ Content-Type: application/json
   "password": "123456"
 }
 
+### ============================================
+### CREAR TAREAS RECURRENTES (solo definición)
+### ============================================
+
 ### Crear tarea recurrente DIARIA (DAILY_PATTERN)
 POST http://localhost:3004/recurringTask/recurring-tasks
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2OTU4NmY0YTE1YjA5MDFmNWY1OTY3NWEiLCJlbWFpbCI6InN1cGVydmlzb3IucmVjdXJyaW5nQGV4YW1wbGUuY29tIiwiaXNTdXBlcnZpc29yIjp0cnVlLCJzZWN0b3IiOiJURUNOT0xPR0lBX0lORk9STUFUSUNBIiwiaWF0IjoxNzY3NDA2OTA0LCJleHAiOjE3NjgwMTE3MDR9.h73BjDqtYoJ9MZX7pavpqNkW00Lnt3_0g5N42HnyMys
@@ -33,8 +37,7 @@ Content-Type: application/json
   "assignedTo": ["69586f4a15b0901f5f59675a"],
   "recurrenceType": "DAILY_PATTERN",
   "periodicity": "DIARIA",
-  "startingFrom": "2026-01-03T00:00:00.000Z",
-  "maxWindow": 7
+  "startingFrom": "2026-01-03T00:00:00.000Z"
 }
 
 ### Crear tarea recurrente SEMANAL los LUNES (DAILY_PATTERN)
@@ -43,14 +46,28 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2OTU4NmY0Y
 Content-Type: application/json
 
 {
-  "title": "Reunión semanal",
-  "description": "Tarea recurrente semanal los lunes",
+  "title": "Reunión semanal lunes",
+  "description": "Reunión de equipo todos los lunes a partir del 10 de enero",
   "assignedTo": ["695858f5366295e2171ed2ad"],
   "recurrenceType": "DAILY_PATTERN",
   "periodicity": "SEMANAL",
   "datePattern": "LUNES",
-  "startingFrom": "2026-01-03T00:00:00.000Z",
-  "maxWindow": 30
+  "startingFrom": "2026-01-10T00:00:00.000Z"
+}
+
+### Crear tarea recurrente QUINCENAL los VIERNES (DAILY_PATTERN)
+POST http://localhost:3004/recurringTask/recurring-tasks
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2OTU4NmY0YTE1YjA5MDFmNWY1OTY3NWEiLCJlbWFpbCI6InN1cGVydmlzb3IucmVjdXJyaW5nQGV4YW1wbGUuY29tIiwiaXNTdXBlcnZpc29yIjp0cnVlLCJzZWN0b3IiOiJURUNOT0xPR0lBX0lORk9STUFUSUNBIiwiaWF0IjoxNzY3NDA2OTA0LCJleHAiOjE3NjgwMTE3MDR9.h73BjDqtYoJ9MZX7pavpqNkW00Lnt3_0g5N42HnyMys
+Content-Type: application/json
+
+{
+  "title": "Revisión quincenal",
+  "description": "Revisión de avances cada dos viernes",
+  "assignedTo": ["69586f4a15b0901f5f59675a", "695dc7a9321775bdc2096bf1"],
+  "recurrenceType": "DAILY_PATTERN",
+  "periodicity": "QUINCENAL",
+  "datePattern": "VIERNES",
+  "startingFrom": "2026-01-09T00:00:00.000Z"
 }
 
 ### Crear tarea recurrente MENSUAL el día 15 (NUMERIC_PATTERN)
@@ -59,43 +76,57 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2OTU4NmY0Y
 Content-Type: application/json
 
 {
-  "title": "Reporte mensual",
-  "description": "Tarea recurrente mensual día 15",
-  "assignedTo": ["695858f5366295e2171ed2ad", "69586f4a15b0901f5f59675a"],
+  "title": "Reporte mensual día 15",
+  "description": "Entrega de reporte el día 15 de cada mes",
+  "assignedTo": ["695dc7a9321775bdc2096bf1"],
   "recurrenceType": "NUMERIC_PATTERN",
   "numberPattern": 15,
-  "startingFrom": "2026-01-03T00:00:00.000Z",
-  "maxWindow": 90
+  "startingFrom": "2026-01-03T00:00:00.000Z"
 }
+
+### ============================================
+### GENERAR TAREAS INDIVIDUALES PARA UN MES
+### (Endpoint principal - simula cuando el usuario ve el calendario)
+### ============================================
+
+### Generar tareas para ENERO 2026
+POST http://localhost:3004/recurringTask/recurring-tasks/generate/2026/1
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2OTU4NmY0YTE1YjA5MDFmNWY1OTY3NWEiLCJlbWFpbCI6InN1cGVydmlzb3IucmVjdXJyaW5nQGV4YW1wbGUuY29tIiwiaXNTdXBlcnZpc29yIjp0cnVlLCJzZWN0b3IiOiJURUNOT0xPR0lBX0lORk9STUFUSUNBIiwiaWF0IjoxNzY3NDA2OTA0LCJleHAiOjE3NjgwMTE3MDR9.h73BjDqtYoJ9MZX7pavpqNkW00Lnt3_0g5N42HnyMys
+
+### Generar tareas para FEBRERO 2026
+POST http://localhost:3004/recurringTask/recurring-tasks/generate/2026/2
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2OTU4NmY0YTE1YjA5MDFmNWY1OTY3NWEiLCJlbWFpbCI6InN1cGVydmlzb3IucmVjdXJyaW5nQGV4YW1wbGUuY29tIiwiaXNTdXBlcnZpc29yIjp0cnVlLCJzZWN0b3IiOiJURUNOT0xPR0lBX0lORk9STUFUSUNBIiwiaWF0IjoxNzY3NDA2OTA0LCJleHAiOjE3NjgwMTE3MDR9.h73BjDqtYoJ9MZX7pavpqNkW00Lnt3_0g5N42HnyMys
+
+### Generar tareas para MARZO 2026
+POST http://localhost:3004/recurringTask/recurring-tasks/generate/2026/3
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2OTU4NmY0YTE1YjA5MDFmNWY1OTY3NWEiLCJlbWFpbCI6InN1cGVydmlzb3IucmVjdXJyaW5nQGV4YW1wbGUuY29tIiwiaXNTdXBlcnZpc29yIjp0cnVlLCJzZWN0b3IiOiJURUNOT0xPR0lBX0lORk9STUFUSUNBIiwiaWF0IjoxNzY3NDA2OTA0LCJleHAiOjE3NjgwMTE3MDR9.h73BjDqtYoJ9MZX7pavpqNkW00Lnt3_0g5N42HnyMys
+
+### ============================================
+### CONSULTAS
+### ============================================
 
 ### Obtener todas las tareas recurrentes
 GET http://localhost:3004/recurringTask/recurring-tasks
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2OTU4NmY0YTE1YjA5MDFmNWY1OTY3NWEiLCJlbWFpbCI6InN1cGVydmlzb3IucmVjdXJyaW5nQGV4YW1wbGUuY29tIiwiaXNTdXBlcnZpc29yIjp0cnVlLCJzZWN0b3IiOiJURUNOT0xPR0lBX0lORk9STUFUSUNBIiwiaWF0IjoxNzY3NDA2OTA0LCJleHAiOjE3NjgwMTE3MDR9.h73BjDqtYoJ9MZX7pavpqNkW00Lnt3_0g5N42HnyMys
 
-### Obtener tarea recurrente por ID
-GET http://localhost:3004/recurringTask/recurring-tasks/69587d96b357123b70fa6d3d
+### Obtener tarea recurrente por ID (reemplazar con ID real)
+GET http://localhost:3004/recurringTask/recurring-tasks/695db8a280cc599e5dd058f3
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2OTU4NmY0YTE1YjA5MDFmNWY1OTY3NWEiLCJlbWFpbCI6InN1cGVydmlzb3IucmVjdXJyaW5nQGV4YW1wbGUuY29tIiwiaXNTdXBlcnZpc29yIjp0cnVlLCJzZWN0b3IiOiJURUNOT0xPR0lBX0lORk9STUFUSUNBIiwiaWF0IjoxNzY3NDA2OTA0LCJleHAiOjE3NjgwMTE3MDR9.h73BjDqtYoJ9MZX7pavpqNkW00Lnt3_0g5N42HnyMys
 
-### Actualizar título/descripción de la tarea recurrente
-PUT http://localhost:3004/recurringTask/recurring-tasks/69587d96b357123b70fa6d3d
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2OTU4NmY0YTE1YjA5MDFmNWY1OTY3NWEiLCJlbWFpbCI6InN1cGVydmlzb3IucmVjdXJyaW5nQGV4YW1wbGUuY29tIiwiaXNTdXBlcnZpc29yIjp0cnVlLCJzZWN0b3IiOiJURUNOT0xPR0lBX0lORk9STUFUSUNBIiwiaWF0IjoxNzY3NDA2OTA0LCJleHAiOjE3NjgwMTE3MDR9.h73BjDqtYoJ9MZX7pavpqNkW00Lnt3_0g5N42HnyMys
-Content-Type: application/json
+### ============================================
+### ACTUALIZAR Y ELIMINAR
+### ============================================
 
-{
-  "title": "Reporte mensual (actualizado)",
-  "description": "Descripción modificada desde recurringTask.http"
-}
-
-### Regenerar tareas individuales para una tarea recurrente
-POST http://localhost:3004/recurringTask/recurring-tasks/69587d96b357123b70fa6d3d/regenerate
+### Actualizar título/descripción de la tarea recurrente (reemplazar con ID real)
+PUT http://localhost:3004/recurringTask/recurring-tasks/695db8a280cc599e5dd058f3
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2OTU4NmY0YTE1YjA5MDFmNWY1OTY3NWEiLCJlbWFpbCI6InN1cGVydmlzb3IucmVjdXJyaW5nQGV4YW1wbGUuY29tIiwiaXNTdXBlcnZpc29yIjp0cnVlLCJzZWN0b3IiOiJURUNOT0xPR0lBX0lORk9STUFUSUNBIiwiaWF0IjoxNzY3NDA2OTA0LCJleHAiOjE3NjgwMTE3MDR9.h73BjDqtYoJ9MZX7pavpqNkW00Lnt3_0g5N42HnyMys
 Content-Type: application/json
 
 {
-  "newStartFrom": "2026-02-01T00:00:00.000Z",
-  "newWindow": 30
+  "title": "Título actualizado",
+  "description": "Descripción modificada - tareas futuras se actualizan, pasadas se marcan con leyenda"
 }
 
-### Eliminar tarea recurrente
-DELETE http://localhost:3004/recurringTask/recurring-tasks/69587d96b357123b70fa6d3d
+### Eliminar tarea recurrente (reemplazar con ID real)
+DELETE http://localhost:3004/recurringTask/recurring-tasks/695dbcf0eb49ab2a8315e36a
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2OTU4NmY0YTE1YjA5MDFmNWY1OTY3NWEiLCJlbWFpbCI6InN1cGVydmlzb3IucmVjdXJyaW5nQGV4YW1wbGUuY29tIiwiaXNTdXBlcnZpc29yIjp0cnVlLCJzZWN0b3IiOiJURUNOT0xPR0lBX0lORk9STUFUSUNBIiwiaWF0IjoxNzY3NDA2OTA0LCJleHAiOjE3NjgwMTE3MDR9.h73BjDqtYoJ9MZX7pavpqNkW00Lnt3_0g5N42HnyMys

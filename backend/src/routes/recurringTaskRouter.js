@@ -34,11 +34,11 @@ recurringTaskRouter.put(
 	RecurringTaskController.update,
 );
 
+// Generar tareas individuales para un mes específico (endpoint principal para el calendario)
 recurringTaskRouter.post(
-	"/recurring-tasks/:id/regenerate",
+	"/recurring-tasks/generate/:year/:month",
 	authByToken,
-	requireSupervisor,
-	RecurringTaskController.regenerate,
+	RecurringTaskController.generateTasksForMonth,
 );
 
 recurringTaskRouter.delete(

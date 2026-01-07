@@ -14,32 +14,29 @@ const DAY_MAP = {
 
 export const RecurringTaskService = {
 	/**
-	 * Creates a recurring task and generates individual tasks within the specified window
+	 * Creates a recurring task definition (does NOT generate individual tasks)
+	 * Individual tasks are generated on-demand when a user views a specific month
 	 * @param {Object} params - The parameters for creating the recurring task
 	 * @param {string} params.title - Task title
 	 * @param {string} params.description - Task description
 	 * @param {string[]} params.assignedTo - Array of user ObjectIds
-	 * @param {string} params.createdBy - User ObjectId of the creator (supervisor)
 	 * @param {string} params.recurrenceType - "DAILY_PATTERN" or "NUMERIC_PATTERN"
 	 * @param {string} params.periodicity - "DIARIA", "SEMANAL", "QUINCENAL" (for DAILY_PATTERN)
 	 * @param {string} params.datePattern - Day of week for DAILY_PATTERN (e.g., "LUNES")
 	 * @param {number} params.numberPattern - Day of month for NUMERIC_PATTERN (1-31)
-	 * @param {Date} params.startingFrom - Anchor date for calculating occurrences
-	 * @param {number} params.maxWindow - Days ahead to generate tasks (default: 31)
-	 * @returns {Promise<Object>} The created recurring task and generated individual tasks
+	 * @param {Date} params.startingFrom - Anchor date (used for QUINCENAL calculations)
+	 * @returns {Promise<Object>} The created recurring task
 	 */
 	async create(params) {
 		const {
 			title,
 			description,
 			assignedTo,
-			createdBy,
 			recurrenceType,
 			periodicity,
 			datePattern,
 			numberPattern,
 			startingFrom,
-			maxWindow = 31,
 		} = params;
 
 		// Validate recurrence type and set appropriate values
@@ -72,7 +69,7 @@ export const RecurringTaskService = {
 			throw new Error("Tipo de recurrencia inválido. Use DAILY_PATTERN o NUMERIC_PATTERN");
 		}
 
-		// Create the recurring task record
+		// Create the recurring task record (no individual tasks yet)
 		const recurringTaskData = {
 			title,
 			description,
@@ -81,71 +78,143 @@ export const RecurringTaskService = {
 			datePattern: finalDatePattern,
 			numberPattern: finalNumberPattern,
 			startingFrom: new Date(startingFrom),
-			maxWindow,
 			active: true,
 		};
 
 		const createdRecurringTask = await RecurringTaskRepository.create(recurringTaskData);
 
-		// Calculate occurrence dates and create individual tasks
-		const occurrenceDates = this._calculateOccurrenceDates(
-			new Date(startingFrom),
-			finalPeriodicity,
-			finalDatePattern,
-			finalNumberPattern,
-			maxWindow
-		);
+		return { recurringTask: createdRecurringTask };
+	},
 
-		// Create individual tasks for each user and each occurrence date
-		const individualTasks = [];
-		for (const userId of assignedTo) {
-			for (const occurrenceDate of occurrenceDates) {
-				const task = new TaskModel({
-					title,
-					description,
-					deadline: occurrenceDate,
-					createdBy,
-					assignedTo: [userId],
-					status: "PENDIENTE",
-					recurringTaskId: createdRecurringTask._id,
-				});
-				const savedTask = await task.save();
-				individualTasks.push(savedTask);
-			}
+	/**
+	 * Generates individual tasks for a specific month from all active recurring tasks
+	 * Called when a user views a calendar month
+	 * @param {number} year - The year (e.g., 2026)
+	 * @param {number} month - The month (1-12, January = 1)
+	 * @param {string} createdBy - User ObjectId of who triggered the generation
+	 * @returns {Promise<Object>} Summary of generated tasks
+	 */
+	async generateTasksForMonth(year, month, createdBy) {
+		// Get all active recurring tasks
+		const recurringTasks = await RecurringTaskRepository.getAllActive();
+
+		const allGeneratedTasks = [];
+
+		for (const recurringTask of recurringTasks) {
+			const generatedTasks = await this._generateTasksForRecurringTask(
+				recurringTask,
+				year,
+				month,
+				createdBy
+			);
+			allGeneratedTasks.push(...generatedTasks);
 		}
 
 		return {
-			recurringTask: createdRecurringTask,
-			generatedTasks: individualTasks,
-			totalTasksGenerated: individualTasks.length,
+			year,
+			month,
+			totalTasksGenerated: allGeneratedTasks.length,
+			generatedTasks: allGeneratedTasks,
 		};
 	},
 
 	/**
-	 * Calculates the exact dates for task occurrences within the given window
-	 * @param {Date} startingFrom - Anchor date
-	 * @param {string} periodicity - Frequency type
-	 * @param {string} datePattern - Day of week (for daily pattern)
-	 * @param {number} numberPattern - Day of month (for numeric pattern)
-	 * @param {number} maxWindow - Days ahead to generate
-	 * @returns {Date[]} Array of occurrence dates
+	 * Generates individual tasks for a specific recurring task within a month
+	 * @param {Document} recurringTask - The recurring task document
+	 * @param {number} year - The year
+	 * @param {number} month - The month (1-12)
+	 * @param {string} createdBy - User ObjectId
+	 * @returns {Promise<Array>} Array of generated tasks
 	 */
-	_calculateOccurrenceDates(startingFrom, periodicity, datePattern, numberPattern, maxWindow) {
-		const windowEnd = new Date(startingFrom);
-		windowEnd.setDate(windowEnd.getDate() + maxWindow);
+	async _generateTasksForRecurringTask(recurringTask, year, month, createdBy) {
+		// Calculate month boundaries (UTC)
+		const monthStart = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0, 0));
+		const monthEnd = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
+
+		// Don't generate tasks before the recurring task was created
+		const anchorDate = new Date(recurringTask.startingFrom);
+
+		// If the recurring task starts after this month, skip
+		if (anchorDate > monthEnd) {
+			return [];
+		}
+
+		// Calculate occurrence dates for this month
+		const occurrenceDates = this._calculateOccurrencesForMonth(
+			recurringTask.startingFrom,
+			recurringTask.periodicity,
+			recurringTask.datePattern,
+			recurringTask.numberPattern,
+			year,
+			month
+		);
+
+		// Get existing tasks to avoid duplicates (check by date + recurringTaskId)
+		const existingTasks = await TaskModel.find({
+			recurringTaskId: recurringTask._id,
+			deadline: { $gte: monthStart, $lte: monthEnd },
+		}).select("deadline");
+
+		// Build a Set of existing date strings
+		const existingDates = new Set(
+			existingTasks.map((t) => t.deadline.toISOString().split("T")[0])
+		);
+
+		// Extract all user ObjectIds from assignedTo (handle populated and non-populated)
+		const allAssignees = recurringTask.assignedTo.map((user) => user._id || user);
+
+		const individualTasks = [];
+		for (const occurrenceDate of occurrenceDates) {
+			const dateStr = occurrenceDate.toISOString().split("T")[0];
+
+			// Skip if task already exists for this date
+			if (existingDates.has(dateStr)) {
+				continue;
+			}
+
+			// Create ONE task per date with ALL assignees
+			const task = new TaskModel({
+				title: recurringTask.title,
+				description: recurringTask.description,
+				deadline: occurrenceDate,
+				createdBy,
+				assignedTo: allAssignees,
+				status: "PENDIENTE",
+				recurringTaskId: recurringTask._id,
+			});
+			const savedTask = await task.save();
+			individualTasks.push(savedTask);
+		}
+
+		return individualTasks;
+	},
+
+	/**
+	 * Calculates occurrence dates for a specific month
+	 * @param {Date} anchorDate - Original startingFrom date (for QUINCENAL)
+	 * @param {string} periodicity - Frequency type
+	 * @param {string} datePattern - Day of week (for weekly patterns)
+	 * @param {number} numberPattern - Day of month (for monthly pattern)
+	 * @param {number} year - Target year
+	 * @param {number} month - Target month (1-12)
+	 * @returns {Date[]} Array of occurrence dates within the month
+	 */
+	_calculateOccurrencesForMonth(anchorDate, periodicity, datePattern, numberPattern, year, month) {
+		const monthStart = new Date(Date.UTC(year, month - 1, 1, 12, 0, 0, 0));
+		const monthEnd = new Date(Date.UTC(year, month, 0, 12, 0, 0, 0));
 
 		switch (periodicity) {
 			case "DIARIA":
-				return this._calculateDailyOccurrences(startingFrom, windowEnd);
+				return this._calculateDailyForMonth(monthStart, monthEnd, anchorDate);
 
 			case "SEMANAL":
-				return this._calculateWeeklyOccurrences(startingFrom, windowEnd, datePattern, 1);
+				return this._calculateWeeklyForMonth(monthStart, monthEnd, datePattern, 1, anchorDate);
 
 			case "QUINCENAL":
-				return this._calculateWeeklyOccurrences(startingFrom, windowEnd, datePattern, 2);
+				return this._calculateWeeklyForMonth(monthStart, monthEnd, datePattern, 2, anchorDate);
 
 			case "MENSUAL":
-				return this._calculateMonthlyOccurrences(startingFrom, windowEnd, numberPattern);
+				return this._calculateMonthlyForMonth(year, month, numberPattern, anchorDate);
 
 			default:
 				return [];
@@ -153,98 +222,115 @@ export const RecurringTaskService = {
 	},
 
 	/**
-	 * Calculates daily occurrences between start and end dates
-	 * @param {Date} start - Start date
-	 * @param {Date} end - End date
+	 * Calculates daily occurrences for a specific month
+	 * @param {Date} monthStart - First day of month
+	 * @param {Date} monthEnd - Last day of month
+	 * @param {Date} anchorDate - Original start date
 	 * @returns {Date[]} Array of daily occurrence dates
 	 */
-	_calculateDailyOccurrences(start, end) {
+	_calculateDailyForMonth(monthStart, monthEnd, anchorDate) {
 		const occurrences = [];
-		const currentDate = new Date(start);
+		const anchor = new Date(anchorDate);
+		anchor.setUTCHours(12, 0, 0, 0);
 
-		while (currentDate <= end) {
+		// Start from the first day of the month or anchor date, whichever is later
+		const currentDate = new Date(monthStart);
+		if (anchor > currentDate) {
+			currentDate.setTime(anchor.getTime());
+		}
+		currentDate.setUTCHours(12, 0, 0, 0);
+
+		while (currentDate <= monthEnd) {
 			occurrences.push(new Date(currentDate));
-			currentDate.setDate(currentDate.getDate() + 1);
+			currentDate.setUTCDate(currentDate.getUTCDate() + 1);
 		}
 
 		return occurrences;
 	},
 
 	/**
-	 * Calculates weekly or biweekly occurrences
-	 * @param {Date} start - Start date (anchor)
-	 * @param {Date} end - End date
+	 * Calculates weekly or biweekly occurrences for a specific month
+	 * @param {Date} monthStart - First day of month
+	 * @param {Date} monthEnd - Last day of month
 	 * @param {string} datePattern - Target day of week
 	 * @param {number} weekInterval - 1 for weekly, 2 for biweekly
+	 * @param {Date} anchorDate - Original anchor date (critical for biweekly)
 	 * @returns {Date[]} Array of occurrence dates
 	 */
-	_calculateWeeklyOccurrences(start, end, datePattern, weekInterval) {
+	_calculateWeeklyForMonth(monthStart, monthEnd, datePattern, weekInterval, anchorDate) {
 		const occurrences = [];
 		const targetDay = DAY_MAP[datePattern];
-		const currentDate = new Date(start);
 
-		// Find the first occurrence of the target day on or after the start date
-		const startDayOfWeek = currentDate.getDay();
-		let daysUntilTarget = targetDay - startDayOfWeek;
+		// Start from anchor date to maintain correct week intervals
+		const anchor = new Date(anchorDate);
+		anchor.setUTCHours(12, 0, 0, 0);
 
+		// Find the first occurrence of target day from anchor
+		const anchorDayOfWeek = anchor.getUTCDay();
+		let daysUntilTarget = targetDay - anchorDayOfWeek;
 		if (daysUntilTarget < 0) {
 			daysUntilTarget += 7;
 		}
 
-		currentDate.setDate(currentDate.getDate() + daysUntilTarget);
+		const firstOccurrence = new Date(anchor);
+		firstOccurrence.setUTCDate(anchor.getUTCDate() + daysUntilTarget);
 
-		// Generate occurrences at the specified interval
-		while (currentDate <= end) {
-			occurrences.push(new Date(currentDate));
-			currentDate.setDate(currentDate.getDate() + 7 * weekInterval);
+		// Calculate how many intervals from first occurrence to reach month start
+		const msPerWeek = 7 * 24 * 60 * 60 * 1000 * weekInterval;
+		const msDiff = monthStart.getTime() - firstOccurrence.getTime();
+
+		let currentDate;
+		if (msDiff <= 0) {
+			// First occurrence is after or at month start
+			currentDate = new Date(firstOccurrence);
+		} else {
+			// Jump forward to the nearest occurrence at or after month start
+			const intervalsToSkip = Math.floor(msDiff / msPerWeek);
+			currentDate = new Date(firstOccurrence);
+			currentDate.setUTCDate(currentDate.getUTCDate() + intervalsToSkip * 7 * weekInterval);
+			// If we're still before month start, advance one more interval
+			if (currentDate < monthStart) {
+				currentDate.setUTCDate(currentDate.getUTCDate() + 7 * weekInterval);
+			}
+		}
+
+		// Generate occurrences within the month
+		while (currentDate <= monthEnd) {
+			if (currentDate >= monthStart) {
+				occurrences.push(new Date(currentDate));
+			}
+			currentDate.setUTCDate(currentDate.getUTCDate() + 7 * weekInterval);
 		}
 
 		return occurrences;
 	},
 
 	/**
-	 * Calculates monthly occurrences on a specific day of month
-	 * @param {Date} start - Start date (anchor)
-	 * @param {Date} end - End date
-	 * @param {number} dayOfMonth - Target day of month (1-31)
-	 * @returns {Date[]} Array of occurrence dates
+	 * Calculates monthly occurrence for a specific month
+	 * @param {number} year - Target year
+	 * @param {number} month - Target month (1-12)
+	 * @param {number} dayOfMonth - Target day (1-31)
+	 * @param {Date} anchorDate - Original anchor date
+	 * @returns {Date[]} Array with single occurrence or empty
 	 */
-	_calculateMonthlyOccurrences(start, end, dayOfMonth) {
-		const occurrences = [];
-		const currentDate = new Date(start);
+	_calculateMonthlyForMonth(year, month, dayOfMonth, anchorDate) {
+		const anchor = new Date(anchorDate);
+		anchor.setUTCHours(0, 0, 0, 0);
 
-		// Set to the target day of the current month
-		currentDate.setDate(dayOfMonth);
+		// Get the last day of the target month
+		const lastDayOfMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
 
-		// If the target day has already passed this month, move to next month
-		if (currentDate < start) {
-			currentDate.setMonth(currentDate.getMonth() + 1);
-			currentDate.setDate(dayOfMonth);
+		// Determine the actual day to use
+		const actualDay = Math.min(dayOfMonth, lastDayOfMonth);
+
+		const occurrenceDate = new Date(Date.UTC(year, month - 1, actualDay, 12, 0, 0, 0));
+
+		// Don't generate if the occurrence is before the anchor date
+		if (occurrenceDate < anchor) {
+			return [];
 		}
 
-		while (currentDate <= end) {
-			// Handle months with fewer days than the target
-			const lastDayOfMonth = new Date(
-				currentDate.getFullYear(),
-				currentDate.getMonth() + 1,
-				0
-			).getDate();
-
-			if (dayOfMonth <= lastDayOfMonth) {
-				occurrences.push(new Date(currentDate));
-			} else {
-				// If the day doesn't exist in this month, use the last day
-				const adjustedDate = new Date(currentDate);
-				adjustedDate.setDate(lastDayOfMonth);
-				occurrences.push(adjustedDate);
-			}
-
-			// Move to next month
-			currentDate.setMonth(currentDate.getMonth() + 1);
-			currentDate.setDate(dayOfMonth);
-		}
-
-		return occurrences;
+		return [occurrenceDate];
 	},
 
 	/**
@@ -313,66 +399,27 @@ export const RecurringTaskService = {
 	},
 
 	/**
-	 * Regenerates individual tasks for a recurring task within a new window
-	 * Useful for extending the task generation period
+	 * Deletes a recurring task and ALL its associated individual tasks
 	 * @param {string} id - MongoDB ObjectId of the recurring task
-	 * @param {Date} newStartFrom - New starting date for generation
-	 * @param {number} newWindow - New window in days
-	 * @param {string} createdBy - User ObjectId of the creator (supervisor)
-	 * @returns {Promise<Object>} The generated tasks info
+	 * @returns {Promise<Object|null>} Deletion result with counts, or null if not found
 	 */
-	async regenerateTasks(id, newStartFrom, newWindow, createdBy) {
+	async delete(id) {
+		// First, check if the recurring task exists
 		const recurringTask = await RecurringTaskRepository.getById(id);
-
-		if (!recurringTask || !recurringTask.active) {
-			throw new Error("Tarea recurrente no encontrada o inactiva");
+		if (!recurringTask) {
+			return null;
 		}
 
-		const occurrenceDates = this._calculateOccurrenceDates(
-			new Date(newStartFrom),
-			recurringTask.periodicity,
-			recurringTask.datePattern,
-			recurringTask.numberPattern,
-			newWindow
-		);
+		// Delete all individual tasks that belong to this recurring task
+		const deleteResult = await TaskModel.deleteMany({ recurringTaskId: id });
+		const deletedIndividualTasksCount = deleteResult.deletedCount;
 
-		// Get existing task deadlines to avoid duplicates
-		const existingTasks = await TaskModel.find({
-			recurringTaskId: id,
-		}).select("deadline assignedTo");
-
-		const existingDateUserPairs = new Set(
-			existingTasks.map((t) => `${t.deadline.toISOString()}_${t.assignedTo.toString()}`)
-		);
-
-		const individualTasks = [];
-		for (const userId of recurringTask.assignedTo) {
-			for (const occurrenceDate of occurrenceDates) {
-				const dateUserKey = `${occurrenceDate.toISOString()}_${userId.toString()}`;
-
-				// Skip if task already exists for this date and user
-				if (existingDateUserPairs.has(dateUserKey)) {
-					continue;
-				}
-
-				const task = new TaskModel({
-					title: recurringTask.title,
-					description: recurringTask.description,
-					deadline: occurrenceDate,
-					createdBy,
-					assignedTo: [userId],
-					status: "PENDIENTE",
-					recurringTaskId: recurringTask._id,
-				});
-				const savedTask = await task.save();
-				individualTasks.push(savedTask);
-			}
-		}
+		// Delete the recurring task itself
+		const deletedRecurringTask = await RecurringTaskRepository.deleteById(id);
 
 		return {
-			recurringTask,
-			newTasksGenerated: individualTasks.length,
-			generatedTasks: individualTasks,
+			recurringTask: deletedRecurringTask,
+			deletedIndividualTasks: deletedIndividualTasksCount,
 		};
 	},
 };

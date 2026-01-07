@@ -53,11 +53,6 @@ const recurringTaskSchema = new mongoose.Schema(
 			required: true,
 		},
 
-		maxWindow: {
-			type: Number,
-			default: 31, // días hacia adelante que se generan
-		},
-
 		active: {
 			type: Boolean,
 			default: true,
