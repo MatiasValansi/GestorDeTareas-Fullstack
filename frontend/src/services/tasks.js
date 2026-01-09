@@ -12,6 +12,12 @@ export const getAllTasks = async () => {
   return data.payload || [];
 };
 
+// Obtener tareas para el calendario (filtradas según rol del usuario)
+export const getCalendarTasks = async (month, year) => {
+  const { data } = await api.get(`/tasks/calendar?month=${month}&year=${year}`);
+  return data.payload || [];
+};
+
 // Crear una nueva tarea
 export const createTask = async (task) => {
   // 👇 el backend espera { task: {...} }

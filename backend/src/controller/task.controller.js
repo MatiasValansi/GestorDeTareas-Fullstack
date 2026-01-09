@@ -130,63 +130,158 @@ export const TaskController = {
 
 	taskDeleteOne: async (req, res) => {
 		const { id } = req.params;
-		//const taskDeleted = await TaskService.serviceTaskDelete(id);
-		const deletedTask = await mongoTask.getById(id);
-		const title = deletedTask.title;
-		const taskDeleted = await mongoTask.deleteOne(id);
+		const requestingUserId = req.user?.id;
 
-		if (!taskDeleted) {
-			res.status(404).json({
+		if (!requestingUserId) {
+			return res.status(401).json({
 				payload: null,
-				message: `No se pudo eliminar la tarea con id: ${id}`,
+				message: "Usuario no autenticado",
 				ok: false,
 			});
-			return;
 		}
 
-		res.status(200).json({
-			message: `Success: La tarea "${title}" fue eliminada`,
-			payload: { deletedTask },
-			ok: true,
-		});
-		return;
+		try {
+			const deletedTask = await TaskService.serviceTaskDelete(id, requestingUserId);
+
+			if (!deletedTask) {
+				return res.status(404).json({
+					payload: null,
+					message: `No se encontró la tarea con id: ${id}`,
+					ok: false,
+				});
+			}
+
+			return res.status(200).json({
+				message: `Success: La tarea "${deletedTask.title}" fue eliminada`,
+				payload: { deletedTask },
+				ok: true,
+			});
+		} catch (error) {
+			console.error("Error al eliminar tarea", error);
+
+			if (error.message.includes("titular") || error.message.includes("futura")) {
+				return res.status(403).json({
+					payload: null,
+					message: error.message,
+					ok: false,
+				});
+			}
+
+			return res.status(500).json({
+				payload: null,
+				message: error.message || "No se pudo eliminar la tarea",
+				ok: false,
+			});
+		}
 	},
 
 	taskUpdateOne: async (req, res) => {
 		const { id } = req.params;
-		const { title, description, completada, completed } = req.body;
+		const { title, description, completada, completed, status, assignedTo } = req.body;
+		const requestingUserId = req.user?.id;
+
+		if (!requestingUserId) {
+			return res.status(401).json({
+				payload: null,
+				message: "Usuario no autenticado",
+				ok: false,
+			});
+		}
 
 		// armamos objeto dinámico sólo con campos enviados
 		const updateData = {};
 		if (title !== undefined) updateData.title = title;
 		if (description !== undefined) updateData.description = description;
+		if (status !== undefined) updateData.status = status;
 		// soporta tanto "completada" (frontend actual) como "completed" (nombre del modelo)
 		if (completada !== undefined) updateData.completed = completada;
 		if (completed !== undefined) updateData.completed = completed;
+		// assignedTo para agregar/quitar usuarios
+		if (assignedTo !== undefined) updateData.assignedTo = assignedTo;
 
-		/*
-		const taskUpdated = await TaskService.serviceTaskUpdate(
-			id,
-			title,
-			description,
-		);
-		*/
-		const taskUpdated = await mongoTask.updateOne(id, updateData);
+		try {
+			const taskUpdated = await TaskService.serviceTaskUpdate(id, updateData, requestingUserId);
 
-		if (!taskUpdated) {
-			res.status(404).json({
+			if (!taskUpdated) {
+				return res.status(404).json({
+					payload: null,
+					message: `No se puede actualizar la tarea con el id: ${id}`,
+					ok: false,
+				});
+			}
+
+			return res.status(200).json({
+				message: "Tarea Actualizada",
+				payload: taskUpdated,
+				ok: true,
+			});
+		} catch (error) {
+			console.error("Error al actualizar tarea", error);
+
+			// Handle specific authorization/validation errors
+			if (error.message.includes("titular") || 
+				error.message.includes("recurrente") ||
+				error.message.includes("asignado")) {
+				return res.status(403).json({
+					payload: null,
+					message: error.message,
+					ok: false,
+				});
+			}
+
+			return res.status(500).json({
 				payload: null,
-				message: `No se puede actualizar la tarea con el id: ${id}`,
+				message: error.message || "No se pudo actualizar la tarea",
 				ok: false,
 			});
-			return;
 		}
+	},
 
-		res.status(200).json({
-			message: "Tarea Actualizada",
-			payload: taskUpdated,
-			ok: true,
-		});
-		return;
+	/**
+	 * Get tasks for calendar view
+	 * GET /tasks/calendar?month=1&year=2026
+	 */
+	calendarTasks: async (req, res) => {
+		try {
+			if (!req.user || !req.user.id) {
+				return res.status(401).json({
+					payload: null,
+					message: "Usuario no autenticado",
+					ok: false,
+				});
+			}
+
+			const month = parseInt(req.query.month, 10);
+			const year = parseInt(req.query.year, 10);
+
+			if (!month || !year || month < 1 || month > 12) {
+				return res.status(400).json({
+					payload: null,
+					message: "Parámetros month y year son requeridos (month: 1-12)",
+					ok: false,
+				});
+			}
+
+			const user = {
+				id: req.user.id,
+				sector: req.user.sector,
+				isSupervisor: req.user.isSupervisor,
+			};
+
+			const tasks = await TaskService.getCalendarTasks(user, month, year);
+
+			return res.status(200).json({
+				message: "Tareas del calendario obtenidas",
+				payload: tasks,
+				ok: true,
+			});
+		} catch (error) {
+			console.error("Error al obtener tareas del calendario:", error);
+			return res.status(500).json({
+				payload: null,
+				message: error.message || "Error al obtener tareas del calendario",
+				ok: false,
+			});
+		}
 	},
 };

@@ -334,19 +334,65 @@ export const RecurringTaskService = {
 	},
 
 	/**
-	 * Updates a recurring task's title and/or description
+	 * Updates a recurring task's title, description, and/or assignedTo
 	 * Updates future individual tasks and marks past tasks with modification legend
+	 * Only the task owner (first in assignedTo) can modify, and cannot remove themselves
 	 * @param {string} id - MongoDB ObjectId
-	 * @param {Object} updateData - Object containing title and/or description
+	 * @param {Object} updateData - Object containing title, description, and/or assignedTo
+	 * @param {string} requestingUserId - ObjectId of the user making the request
 	 * @returns {Promise<Object>} Update result with recurring task and affected tasks count
 	 */
-	async update(id, updateData) {
+	async update(id, updateData, requestingUserId) {
 		const modificationDate = new Date();
-		const MODIFICATION_LEGEND = "\n\n---\n⚠️ Esta tarea tuvo modificaciones posteriores.";
+		const MODIFICATION_LEGEND = " | Esta tarea tuvo modificaciones posteriores.";
+
+		// Get the current recurring task to validate ownership
+		const recurringTask = await RecurringTaskRepository.getById(id);
+		if (!recurringTask) {
+			return null;
+		}
+
+		// Get the task owner (first in assignedTo array)
+		const taskOwner = recurringTask.assignedTo[0]._id
+			? recurringTask.assignedTo[0]._id.toString()
+			: recurringTask.assignedTo[0].toString();
+
+		// Verify the requesting user is the task owner
+		if (taskOwner !== requestingUserId) {
+			throw new Error("Solo el titular de la tarea puede modificarla");
+		}
+
+		// Track which fields are being modified for the legend
+		const modifiedFields = [];
+		if (updateData.title !== undefined) modifiedFields.push("título");
+		if (updateData.description !== undefined) modifiedFields.push("descripción");
+		if (updateData.assignedTo !== undefined) modifiedFields.push("usuarios asignados");
+
+		// Validate assignedTo modifications if provided
+		if (updateData.assignedTo !== undefined) {
+			if (!Array.isArray(updateData.assignedTo)) {
+				throw new Error("assignedTo debe ser un array");
+			}
+
+			if (updateData.assignedTo.length < 1) {
+				throw new Error("La tarea debe tener al menos un usuario asignado");
+			}
+
+			// Ensure the owner (first user) remains in first position
+			const newFirstUser = updateData.assignedTo[0].toString();
+			if (newFirstUser !== taskOwner) {
+				throw new Error("El titular no puede quitarse a sí mismo ni cambiar su posición");
+			}
+		}
+
+		// Build modification legend text
+		const modificationsText = modifiedFields.length > 0
+			? ` Campos modificados: ${modifiedFields.join(", ")}.`
+			: "";
 
 		// Callback to handle individual tasks update
 		const handleIndividualTasksUpdate = async (recurringTaskId, updates) => {
-			// Update future tasks (deadline >= now) with new title/description
+			// Update future tasks (deadline >= now) with new data
 			await TaskModel.updateMany(
 				{
 					recurringTaskId: recurringTaskId,
@@ -355,15 +401,24 @@ export const RecurringTaskService = {
 				{ $set: updates }
 			);
 
-			// Add legend to past tasks (deadline < now) without overwriting existing content
+			// Add legend to past tasks (deadline < now)
 			const pastTasks = await TaskModel.find({
 				recurringTaskId: recurringTaskId,
 				deadline: { $lt: modificationDate },
-				description: { $not: { $regex: "Esta tarea tuvo modificaciones posteriores" } },
 			});
 
 			for (const task of pastTasks) {
-				const updatedDescription = (task.description || "") + MODIFICATION_LEGEND;
+				const hasLegend = task.description && task.description.includes("Esta tarea tuvo modificaciones posteriores");
+				let updatedDescription;
+
+				if (!hasLegend) {
+					// First modification - add full legend
+					updatedDescription = (task.description || "") + MODIFICATION_LEGEND + modificationsText;
+				} else {
+					// Already has legend - append new modification info
+					updatedDescription = task.description + modificationsText;
+				}
+
 				await TaskModel.findByIdAndUpdate(task._id, {
 					$set: { description: updatedDescription },
 				});
@@ -395,10 +450,60 @@ export const RecurringTaskService = {
 			recurringTask: updatedRecurringTask,
 			futureTasksUpdated: futureTasksCount,
 			pastTasksMarked: pastTasksCount,
+			modifiedFields,
 		};
 	},
 
+    	/**
+	 * Sets active state to false for a recurring task
+	 * @param {string} id - MongoDB ObjectId
+	 * @returns {Promise<Object>} Update result with recurring task and affected tasks count
+	 */
+    async deactivate(id) {
+
+        const recurringTask = await RecurringTaskRepository.getById(id);
+		if (!recurringTask) {
+			return null;
+		}
+
+        const updatedRecurringTask = await RecurringTaskRepository.updateById(
+			id,
+			{ active: false }
+		);
+
+        await this.deleteAllFutureIndividualTasks(id);
+		return {
+            updatedRecurringTask,
+
+        };
+    },
+
+    	/**
+	 * Deletes all FUTURE individual tasks related to the recurringTask
+	 * @param {string} id - MongoDB ObjectId of the recurring task
+	 * @returns {Promise<Object|null>} Deletion result with counts, or null if not found
+	 */
+    async deleteAllFutureIndividualTasks(id) {
+
+        const recurringTask = await RecurringTaskRepository.getById(id);
+		if (!recurringTask) {
+			return null;
+		}
+
+        const deleteResult = await TaskModel.deleteMany({
+				recurringTaskId: id,
+                deadline: { $gt: new Date() },
+			});
+        const deletedCount = deleteResult.deletedCount;
+
+        return {
+            recurringTask: recurringTask,
+            deletedFutureIndividualTasks: deletedCount,
+        };
+    },
+
 	/**
+     * NOT EXPOSED TO USERS, TO BE RAN ONLY BY ADMINS IF NEEDED
 	 * Deletes a recurring task and ALL its associated individual tasks
 	 * @param {string} id - MongoDB ObjectId of the recurring task
 	 * @returns {Promise<Object|null>} Deletion result with counts, or null if not found

@@ -93,16 +93,26 @@ export const RecurringTaskController = {
 	},
 
 	// PUT /recurring-tasks/:id
-	// Actualiza título/descripcion de la tarea recurrente y afecta tareas individuales
+	// Actualiza título/descripción/assignedTo de la tarea recurrente y afecta tareas individuales
+	// Solo el titular (primer usuario en assignedTo) puede modificar
 	update: async (req, res) => {
 		try {
 			const { id } = req.params;
-			const { title, description } = req.body;
+			const { title, description, assignedTo } = req.body;
+			const requestingUserId = req.user?.id;
 
-			const result = await RecurringTaskService.update(id, {
-				title,
-				description,
-			});
+			if (!requestingUserId) {
+				return res.status(401).json({
+					ok: false,
+					message: "Usuario no autenticado",
+				});
+			}
+
+			const result = await RecurringTaskService.update(
+				id,
+				{ title, description, assignedTo },
+				requestingUserId
+			);
 
 			if (!result) {
 				return res.status(404).json({
@@ -119,9 +129,19 @@ export const RecurringTaskController = {
 			});
 		} catch (error) {
 			console.error("Error al actualizar tarea recurrente", error);
+
+			// Handle specific authorization error
+			if (error.message === "Solo el titular de la tarea puede modificarla" ||
+				error.message === "El titular no puede quitarse a sí mismo ni cambiar su posición") {
+				return res.status(403).json({
+					ok: false,
+					message: error.message,
+				});
+			}
+
 			return res.status(500).json({
 				ok: false,
-				message: "No se pudo actualizar la tarea recurrente",
+				message: error.message || "No se pudo actualizar la tarea recurrente",
 			});
 		}
 	},
@@ -188,6 +208,35 @@ export const RecurringTaskController = {
 			return res.status(500).json({
 				ok: false,
 				message: "No se pudo eliminar la tarea recurrente",
+			});
+		}
+	},
+
+	// DEACTIVATE /recurring-tasks/:id
+	// Desactiva la tarea recurrente Y borra todas sus tareas individuales FUTURAS asociadas
+	deactivate: async (req, res) => {
+		try {
+			const { id } = req.params;
+			const result = await RecurringTaskService.deactivate(id);
+
+			if (!result) {
+				return res.status(404).json({
+					ok: false,
+					message: "Tarea recurrente no encontrada",
+					payload: null,
+				});
+			}
+
+			return res.status(200).json({
+				message: `Tarea recurrente desactivada correctamente`,
+				payload: result,
+				ok: true,
+			});
+		} catch (error) {
+			console.error("Error al desactivar tarea recurrente", error);
+			return res.status(500).json({
+				ok: false,
+				message: "No se pudo desactivar la tarea recurrente",
 			});
 		}
 	},

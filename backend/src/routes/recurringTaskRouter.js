@@ -48,4 +48,13 @@ recurringTaskRouter.delete(
 	RecurringTaskController.delete,
 );
 
+// PATCH para desactivar (cambio de estado, no eliminación)
+recurringTaskRouter.patch(
+	"/recurring-tasks/:id/deactivate",
+	authByToken,
+	requireSupervisor,
+	RecurringTaskController.deactivate,
+);
+
+
 export { recurringTaskRouter };

@@ -6,6 +6,7 @@ const taskRouter = Router();
 
 taskRouter.get("/task/:id", authByToken, TaskController.taskValidation);
 taskRouter.get("/allTasks", authByToken, TaskController.taskAll); //GetAll
+taskRouter.get("/calendar", authByToken, TaskController.calendarTasks); // Calendar tasks
 taskRouter.post("/task", authByToken, TaskController.taskCreateOne);
 taskRouter.put("/task/:id", authByToken, TaskController.taskUpdateOne);
 taskRouter.delete("/task/:id", authByToken, TaskController.taskDeleteOne);

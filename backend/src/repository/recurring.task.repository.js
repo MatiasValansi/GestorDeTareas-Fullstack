@@ -39,21 +39,22 @@ export const RecurringTaskRepository = {
 	/**
 	 * Updates a recurring task by its MongoDB ObjectId
 	 * @param {string} id - The MongoDB ObjectId
-	 * @param {Object} updateData - The data to update (only title and description allowed)
+	 * @param {Object} updateData - The data to update (title, description, assignedTo)
 	 * @param {Function} onUpdateCallback - Callback to handle individual tasks update
 	 * @returns {Promise<Document|null>} The updated recurring task or null
 	 */
 	async updateById(id, updateData, onUpdateCallback) {
-		// Only allow title and description updates
+		// Only allow title, description, and assignedTo updates
 		const allowedUpdates = {};
 		if (updateData.title !== undefined) allowedUpdates.title = updateData.title;
 		if (updateData.description !== undefined) allowedUpdates.description = updateData.description;
+		if (updateData.assignedTo !== undefined) allowedUpdates.assignedTo = updateData.assignedTo;
 
 		const updatedRecurringTask = await RecurringTaskModel.findByIdAndUpdate(
 			id,
 			{ $set: allowedUpdates },
 			{ new: true, runValidators: true }
-		);
+		).populate("assignedTo");
 
 		if (updatedRecurringTask && onUpdateCallback) {
 			await onUpdateCallback(id, allowedUpdates);
