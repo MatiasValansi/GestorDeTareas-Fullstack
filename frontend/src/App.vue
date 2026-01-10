@@ -6,6 +6,7 @@ import DashboardStats from './components/DashboardStats.vue'
 import GraficoTareas from './components/GraficoTareas.vue'
 import { useUserStore } from '@/stores/user'
 import { getCalendarTasks } from '@/services/tasks'
+import { ArgentinaTime } from '@/utils/argentinaTime'
 
 const store = useUserStore()
 const isLoggedIn = computed(() => store.isLoggedIn)
@@ -47,31 +48,29 @@ const getTasksForDay = (day) => {
   return tasksByDate.value[dateKey] || []
 }
 
-// Get status color class
-const getStatusColor = (status) => {
-  switch (status) {
+// Get status color class (basado en status de la BD)
+const getStatusColor = (task) => {
+  switch (task.status) {
     case 'COMPLETADA':
       return 'task-completed'
-    case 'PENDIENTE':
-      return 'task-pending'
     case 'VENCIDA':
       return 'task-expired'
+    case 'PENDIENTE':
     default:
       return 'task-pending'
   }
 }
 
 // Get status label for tooltip
-const getStatusLabel = (status) => {
-  switch (status) {
+const getStatusLabel = (task) => {
+  switch (task.status) {
     case 'COMPLETADA':
       return 'Completada'
-    case 'PENDIENTE':
-      return 'Pendiente'
     case 'VENCIDA':
       return 'Vencida'
+    case 'PENDIENTE':
     default:
-      return status
+      return 'Pendiente'
   }
 }
 
@@ -83,17 +82,16 @@ const getAssigneesNames = (assignedTo) => {
 
 // Build tooltip for task (includes recurring info)
 const getTaskTooltip = (task) => {
-  let tooltip = `${task.title}\nAsignados: ${getAssigneesNames(task.assignedTo)}\nEstado: ${getStatusLabel(task.status)}`
+  let tooltip = `${task.title}\nAsignados: ${getAssigneesNames(task.assignedTo)}\nEstado: ${getStatusLabel(task)}`
   if (task.recurringTaskId) {
-    tooltip += '\nTarea recurrente'
+    tooltip += '\n🔄 Tarea recurrente'
   }
   return tooltip
 }
 
-// Format time from deadline
+// Format time from deadline - Convertir UTC a hora Argentina para mostrar
 const formatTime = (deadline) => {
-  const date = new Date(deadline)
-  return date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
+  return ArgentinaTime.formatTime(deadline)
 }
 
 // Load calendar tasks
@@ -235,6 +233,13 @@ watch(isLoggedIn, (newValue) => {
           <h3 class="calendar-title">{{ currentMonthLabel }}</h3>
           <button class="calendar-nav-btn" @click="nextMonth">▶</button>
         </div>
+        
+        <!-- Loading Spinner Overlay -->
+        <div v-if="loadingTasks" class="calendar-loading-overlay">
+          <div class="spinner"></div>
+          <span class="loading-text">Cargando tareas...</span>
+        </div>
+        
         <VCalendar
           :key="currentMonth.toISOString()"
           :initial-page="{ month: currentMonth.getMonth() + 1, year: currentMonth.getFullYear() }"
@@ -256,7 +261,7 @@ watch(isLoggedIn, (newValue) => {
                   v-for="task in getTasksForDay(day)"
                   :key="task._id"
                   class="calendar-task"
-                  :class="getStatusColor(task.status)"
+                  :class="getStatusColor(task)"
                   :title="getTaskTooltip(task)"
                 >
                   <span class="task-time">{{ formatTime(task.deadline) }}</span>
@@ -266,9 +271,6 @@ watch(isLoggedIn, (newValue) => {
             </div>
           </template>
         </VCalendar>
-        <div v-if="loadingTasks" class="calendar-loading">
-          Cargando tareas...
-        </div>
       </div>
     </div>
 
@@ -587,23 +589,67 @@ body.dark .footer-link:hover {
   color: #93c5fd;
 }
 
-/* === CALENDAR WRAPPER - 70% WIDTH === */
+/* === CALENDAR WRAPPER - 80% WIDTH === */
 .calendar-wrapper {
-  width: 70%;
+  width: 80%;
   margin: 0 auto 2rem auto;
   padding: 0;
 }
 
 /* === CALENDAR LOADING === */
-.calendar-loading {
-  text-align: center;
-  padding: 1rem;
+/* === LOADING SPINNER STYLES === */
+.calendar-loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.9);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  border-radius: 16px;
+}
+
+body.dark .calendar-loading-overlay {
+  background: rgba(30, 41, 59, 0.95);
+}
+
+.spinner {
+  width: 50px;
+  height: 50px;
+  border: 4px solid #e5e7eb;
+  border-top: 4px solid #4f83cc;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+body.dark .spinner {
+  border-color: #374151;
+  border-top-color: #60a5fa;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.loading-text {
+  margin-top: 1rem;
   color: #6b7280;
-  font-style: italic;
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+body.dark .loading-text {
+  color: #9ca3af;
 }
 
 /* === CALENDAR STYLES === */
 .calendar-section {
+  position: relative;
   width: 100% !important;
   max-width: none !important;
   margin: 1rem 0;
@@ -712,8 +758,8 @@ body.dark .calendar-nav-btn:hover {
 
 /* === DÍAS - RECTANGULARES Y PROPORCIONALES === */
 .custom-calendar .vc-day {
-  min-height: 106px !important;
-  height: 106px !important;
+  min-height: 122px !important;
+  height: 122px !important;
   min-width: 0 !important;
   padding: 0 !important;
   border: 1px solid #d1d5db !important;
@@ -749,9 +795,8 @@ body.dark .calendar-nav-btn:hover {
 .day-tasks {
   flex: 1;
   overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+  overflow-x: hidden;
+  display: block;
 }
 
 /* Scrollbar sutil para tareas */
@@ -771,9 +816,12 @@ body.dark .calendar-nav-btn:hover {
 /* === TAREA INDIVIDUAL EN CALENDARIO === */
 .calendar-task {
   padding: 2px 4px;
+  margin-bottom: 2px;
   border-radius: 3px;
   font-size: 0.65rem;
-  line-height: 1.2;
+  line-height: 1.3;
+  min-height: 18px;
+  height: auto;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -781,13 +829,14 @@ body.dark .calendar-nav-btn:hover {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  transition: all 0.15s ease;
+  transition: background 0.1s ease, box-shadow 0.1s ease;
   border-left: 3px solid;
+  flex-shrink: 0;
 }
 
 .calendar-task:hover {
-  transform: scale(1.02);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  filter: brightness(0.95);
 }
 
 .task-time {

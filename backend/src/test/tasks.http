@@ -24,7 +24,9 @@ Content-Type: application/json
 
 
 ###
-DELETE http://127.0.0.1:3004/tasks/task/6850906a8d0e08406ad5eb5a
+DELETE http://127.0.0.1:3004/tasks/task/696265e751de069dd1dd5d07
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2OTU4NmY0YTE1YjA5MDFmNWY1OTY3NWEiLCJlbWFpbCI6InN1cGVydmlzb3IucmVjdXJyaW5nQGV4YW1wbGUuY29tIiwiaXNTdXBlcnZpc29yIjp0cnVlLCJzZWN0b3IiOiJURUNOT0xPR0lBX0lORk9STUFUSUNBIiwiaWF0IjoxNzY4MDU4NDQwLCJleHAiOjE3Njg2NjMyNDB9.bBeR6pG_AmAT48aK96-FY607mmPmgsShAdctojdz4VQ
+Content-Type: application/json
 
 ###
 PUT http://127.0.0.1:3004/tasks/task/685090d1e3f80be157fa7784
@@ -64,3 +66,45 @@ Content-Type: application/json
 ###
 DELETE http://127.0.0.1:3004/tasks/task/68c36e74bf76245c1b03b667
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiYWRtaW4iLCJwYXNzd29yZCI6IioqKioqKioiLCJyb2wiOiJPd25lciIsImlhdCI6MTc1NzYyOTE4OH0.v2wybEef8hF5xc9b4EDRF9HYL8-VEcpShXO04nONbVw
+
+### Tarea de prueba para hoy 10/01/2026 a las 15:00
+# PRIMERO: Ejecutá el login de abajo para obtener un token válido
+# SEGUNDO: Copiá el token de la respuesta y reemplazá el Bearer token acá
+POST http://127.0.0.1:3004/tasks/task
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2OTU4NmY0YTE1YjA5MDFmNWY1OTY3NWEiLCJlbWFpbCI6InN1cGVydmlzb3IucmVjdXJyaW5nQGV4YW1wbGUuY29tIiwiaXNTdXBlcnZpc29yIjp0cnVlLCJzZWN0b3IiOiJURUNOT0xPR0lBX0lORk9STUFUSUNBIiwiaWF0IjoxNzY4MDYyNTM0LCJleHAiOjE3Njg2NjczMzR9.wuo7dJAGRLPw6VyRvTeJxrSPNOmjJCMUbioP20qmuLU
+Content-Type: application/json
+
+{
+  "task": {
+    "title": "13.40",
+    "description": "13.40 HORAS",
+    "deadline": "2026-01-10T13:40:00.000",
+    "assignedTo": ["69586f4a15b0901f5f59675a"],
+    "status": "PENDIENTE"
+  }
+}
+
+### LOGIN - Ejecutar primero para obtener token
+# Usá las credenciales de un usuario que exista en tu base de datos
+POST http://127.0.0.1:3004/auth/login
+Content-Type: application/json
+
+{
+  "email": "supervisor.recurring@example.com",
+  "password": "123456"
+}
+
+###
+POST http://localhost:3004/tasks/task
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2OTU4NmY0YTE1YjA5MDFmNWY1OTY3NWEiLCJlbWFpbCI6InN1cGVydmlzb3IucmVjdXJyaW5nQGV4YW1wbGUuY29tIiwiaXNTdXBlcnZpc29yIjp0cnVlLCJzZWN0b3IiOiJURUNOT0xPR0lBX0lORk9STUFUSUNBIiwiaWF0IjoxNzY4MDYwNDQyLCJleHAiOjE3Njg2NjUyNDJ9.yG2f1Rb8qIFNwomgbZ0KStcvyyQOd13IBtyJ9duMudE
+Content-Type: application/json
+
+{
+  "task": {
+    "title": "Tarea de prueba vencimiento",
+    "description": "Esta tarea vence en 2 minutos",
+    "deadline": "2026-01-10T12:56:00",
+    "assignedTo": ["69586f4a15b0901f5f59675a"],
+    "status": "PENDIENTE"
+  }
+}

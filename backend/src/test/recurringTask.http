@@ -1,18 +1,3 @@
-### Crear usuario supervisor para pruebas (si no existe)
-POST http://localhost:3004/users/user
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2OTU4NDAwZGZlMjdkY2U2YWI4YTdiOTgiLCJlbWFpbCI6InN1cGVydmlzb3JAZXhhbXBsZS5jb20iLCJpc1N1cGVydmlzb3IiOnRydWUsInNlY3RvciI6IlRFQ05PTE9HSUFfSU5GT1JNQVRJQ0EiLCJpYXQiOjE3Njc0MDM1ODcsImV4cCI6MTc2ODAwODM4N30.yjrahauHirD93zqwi90I2XtbRlVtVorT0s8bLvZx6Xc
-Content-Type: application/json
-
-{
-  "user": {
-    "name": "Senior pruebas",
-    "email": "Test@test.com",
-    "password": "123456",
-    "sector": "TECNOLOGIA_INFORMATICA",
-    "isSupervisor": false
-  }
-}
-
 ### Login supervisor de pruebas (obtener token JWT)
 POST http://localhost:3004/auth/login
 Content-Type: application/json
@@ -32,56 +17,77 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2OTU4NmY0Y
 Content-Type: application/json
 
 {
-  "title": "Backup diario",
-  "description": "Tarea recurrente diaria de prueba",
+  "title": "primera prueba diaria",
+  "description": "probando 1...2...3",
   "assignedTo": ["69586f4a15b0901f5f59675a"],
   "recurrenceType": "DAILY_PATTERN",
   "periodicity": "DIARIA",
-  "startingFrom": "2026-01-03T00:00:00.000Z"
+  "startingFrom": "2026-01-12T09:00:00"
 }
+
+DESDE AQUI EJECUTAMOS
 
 ### Crear tarea recurrente SEMANAL los LUNES (DAILY_PATTERN)
 POST http://localhost:3004/recurringTask/recurring-tasks
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2OTU4NmY0YTE1YjA5MDFmNWY1OTY3NWEiLCJlbWFpbCI6InN1cGVydmlzb3IucmVjdXJyaW5nQGV4YW1wbGUuY29tIiwiaXNTdXBlcnZpc29yIjp0cnVlLCJzZWN0b3IiOiJURUNOT0xPR0lBX0lORk9STUFUSUNBIiwiaWF0IjoxNzY3NDA2OTA0LCJleHAiOjE3NjgwMTE3MDR9.h73BjDqtYoJ9MZX7pavpqNkW00Lnt3_0g5N42HnyMys
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2OTU4NmY0YTE1YjA5MDFmNWY1OTY3NWEiLCJlbWFpbCI6InN1cGVydmlzb3IucmVjdXJyaW5nQGV4YW1wbGUuY29tIiwiaXNTdXBlcnZpc29yIjp0cnVlLCJzZWN0b3IiOiJURUNOT0xPR0lBX0lORk9STUFUSUNBIiwiaWF0IjoxNzY4MDYyNTM0LCJleHAiOjE3Njg2NjczMzR9.wuo7dJAGRLPw6VyRvTeJxrSPNOmjJCMUbioP20qmuLU
 Content-Type: application/json
 
 {
-  "title": "Reunión semanal lunes",
-  "description": "Reunión de equipo todos los lunes a partir del 10 de enero",
-  "assignedTo": ["695858f5366295e2171ed2ad"],
+  "title": "primera prueba semanal",
+  "description": "probando 1...2...3",
+  "assignedTo": ["69586f4a15b0901f5f59675a"],
   "recurrenceType": "DAILY_PATTERN",
   "periodicity": "SEMANAL",
   "datePattern": "LUNES",
-  "startingFrom": "2026-01-10T00:00:00.000Z"
+  "startingFrom": "2026-01-12T10:00:00"
 }
 
 ### Crear tarea recurrente QUINCENAL los VIERNES (DAILY_PATTERN)
 POST http://localhost:3004/recurringTask/recurring-tasks
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2OTU4NmY0YTE1YjA5MDFmNWY1OTY3NWEiLCJlbWFpbCI6InN1cGVydmlzb3IucmVjdXJyaW5nQGV4YW1wbGUuY29tIiwiaXNTdXBlcnZpc29yIjp0cnVlLCJzZWN0b3IiOiJURUNOT0xPR0lBX0lORk9STUFUSUNBIiwiaWF0IjoxNzY3NDA2OTA0LCJleHAiOjE3NjgwMTE3MDR9.h73BjDqtYoJ9MZX7pavpqNkW00Lnt3_0g5N42HnyMys
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2OTU4NmY0YTE1YjA5MDFmNWY1OTY3NWEiLCJlbWFpbCI6InN1cGVydmlzb3IucmVjdXJyaW5nQGV4YW1wbGUuY29tIiwiaXNTdXBlcnZpc29yIjp0cnVlLCJzZWN0b3IiOiJURUNOT0xPR0lBX0lORk9STUFUSUNBIiwiaWF0IjoxNzY4MDYyNTM0LCJleHAiOjE3Njg2NjczMzR9.wuo7dJAGRLPw6VyRvTeJxrSPNOmjJCMUbioP20qmuLU
 Content-Type: application/json
 
 {
-  "title": "Revisión quincenal",
-  "description": "Revisión de avances cada dos viernes",
+  "title": "primera prueba quincenal",
+  "description": "probando 1...2...3",
   "assignedTo": ["69586f4a15b0901f5f59675a", "695dc7a9321775bdc2096bf1"],
   "recurrenceType": "DAILY_PATTERN",
   "periodicity": "QUINCENAL",
   "datePattern": "VIERNES",
-  "startingFrom": "2026-01-09T00:00:00.000Z"
+  "startingFrom": "2026-01-16T14:00:00"
 }
 
-### Crear tarea recurrente MENSUAL el día 15 (NUMERIC_PATTERN)
+
+### Crear tarea recurrente MENSUAL el día 15 (NUMERIC_PATTERN) 
 POST http://localhost:3004/recurringTask/recurring-tasks
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2OTU4NmY0YTE1YjA5MDFmNWY1OTY3NWEiLCJlbWFpbCI6InN1cGVydmlzb3IucmVjdXJyaW5nQGV4YW1wbGUuY29tIiwiaXNTdXBlcnZpc29yIjp0cnVlLCJzZWN0b3IiOiJURUNOT0xPR0lBX0lORk9STUFUSUNBIiwiaWF0IjoxNzY3NDA2OTA0LCJleHAiOjE3NjgwMTE3MDR9.h73BjDqtYoJ9MZX7pavpqNkW00Lnt3_0g5N42HnyMys
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2OTU4NmY0YTE1YjA5MDFmNWY1OTY3NWEiLCJlbWFpbCI6InN1cGVydmlzb3IucmVjdXJyaW5nQGV4YW1wbGUuY29tIiwiaXNTdXBlcnZpc29yIjp0cnVlLCJzZWN0b3IiOiJURUNOT0xPR0lBX0lORk9STUFUSUNBIiwiaWF0IjoxNzY4MDYyNTM0LCJleHAiOjE3Njg2NjczMzR9.wuo7dJAGRLPw6VyRvTeJxrSPNOmjJCMUbioP20qmuLU
 Content-Type: application/json
 
 {
-  "title": "Reporte mensual día 15",
-  "description": "Entrega de reporte el día 15 de cada mes",
+  "title": "primera prueba numeric pattern",
+  "description": "asignada a senior pruebas",
   "assignedTo": ["695dc7a9321775bdc2096bf1"],
   "recurrenceType": "NUMERIC_PATTERN",
-  "numberPattern": 15,
-  "startingFrom": "2026-01-03T00:00:00.000Z"
+  "numberPattern": 16,
+  "startingFrom": "2026-01-16T16:00:00"
+}
+
+###
+HASTA AQUI EJECUTAMOS
+
+### Crear tarea recurrente SEMANAL todos los LUNES a las 10:00 (hora Argentina)
+POST http://localhost:3004/recurringTask/recurring-tasks
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2OTU4NmY0YTE1YjA5MDFmNWY1OTY3NWEiLCJlbWFpbCI6InN1cGVydmlzb3IucmVjdXJyaW5nQGV4YW1wbGUuY29tIiwiaXNTdXBlcnZpc29yIjp0cnVlLCJzZWN0b3IiOiJURUNOT0xPR0lBX0lORk9STUFUSUNBIiwiaWF0IjoxNzY4MDYwNDQyLCJleHAiOjE3Njg2NjUyNDJ9.yG2f1Rb8qIFNwomgbZ0KStcvyyQOd13IBtyJ9duMudE
+Content-Type: application/json
+
+{
+  "title": "prueba pruebota",
+  "description": "el mariachi loco quiere bailar",
+  "assignedTo": ["69586f4a15b0901f5f59675a"],
+  "recurrenceType": "DAILY_PATTERN",
+  "periodicity": "SEMANAL",
+  "datePattern": "LUNES",
+  "startingFrom": "2026-02-02T10:00:00"
 }
 
 ### ============================================

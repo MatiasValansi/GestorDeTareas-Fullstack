@@ -7,6 +7,7 @@ import { taskRouter } from "./routes/taskRouter.js";
 import { userRouter } from "./routes/userRouter.js";
 import { authRouter } from "./routes/authRouter.js";
 import { recurringTaskRouter } from "./routes/recurringTaskRouter.js";
+import { parseDateFields } from "./middleware/dateParser.js";
 
 const app = express();
 
@@ -19,6 +20,9 @@ app.use(
 );
 
 app.use(express.json());
+
+// Middleware para convertir fechas de Argentina a UTC automáticamente
+app.use(parseDateFields);
 
 app.get("/", async (req, res) => {
 	return res.json({

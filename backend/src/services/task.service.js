@@ -1,5 +1,6 @@
 import { TaskModel } from "../model/Task.js";
 import { TaskRepository } from "../repository/task.repository.js";
+import { ArgentinaTime } from "../utils/argentinaTime.js";
 
 export const TaskService = {
 	serviceTaskValidation: async (id) => {
@@ -47,10 +48,9 @@ export const TaskService = {
 			throw new Error("Solo el titular de la tarea puede eliminarla");
 		}
 
-		// Rule 2: Can only delete future tasks (deadline > now)
-		const now = new Date();
-		if (taskToDelete.deadline && taskToDelete.deadline <= now) {
-			throw new Error("Solo se pueden eliminar tareas con fecha de vencimiento futura");
+		// Rule 2: Can only delete future tasks (deadline > now in Argentina time)
+		if (taskToDelete.deadline && ArgentinaTime.isExpired(taskToDelete.deadline)) {
+			throw new Error("Solo se pueden eliminar tareas con fecha de vencimiento futura (hora Argentina)");
 		}
 
 		// Perform deletion
@@ -116,17 +116,41 @@ export const TaskService = {
 		return tasks;
 	},
 
+	/**
+	 * Marca como VENCIDAS todas las tareas cuyo deadline (UTC) ya pasó
+	 * y no están completadas.
+	 * 
+	 * LÓGICA:
+	 * - deadline en BD: UTC (ej: 2026-01-10T22:00:00Z = 19:00 Argentina)
+	 * - now: UTC actual (ej: 2026-01-10T22:01:00Z = 19:01 Argentina)
+	 * - Si deadline < now → VENCIDA
+	 * 
+	 * @returns {Promise<Object>} Resultado con cantidad de tareas actualizadas
+	 */
 	async markExpiredTasks() {
-		const now = new Date();
-		await TaskModel.updateMany(
+		const now = new Date(); // Hora actual en UTC
+		
+		console.log(`[markExpiredTasks] Verificando tareas vencidas.`);
+		console.log(`  → Hora UTC actual: ${now.toISOString()}`);
+		console.log(`  → Hora Argentina:  ${ArgentinaTime.format(now)}`);
+		
+		const result = await TaskModel.updateMany(
 			{
-				status: { $ne: "COMPLETADA" },
-				deadline: { $lt: now },
+				status: "PENDIENTE", // Solo marcar las pendientes como vencidas
+				deadline: { $lt: now }, // deadline (UTC) < ahora (UTC)
 			},
 			{
 				$set: { status: "VENCIDA" },
 			},
 		);
+		
+		if (result.modifiedCount > 0) {
+			console.log(`  → Se marcaron ${result.modifiedCount} tareas como VENCIDAS`);
+		} else {
+			console.log(`  → No hay tareas para marcar como vencidas`);
+		}
+		
+		return { modifiedCount: result.modifiedCount };
 	},
 
 	async getTasksBetween(from, to, userIds) {
@@ -148,7 +172,7 @@ export const TaskService = {
 	 * @returns {Promise<Array>} Tasks with assignedTo populated
 	 */
 	async getCalendarTasks(user, month, year) {
-		// Mark expired tasks first
+		// Actualizar tareas vencidas en la BD antes de consultar
 		await this.markExpiredTasks();
 
 		// Calculate date range for the month (include days from prev/next month visible in calendar)
