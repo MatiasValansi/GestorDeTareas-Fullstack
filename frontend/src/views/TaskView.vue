@@ -1,62 +1,82 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch, inject } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
-
-import { getAllTasks, deleteTask, updateTask } from '@/services/tasks'
+import { getCalendarTasks } from '@/services/tasks'
 import { getAllUsers } from '@/services/users'
 
 const router = useRouter()
+const store = useUserStore()
 
+// Inyectar el mes del calendario desde App.vue
+const globalMonth = inject('currentMonth', ref(new Date()))
+
+// Estado local
 const tareas = ref([])
-const nuevaTarea = ref("")
+const usuarios = ref([])
 const cargando = ref(false)
 const error = ref("")
-const usuarios = ref([])
-const store = useUserStore()
+
+// Mes seleccionado (sincronizado con el calendario global)
+const selectedMonth = ref(new Date(globalMonth.value))
 
 // Filtros
 const filtroEstado = ref('todos') // 'todos', 'completadas', 'pendientes', 'vencidas'
 
-// Tareas filtradas
-const tareasFiltradas = computed(() => {
-  if (filtroEstado.value === 'todos') return tareas.value
-  if (filtroEstado.value === 'completadas') return tareas.value.filter(t => t.completada || t.status === 'COMPLETADA')
-  if (filtroEstado.value === 'pendientes') return tareas.value.filter(t => !t.completada && t.status !== 'VENCIDA')
-  if (filtroEstado.value === 'vencidas') return tareas.value.filter(t => t.status === 'VENCIDA')
-  return tareas.value
+// ============ COMPUTED ============
+
+// Label del mes actual
+const currentMonthLabel = computed(() => {
+  return selectedMonth.value.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })
 })
 
+// Tareas filtradas por estado
+const tareasFiltradas = computed(() => {
+  let filtered = tareas.value
+  
+  if (filtroEstado.value === 'completadas') {
+    filtered = filtered.filter(t => t.completada || t.status === 'COMPLETADA')
+  } else if (filtroEstado.value === 'pendientes') {
+    filtered = filtered.filter(t => !t.completada && t.status !== 'VENCIDA' && t.status !== 'COMPLETADA')
+  } else if (filtroEstado.value === 'vencidas') {
+    filtered = filtered.filter(t => t.status === 'VENCIDA')
+  }
+  
+  // Ordenar por fecha
+  return filtered.sort((a, b) => new Date(a.deadline) - new Date(b.deadline))
+})
 
-// const mostrarTareas = async () => {
-//   cargando.value = true
-//   try {
-//     const res = await axios.get(MOCKAPI)
-//     tareas.value = res.data
-//   } catch (err) {
-//     error.value = 'Error al cargar tareas.'
-//     console.error(err)
-//   } finally {
-//     cargando.value = false
-//   }
-// }
+// Contadores para los filtros
+const contadores = computed(() => ({
+  total: tareas.value.length,
+  completadas: tareas.value.filter(t => t.completada || t.status === 'COMPLETADA').length,
+  pendientes: tareas.value.filter(t => !t.completada && t.status !== 'VENCIDA' && t.status !== 'COMPLETADA').length,
+  vencidas: tareas.value.filter(t => t.status === 'VENCIDA').length
+}))
 
-const mostrarTareas = async () => {
+// ============ MÉTODOS ============
+
+// Cargar tareas del mes seleccionado
+const cargarTareas = async () => {
   cargando.value = true
+  error.value = ""
   try {
-    const res = await getAllTasks()    
+    const month = selectedMonth.value.getMonth() + 1
+    const year = selectedMonth.value.getFullYear()
     
-    const todasLasTareas = res
-
-    // Si el usuario es supervisor, ve todas.
-    // Si no, solo las tareas en las que está asignado.
+    const todasLasTareas = await getCalendarTasks(month, year)
+    
+    // Si el usuario es supervisor, ve todas. Si no, solo las asignadas.
     if (store.isSupervisor) {
       tareas.value = todasLasTareas
     } else {
       const myId = store.user?.id
       tareas.value = todasLasTareas.filter((t) => {
         const assigned = Array.isArray(t.assignedTo) ? t.assignedTo : []
-        return assigned.includes(myId)
+        // Verificar si assignedTo contiene objetos o IDs
+        return assigned.some(a => 
+          (typeof a === 'object' ? a._id || a.id : a) === myId
+        )
       })
     }
   } catch (err) {
@@ -67,61 +87,34 @@ const mostrarTareas = async () => {
   }
 }
 
-
-const obtenerUsuarios = async () => {
+// Cargar usuarios
+const cargarUsuarios = async () => {
   try {
-    const res = await getAllUsers()
-    
-    usuarios.value = res
-    
+    usuarios.value = await getAllUsers()
   } catch (err) {
     console.error('Error al cargar usuarios', err)
   }
 }
 
-onMounted(async () => {
-  await mostrarTareas()
-  await obtenerUsuarios()
-})
-
-
-
-const eliminarTarea = async (id, titulo) => {
-  if (!confirm(`❌¿Eliminar "${titulo}"?`)) return
-  try {
-    await deleteTask(id)
-    alert(`Tarea "${titulo}" eliminada.`)
-    await mostrarTareas()
-  } catch (err) {
-    console.error('Error al eliminar tarea', err)
-  }
+// Navegación de mes
+const prevMonth = () => {
+  const newDate = new Date(selectedMonth.value)
+  newDate.setMonth(newDate.getMonth() - 1)
+  selectedMonth.value = newDate
 }
 
-const editarTarea = (id) => {
-  router.push(`/editTask/${id}`)
+const nextMonth = () => {
+  const newDate = new Date(selectedMonth.value)
+  newDate.setMonth(newDate.getMonth() + 1)
+  selectedMonth.value = newDate
 }
 
-const toggleCompletada = async (tarea) => {
-  const id = tarea._id || tarea.id
-  if (!id) return
-
-  // Optimistic UI: cambiamos primero en el frontend
-  const estadoAnterior = tarea.completada
-  tarea.completada = !estadoAnterior
-
-  try {
-    await updateTask(id, { completada: tarea.completada })
-  } catch (err) {
-    console.error('Error al actualizar tarea', err)
-    // Revertimos si falló
-    tarea.completada = estadoAnterior
-    alert('No se pudo actualizar el estado de la tarea.')
-  }
+// Ir al mes actual
+const goToCurrentMonth = () => {
+  selectedMonth.value = new Date()
 }
 
-const irANuevaVistaTarea = () => {
-  router.push('/newTask')
-}
+// ============ HELPERS DE FORMATO ============
 
 const formatFecha = (fechaStr) => {
   if (!fechaStr) return 'No disponible'
@@ -137,7 +130,6 @@ const getUserNameById = (id) => {
   return user ? user.nombre ?? user.name ?? 'Usuario sin nombre' : 'Usuario desconocido'
 }
 
-// Obtener color del estado basado en status de BD
 const getStatusClass = (tarea) => {
   if (tarea.status === 'COMPLETADA' || tarea.completada) return 'status-completada'
   if (tarea.status === 'VENCIDA') return 'status-vencida'
@@ -150,50 +142,81 @@ const getStatusLabel = (tarea) => {
   return 'Pendiente'
 }
 
-// Obtener los nombres de los usuarios asignados
 const getAssigneesNames = (assignedTo) => {
   if (!assignedTo || assignedTo.length === 0) return 'Sin asignar'
-  // Si assignedTo contiene objetos de usuario
   if (typeof assignedTo[0] === 'object') {
     return assignedTo.map(u => u.nombre || u.name || 'Usuario').join(', ')
   }
-  // Si assignedTo contiene solo IDs
   return assignedTo.map(id => getUserNameById(id)).join(', ')
 }
+
+// ============ NAVEGACIÓN ============
 
 const verDetalleTarea = (id) => {
   router.push(`/taskDetail/${id}`)
 }
+
+const irANuevaVistaTarea = () => {
+  router.push('/newTask')
+}
+
+// ============ LIFECYCLE ============
+
+onMounted(async () => {
+  await Promise.all([cargarTareas(), cargarUsuarios()])
+})
+
+// Recargar tareas cuando cambia el mes
+watch(selectedMonth, () => {
+  cargarTareas()
+})
+
+// Sincronizar con el mes global cuando cambia
+watch(globalMonth, (newMonth) => {
+  selectedMonth.value = new Date(newMonth)
+}, { deep: true })
 </script>
 
 <template>
   <main class="task-container">
-    <!-- Header con filtros estilo app -->
+    <!-- Header con navegación de mes y filtros -->
     <div class="task-header">
+      <!-- Selector de mes -->
+      <div class="month-selector">
+        <button class="month-nav-btn" @click="prevMonth">◀</button>
+        <h2 class="month-title" @click="goToCurrentMonth">{{ currentMonthLabel }}</h2>
+        <button class="month-nav-btn" @click="nextMonth">▶</button>
+      </div>
+      
+      <!-- Filtros de estado -->
       <div class="filters-row">
-        <button class="filter-icon-btn">
-          <span>⚙️</span> Filtros
+        <button 
+          class="filter-chip" 
+          :class="{ active: filtroEstado === 'todos' }"
+          @click="filtroEstado = 'todos'"
+        >
+          Todas ({{ contadores.total }})
         </button>
         <button 
           class="filter-chip" 
           :class="{ active: filtroEstado === 'completadas' }"
           @click="filtroEstado = filtroEstado === 'completadas' ? 'todos' : 'completadas'"
         >
-          Completadas
+          ✅ Completadas ({{ contadores.completadas }})
         </button>
         <button 
           class="filter-chip" 
           :class="{ active: filtroEstado === 'pendientes' }"
           @click="filtroEstado = filtroEstado === 'pendientes' ? 'todos' : 'pendientes'"
         >
-          Pendientes
+          ⏳ Pendientes ({{ contadores.pendientes }})
         </button>
         <button 
           class="filter-chip" 
           :class="{ active: filtroEstado === 'vencidas' }"
           @click="filtroEstado = filtroEstado === 'vencidas' ? 'todos' : 'vencidas'"
         >
-          Vencidas
+          ❌ Vencidas ({{ contadores.vencidas }})
         </button>
       </div>
     </div>
@@ -257,7 +280,7 @@ const verDetalleTarea = (id) => {
     <!-- Estado vacío -->
     <div v-else class="empty-state">
       <div class="empty-icon">📋</div>
-      <p>No hay tareas {{ filtroEstado !== 'todos' ? filtroEstado : '' }}</p>
+      <p>No hay tareas {{ filtroEstado !== 'todos' ? filtroEstado : '' }} en {{ currentMonthLabel }}</p>
     </div>
   </main>
 </template>
@@ -272,7 +295,7 @@ const verDetalleTarea = (id) => {
   min-height: 100vh;
 }
 
-/* === HEADER CON FILTROS === */
+/* === HEADER CON SELECTOR DE MES Y FILTROS === */
 .task-header {
   background: white;
   padding: 1rem 1.5rem;
@@ -282,39 +305,68 @@ const verDetalleTarea = (id) => {
   z-index: 10;
 }
 
-.filters-row {
+/* === SELECTOR DE MES === */
+.month-selector {
   display: flex;
-  gap: 0.75rem;
   align-items: center;
-  overflow-x: auto;
-  padding-bottom: 0.25rem;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
 }
 
-.filter-icon-btn {
+.month-nav-btn {
+  background: #4f83cc;
+  color: white;
+  border: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 1rem;
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  background: transparent;
-  border: 1px solid #d1d5db;
-  border-radius: 20px;
-  padding: 0.5rem 1rem;
-  font-size: 0.9rem;
-  color: #374151;
-  cursor: pointer;
-  white-space: nowrap;
+  justify-content: center;
   transition: all 0.2s ease;
 }
 
-.filter-icon-btn:hover {
+.month-nav-btn:hover {
+  background: #3d6db5;
+  transform: scale(1.05);
+}
+
+.month-title {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #1f2937;
+  text-transform: capitalize;
+  margin: 0;
+  cursor: pointer;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  transition: background 0.2s ease;
+}
+
+.month-title:hover {
   background: #f3f4f6;
+}
+
+/* === FILTROS === */
+.filters-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+  justify-content: center;
+  flex-wrap: wrap;
 }
 
 .filter-chip {
   background: transparent;
   border: 1px solid #d1d5db;
   border-radius: 20px;
-  padding: 0.5rem 1rem;
-  font-size: 0.9rem;
+  padding: 0.45rem 0.9rem;
+  font-size: 0.85rem;
   color: #374151;
   cursor: pointer;
   white-space: nowrap;
@@ -537,13 +589,27 @@ body.dark .task-header {
   border-bottom-color: #374151;
 }
 
-body.dark .filter-icon-btn,
+body.dark .month-nav-btn {
+  background: #3b82f6;
+}
+
+body.dark .month-nav-btn:hover {
+  background: #2563eb;
+}
+
+body.dark .month-title {
+  color: #f1f5f9;
+}
+
+body.dark .month-title:hover {
+  background: #374151;
+}
+
 body.dark .filter-chip {
   border-color: #4b5563;
   color: #d1d5db;
 }
 
-body.dark .filter-icon-btn:hover,
 body.dark .filter-chip:hover {
   background: #374151;
 }

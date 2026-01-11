@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { getTaskById, deleteTask } from '@/services/tasks'
@@ -7,45 +7,100 @@ import { getUserById } from '@/services/users'
 
 const route = useRoute()
 const router = useRouter()
-const tarea = ref(null)
-const nombreUsuario = ref('')
-const idUsuario = ref('')
 const store = useUserStore()
 
-onMounted(async () => {
+// Estado
+const tarea = ref(null)
+const cargando = ref(true)
+const error = ref("")
+
+// ============ COMPUTED ============
+
+// Datos del usuario asignado
+const assignedUsers = computed(() => {
+  if (!tarea.value?.assignedTo) return []
+  return tarea.value.assignedTo
+})
+
+// Estado de la tarea
+const taskStatus = computed(() => {
+  if (!tarea.value) return { label: 'Desconocido', class: 'status-unknown' }
+  
+  if (tarea.value.status === 'COMPLETADA' || tarea.value.completada) {
+    return { label: 'Completada', class: 'status-completada', icon: '✅' }
+  }
+  if (tarea.value.status === 'VENCIDA') {
+    return { label: 'Vencida', class: 'status-vencida', icon: '❌' }
+  }
+  return { label: 'Pendiente', class: 'status-pendiente', icon: '⏳' }
+})
+
+// Es tarea recurrente
+const isRecurring = computed(() => {
+  return !!tarea.value?.recurringTaskId
+})
+
+// ============ MÉTODOS ============
+
+// Cargar datos de la tarea
+const cargarTarea = async () => {
+  cargando.value = true
+  error.value = ""
   try {
     const data = await getTaskById(route.params.id)
     const doc = data?.payload?.taskFoundById ?? data?.payload ?? data
-
     tarea.value = doc
-    idUsuario.value = doc.userId
-
-    const user = await getUserById(doc.userId)
-    nombreUsuario.value = user.nombre ?? user.name
   } catch (err) {
-    console.error('Error al cargar datos de tarea o usuario:', err)
+    console.error('Error al cargar datos de tarea:', err)
+    error.value = 'No se pudo cargar la tarea'
+  } finally {
+    cargando.value = false
   }
-})
+}
 
-const formatFecha = (fechaStr) => {
+// Formatear fecha completa
+const formatFechaCompleta = (fechaStr) => {
+  if (!fechaStr) return 'No asignada'
+  const fecha = new Date(fechaStr)
+  const opciones = { 
+    weekday: 'long', 
+    day: 'numeric', 
+    month: 'long', 
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  }
+  return fecha.toLocaleDateString('es-ES', opciones)
+}
+
+// Formatear fecha corta
+const formatFechaCorta = (fechaStr) => {
   if (!fechaStr) return 'No disponible'
   const fecha = new Date(fechaStr)
-  fecha.setMinutes(fecha.getMinutes() + Math.abs(fecha.getTimezoneOffset()))
-  return fecha.toLocaleDateString('es-AR', {
+  return fecha.toLocaleDateString('es-ES', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric'
   })
 }
 
-const verDetalleUsuario = () => {
-  if (idUsuario.value) {
-    router.push(`/userDetail/${idUsuario.value}`)
+// Obtener nombre del usuario
+const getUserName = (user) => {
+  if (!user) return 'Sin asignar'
+  if (typeof user === 'object') {
+    return user.nombre || user.name || user.email || 'Usuario'
   }
+  return user
 }
 
+// Navegación
 const volverAlMenu = () => {
-  router.push(`/task`)
+  router.push('/task')
+}
+
+const verDetalleUsuario = (userId) => {
+  const id = typeof userId === 'object' ? userId._id || userId.id : userId
+  if (id) router.push(`/userDetail/${id}`)
 }
 
 const editarTarea = () => {
@@ -65,284 +120,574 @@ const eliminarTarea = async () => {
   }
 }
 
+// ============ LIFECYCLE ============
+
+onMounted(() => {
+  cargarTarea()
+})
 </script>
 
 <template>
-   
-  <h2 v-if="tarea" class="titulo-tarea-modern">
-  Detalle de {{ tarea.titulo }}
-  </h2>
+  <div class="detail-container">
+    <!-- Botón volver -->
+    <div class="back-link" @click="volverAlMenu">
+      <span class="back-arrow">←</span>
+      <span class="back-text">Volver a la lista</span>
+    </div>
 
-  <div class="volver-link" @click="volverAlMenu">
-    <span class="volver-texto">← Volver al Menú</span>
-  </div>
-  
-  <main v-if="tarea">
-    <p><strong>ID Tarea:</strong> {{ tarea._id || tarea.id }}</p>
-    <p><strong>Título:</strong> {{ tarea.title || tarea.titulo }}</p>
-    <p><strong>Descripción:</strong> {{ tarea.description || tarea.descripcion || 'No ingresada' }}</p>
-    <p><strong>ID Usuario asignado:</strong> {{ idUsuario }}</p>
-    <p>
-      <strong>Nombre Usuario asignado: </strong>
-      <span class="usuario-link" @click="verDetalleUsuario">{{ nombreUsuario }}</span>
-    </p>
-    <p><strong>Completada:</strong> {{ tarea.completed || tarea.completada ? 'Sí' : 'No' }}</p>
-    <p><strong>Fecha límite:</strong> {{ formatFecha(tarea.deadline) || 'No asignada' }}</p>
-    <p><strong>Fecha de creación tarea:</strong> {{ formatFecha(tarea.createdAt || tarea.creada) }}</p>
-  </main>
+    <!-- Loading -->
+    <div v-if="cargando" class="loading-state">
+      <div class="spinner"></div>
+      <span>Cargando tarea...</span>
+    </div>
 
-  <div class="acciones">
-    <template v-if="store.user.admin">
-  <button class="btn editar" @click="editarTarea">Editar Tarea</button>
-  <button class="btn eliminar" @click="eliminarTarea">Eliminar Tarea</button>
-</template>
+    <!-- Error -->
+    <div v-else-if="error" class="error-state">
+      <span class="error-icon">⚠️</span>
+      <p>{{ error }}</p>
+      <button class="btn-retry" @click="cargarTarea">Reintentar</button>
+    </div>
+
+    <!-- Contenido de la tarea -->
+    <div v-else-if="tarea" class="task-detail-card">
+      <!-- Header con estado -->
+      <div class="detail-header">
+        <div class="status-badge-large" :class="taskStatus.class">
+          <span class="status-icon">{{ taskStatus.icon }}</span>
+          <span>{{ taskStatus.label }}</span>
+        </div>
+        <div v-if="isRecurring" class="recurring-badge">
+          🔄 Tarea recurrente
+        </div>
+      </div>
+
+      <!-- Título -->
+      <h1 class="task-title">{{ tarea.title || tarea.titulo }}</h1>
+
+      <!-- Descripción -->
+      <div class="detail-section" v-if="tarea.description || tarea.descripcion">
+        <h3 class="section-title">📝 Descripción</h3>
+        <p class="description-text">{{ tarea.description || tarea.descripcion }}</p>
+      </div>
+
+      <!-- Info Grid -->
+      <div class="info-grid">
+        <!-- Fecha límite -->
+        <div class="info-card">
+          <span class="info-icon">📅</span>
+          <div class="info-content">
+            <span class="info-label">Fecha límite</span>
+            <span class="info-value">{{ formatFechaCompleta(tarea.deadline) }}</span>
+          </div>
+        </div>
+
+        <!-- Fecha creación -->
+        <div class="info-card">
+          <span class="info-icon">🕐</span>
+          <div class="info-content">
+            <span class="info-label">Fecha de creación</span>
+            <span class="info-value">{{ formatFechaCorta(tarea.createdAt || tarea.creada) }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Usuarios asignados -->
+      <div class="detail-section">
+        <h3 class="section-title">👥 Usuarios asignados</h3>
+        <div class="users-list" v-if="assignedUsers.length > 0">
+          <div 
+            v-for="user in assignedUsers" 
+            :key="user._id || user.id || user"
+            class="user-chip"
+            @click="verDetalleUsuario(user)"
+          >
+            <span class="user-avatar">👤</span>
+            <span class="user-name">{{ getUserName(user) }}</span>
+            <span class="user-arrow">›</span>
+          </div>
+        </div>
+        <p v-else class="no-users">Sin usuarios asignados</p>
+      </div>
+
+      <!-- ID de la tarea (colapsable) -->
+      <details class="technical-info">
+        <summary>ℹ️ Información técnica</summary>
+        <div class="tech-content">
+          <p><strong>ID:</strong> {{ tarea._id || tarea.id }}</p>
+          <p v-if="tarea.recurringTaskId"><strong>ID Tarea recurrente:</strong> {{ tarea.recurringTaskId }}</p>
+        </div>
+      </details>
+
+      <!-- Acciones -->
+      <div class="actions-section" v-if="store.isSupervisor">
+        <button class="btn btn-edit" @click="editarTarea">
+          ✏️ Editar Tarea
+        </button>
+        <button class="btn btn-delete" @click="eliminarTarea">
+          🗑️ Eliminar Tarea
+        </button>
+      </div>
+    </div>
   </div>
 </template>
 
 <style scoped>
-.top-bar {
-  display: flex;
-  align-items: center;
-  justify-content: start;
-  max-width: 900px;
-  margin: 2rem auto 0;
-  padding: 0 1rem;
-  gap: 1.5rem;
-  flex-wrap: wrap;
-}
-
-
-
-/* Contenedor del título más estrecho y centrado */
-.titulo-box {
-  flex-grow: 1;
-  max-width: 500px;
-  margin: 0 auto;
-  background-color: #e0e7ff;
-  padding: 0.8rem 1rem;
-  border-radius: 12px;
-  border: 2px solid #3b82f6;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
-  text-align: center;
-}
-
-.titulo-box h2 {
-  margin: 0;
-  font-size: 1.6rem;
-  color: #1e40af;
-  font-weight: bold;
-}
-
-/* Contenido principal */
-main {
+/* === CONTENEDOR PRINCIPAL === */
+.detail-container {
   max-width: 700px;
-  margin: 1rem auto 2rem;
-  padding: 2rem;
-  background-color: #f7f5f1;
-  border-radius: 14px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  animation: fadeIn 0.4s ease;
-  font-size: 1.1rem;
-  line-height: 1.6;
+  margin: 0 auto;
+  padding: 1.5rem;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  color: #2d3748;
 }
 
-p {
-  margin-bottom: 0.8rem;
-  color: #4a5568;
-}
-
-strong {
-  color: #4f83cc;
-}
-
-.usuario-link {
-  color: #0ea5e9;
-  text-decoration: underline;
-  font-weight: 600;
+/* === BOTÓN VOLVER === */
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
   cursor: pointer;
+  padding: 0.5rem 0;
+  margin-bottom: 1rem;
+  color: #6b7280;
+  font-weight: 500;
   transition: color 0.2s ease;
 }
-.usuario-link:hover {
-  color: #38bdf8;
+
+.back-link:hover {
+  color: #3b82f6;
 }
 
-/* Modo oscuro */
-body.dark main {
-  background-color: #2d3748;
-  color: #f9fafb;
-  border: 1px solid #4a5568;
-}
-body.dark p {
-  color: #e2e8f0;
-}
-body.dark strong {
-  color: #60a5fa;
-}
-body.dark .usuario-link {
-  color: #38bdf8;
-}
-body.dark .usuario-link:hover {
-  color: #7dd3fc;
+.back-arrow {
+  font-size: 1.2rem;
 }
 
-body.dark .titulo-box {
-  background-color: #1e293b;
-  border-color: #60a5fa;
+.back-text {
+  font-size: 0.95rem;
 }
-body.dark .titulo-box h2 {
-  color: #93c5fd;
+
+/* === LOADING STATE === */
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  color: #6b7280;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #e5e7eb;
+  border-top-color: #4f83cc;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-bottom: 1rem;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* === ERROR STATE === */
+.error-state {
+  text-align: center;
+  padding: 3rem;
+  color: #dc2626;
+}
+
+.error-icon {
+  font-size: 3rem;
+  display: block;
+  margin-bottom: 1rem;
+}
+
+.btn-retry {
+  margin-top: 1rem;
+  padding: 0.6rem 1.2rem;
+  background: #4f83cc;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.btn-retry:hover {
+  background: #3d6db5;
+}
+
+/* === CARD PRINCIPAL === */
+.task-detail-card {
+  background: white;
+  border-radius: 16px;
+  padding: 2rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  animation: fadeIn 0.3s ease;
 }
 
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-.acciones {
-  margin-top: 2rem;
+/* === HEADER === */
+.detail-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.status-badge-large {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.status-badge-large.status-completada {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.status-badge-large.status-pendiente {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.status-badge-large.status-vencida {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.recurring-badge {
+  background: #e0e7ff;
+  color: #3730a3;
+  padding: 0.4rem 0.8rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+/* === TÍTULO === */
+.task-title {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0 0 1.5rem 0;
+  line-height: 1.3;
+}
+
+/* === SECCIONES === */
+.detail-section {
+  margin-bottom: 1.5rem;
+}
+
+.section-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #6b7280;
+  margin: 0 0 0.75rem 0;
+}
+
+.description-text {
+  color: #374151;
+  line-height: 1.6;
+  margin: 0;
+  padding: 1rem;
+  background: #f9fafb;
+  border-radius: 10px;
+  border-left: 3px solid #4f83cc;
+}
+
+/* === INFO GRID === */
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.info-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: #f9fafb;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+}
+
+.info-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.info-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.info-label {
+  font-size: 0.8rem;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.info-value {
+  font-size: 0.95rem;
+  color: #1f2937;
+  font-weight: 500;
+}
+
+/* === USUARIOS === */
+.users-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.user-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.user-chip:hover {
+  background: #f0f7ff;
+  border-color: #4f83cc;
+}
+
+.user-avatar {
+  font-size: 1.2rem;
+}
+
+.user-name {
+  flex: 1;
+  font-weight: 500;
+  color: #1f2937;
+}
+
+.user-arrow {
+  color: #9ca3af;
+  font-size: 1.2rem;
+}
+
+.no-users {
+  color: #9ca3af;
+  font-style: italic;
+  margin: 0;
+}
+
+/* === INFO TÉCNICA === */
+.technical-info {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: #f9fafb;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+}
+
+.technical-info summary {
+  cursor: pointer;
+  font-weight: 500;
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+.tech-content {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.tech-content p {
+  margin: 0.25rem 0;
+  font-size: 0.85rem;
+  color: #6b7280;
+  word-break: break-all;
+}
+
+/* === ACCIONES === */
+.actions-section {
   display: flex;
   gap: 1rem;
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e5e7eb;
   justify-content: center;
+  flex-wrap: wrap;
 }
 
 .btn {
-  padding: 0.6rem 1.4rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
   font-size: 1rem;
+  font-weight: 600;
   border: none;
-  border-radius: 9999px;
+  border-radius: 10px;
   cursor: pointer;
-  font-weight: bold;
-  transition: 0.3s ease;
+  transition: all 0.2s ease;
 }
 
-.btn.editar {
-  background-color: #4cad73;
+.btn-edit {
+  background: #4cad73;
   color: white;
 }
 
-.btn.editar:hover {
-  background-color: #3c965f;
+.btn-edit:hover {
+  background: #3c965f;
+  transform: translateY(-1px);
 }
 
-.btn.eliminar {
-  background-color: #e16060;
+.btn-delete {
+  background: #e16060;
   color: white;
 }
 
-.btn.eliminar:hover {
-  background-color: #c84c4c;
+.btn-delete:hover {
+  background: #c84c4c;
+  transform: translateY(-1px);
 }
 
-/* Modo oscuro */
-body.dark .btn.editar {
-  background-color: #4ade80;
-}
-body.dark .btn.editar:hover {
-  background-color: #22c55e;
-}
-
-body.dark .btn.eliminar {
-  background-color: #f87171;
-}
-body.dark .btn.eliminar:hover {
-  background-color: #ef4444;
-}
-
-.volver-link {
-  max-width: 900px;
-  margin: 1.5rem auto 0;
-  padding: 0 2rem;
-  text-align: left;
-  cursor: pointer;
-  font-weight: bold;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-}
-
-.volver-texto {
-  color: #3b82f6;
-  text-decoration: underline;
-  font-size: 1rem;
-}
-
-.volver-link:hover .volver-texto {
-  color: #2563eb;
-}
-
-.titulo-tarea-modern {
-  text-align: center;
-  font-size: 1.7rem;
-  font-weight: bold;
-  margin: 2rem auto 1.5rem;
-  padding: 1rem 1.8rem;
-  background-color: #f8f8f3;
-  color: #1f2937;
-  border-radius: 12px;
-  border: 1px solid #d1d5db;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
-  max-width: 600px;
-  animation: fadeInSlideUp 0.4s ease;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-}
-
-body.dark .titulo-tarea-modern {
-  background-color: #1f2937;
+/* === DARK MODE === */
+body.dark .detail-container {
   color: #f9fafb;
-  border: 1px solid #374151;
-  box-shadow: 0 2px 6px rgba(255, 255, 255, 0.05);
 }
 
-@keyframes fadeInSlideUp {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+body.dark .back-link {
+  color: #9ca3af;
 }
 
-.volver-link {
-  width: 100%;
-  max-width: 600px; /* igual que el título y main */
-  margin: 1.5rem auto 0;
-  padding: 0 2rem;
-  text-align: left;
-  cursor: pointer;
-  font-weight: bold;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-}
-
-.volver-texto {
-  color: #6f7a8b;
-  text-decoration: underline;
-  font-size: 1rem;
-  font-weight: bold;
-}
-
-.volver-link:hover .volver-texto {
-  color: #2563eb;
-}
-
-body.dark .volver-link {
-  color: #ffffff;
-}
-
-body.dark .volver-link:hover {
+body.dark .back-link:hover {
   color: #60a5fa;
 }
 
-body.dark .volver-texto {
-  color: #ffffff;
+body.dark .task-detail-card {
+  background: #1f2937;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
+body.dark .task-title {
+  color: #f9fafb;
+}
+
+body.dark .section-title {
+  color: #9ca3af;
+}
+
+body.dark .description-text {
+  background: #374151;
+  color: #e5e7eb;
+  border-color: #3b82f6;
+}
+
+body.dark .info-card {
+  background: #374151;
+  border-color: #4b5563;
+}
+
+body.dark .info-value {
+  color: #f9fafb;
+}
+
+body.dark .user-chip {
+  background: #374151;
+  border-color: #4b5563;
+}
+
+body.dark .user-chip:hover {
+  background: #1e3a5f;
+  border-color: #3b82f6;
+}
+
+body.dark .user-name {
+  color: #f9fafb;
+}
+
+body.dark .technical-info {
+  background: #374151;
+  border-color: #4b5563;
+}
+
+body.dark .tech-content {
+  border-color: #4b5563;
+}
+
+body.dark .tech-content p {
+  color: #9ca3af;
+}
+
+body.dark .actions-section {
+  border-color: #4b5563;
+}
+
+body.dark .status-badge-large.status-completada {
+  background: #064e3b;
+  color: #a7f3d0;
+}
+
+body.dark .status-badge-large.status-pendiente {
+  background: #78350f;
+  color: #fde68a;
+}
+
+body.dark .status-badge-large.status-vencida {
+  background: #7f1d1d;
+  color: #fecaca;
+}
+
+body.dark .recurring-badge {
+  background: #312e81;
+  color: #c7d2fe;
+}
+
+body.dark .spinner {
+  border-color: #374151;
+  border-top-color: #3b82f6;
+}
+
+/* === RESPONSIVE === */
+@media (max-width: 640px) {
+  .detail-container {
+    padding: 1rem;
+  }
+  
+  .task-detail-card {
+    padding: 1.5rem;
+  }
+  
+  .task-title {
+    font-size: 1.5rem;
+  }
+  
+  .info-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .actions-section {
+    flex-direction: column;
+  }
+  
+  .btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
 </style>
 

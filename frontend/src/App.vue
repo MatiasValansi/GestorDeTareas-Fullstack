@@ -23,6 +23,7 @@ provide('dashboardRef', dashboardRef)
 
 // Calendar state
 const currentMonth = ref(new Date())
+provide('currentMonth', currentMonth)
 const calendarTasks = ref([])
 const loadingTasks = ref(false)
 
@@ -93,6 +94,11 @@ const getTaskTooltip = (task) => {
 // Format time from deadline - Convertir UTC a hora Argentina para mostrar
 const formatTime = (deadline) => {
   return ArgentinaTime.formatTime(deadline)
+}
+
+// Navegar al detalle de una tarea
+const goToTaskDetail = (taskId) => {
+  router.push(`/taskDetail/${taskId}`)
 }
 
 // Load calendar tasks
@@ -288,6 +294,7 @@ watch(route, (newRoute) => {
                   class="calendar-task"
                   :class="getStatusColor(task)"
                   :title="getTaskTooltip(task)"
+                  @click.stop="goToTaskDetail(task._id || task.id)"
                 >
                   <span class="task-time">{{ formatTime(task.deadline) }}</span>
                   <span class="task-title">{{ task.title }}</span>
