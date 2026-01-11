@@ -12,6 +12,7 @@ const store = useUserStore()
 const isLoggedIn = computed(() => store.isLoggedIn)
 const MOCKAPI = 'https://685c760b769de2bf085ccc90.mockapi.io/taskapi/tasks'
 const darkMode = ref(false)
+const viewMode = ref('calendario') // 'calendario' o 'lista'
 const total = ref(0)
 const completadas = ref(0)
 const pendientes = ref(0)
@@ -173,6 +174,15 @@ watch(isLoggedIn, (newValue) => {
     loadCalendarTasks()
   }
 })
+
+// Sincronizar viewMode con la ruta actual
+watch(route, (newRoute) => {
+  if (newRoute.path === '/') {
+    viewMode.value = 'calendario'
+  } else if (newRoute.path === '/task') {
+    viewMode.value = 'lista'
+  }
+}, { immediate: true })
 </script>
 
 <template>
@@ -209,8 +219,23 @@ watch(isLoggedIn, (newValue) => {
           </div>
 
           <nav class="navbar">
-            <RouterLink to="/" class="nav-button" :class="{ active: route.path === '/' }">Inicio</RouterLink>
-            <RouterLink to="/task" class="nav-button" :class="{ active: route.path === '/task' }">Ver Tareas</RouterLink>
+            <!-- Switch de vista Calendario/Lista -->
+            <div class="view-switch">
+              <button 
+                class="switch-option" 
+                :class="{ active: viewMode === 'calendario' }"
+                @click="viewMode = 'calendario'; router.push('/')"
+              >
+                📅 Calendario
+              </button>
+              <button 
+                class="switch-option" 
+                :class="{ active: viewMode === 'lista' }"
+                @click="viewMode = 'lista'; router.push('/task')"
+              >
+                📋 Lista
+              </button>
+            </div>
             <RouterLink
               v-if="store.isSupervisor"
               to="/users"
@@ -225,7 +250,7 @@ watch(isLoggedIn, (newValue) => {
     </header>
 
     <!-- Calendar Section - FUERA del contenedor limitado -->
-    <div v-if="route.path === '/'" class="calendar-wrapper">
+    <div v-if="viewMode === 'calendario' && route.path === '/'" class="calendar-wrapper">
       <!-- Calendar Section -->
       <div class="calendar-section">
         <div class="calendar-header">
@@ -397,6 +422,56 @@ body.dark .header-inner::after {
 
 .nav-button.active {
   background-color: #22c55e;
+  color: white;
+}
+
+/* === VIEW SWITCH (Calendario/Lista) === */
+.view-switch {
+  display: flex;
+  background-color: #e5e7eb;
+  border-radius: 9999px;
+  padding: 4px;
+  gap: 0;
+}
+
+.switch-option {
+  background: transparent;
+  border: none;
+  padding: 0.6rem 1.4rem;
+  border-radius: 9999px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.switch-option:hover:not(.active) {
+  color: #374151;
+  background-color: rgba(255, 255, 255, 0.5);
+}
+
+.switch-option.active {
+  background-color: #4f83cc;
+  color: white;
+  box-shadow: 0 2px 8px rgba(79, 131, 204, 0.3);
+}
+
+body.dark .view-switch {
+  background-color: #374151;
+}
+
+body.dark .switch-option {
+  color: #9ca3af;
+}
+
+body.dark .switch-option:hover:not(.active) {
+  color: #e5e7eb;
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+body.dark .switch-option.active {
+  background-color: #3b82f6;
   color: white;
 }
 
