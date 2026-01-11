@@ -111,9 +111,15 @@ export const TaskController = {
 
 			const taskResponse = await mongoTask.createOne(newTaskData);
 
-			res.status(200).json({
+			// Importante: convertir el documento de Mongoose a objeto plano
+			// para evitar estructuras circulares que pueden romper JSON.stringify
+			const taskPlain = typeof taskResponse?.toObject === "function"
+				? taskResponse.toObject()
+				: taskResponse;
+
+			res.status(201).json({
 				message: "Success --> La tarea ha sido creada",
-				payload: { ...taskResponse, tarea: taskResponse.title },
+				payload: taskPlain,
 				ok: true,
 			});
 			return;
