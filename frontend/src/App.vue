@@ -225,44 +225,79 @@ watch(route, (newRoute) => {
           </div>
 
           <nav class="navbar">
-            <!-- Switch de vista Calendario/Lista -->
-            <div class="view-switch">
-              <button 
-                class="switch-option" 
-                :class="{ active: viewMode === 'calendario' }"
-                @click="viewMode = 'calendario'; router.push('/')"
+            <nav class="navbar">
+              <RouterLink
+                to="/"
+                class="nav-button"
+                :class="{ active: route.path === '/' || route.path === '/task' }"
               >
-                📅 Calendario
-              </button>
-              <button 
-                class="switch-option" 
-                :class="{ active: viewMode === 'lista' }"
-                @click="viewMode = 'lista'; router.push('/task')"
+                Tareas
+              </RouterLink>
+
+              <RouterLink
+                v-if="store.isSupervisor"
+                to="/users"
+                class="nav-button"
+                :class="{ active: route.path === '/users' }"
               >
-                📋 Lista
-              </button>
-            </div>
-            <RouterLink
-              v-if="store.isSupervisor"
-              to="/users"
-              class="nav-button"
-              :class="{ active: route.path === '/users' }"
-            >
-              Ver Usuarios
-            </RouterLink>
+                Usuarios
+              </RouterLink>
+            </nav>
           </nav>
         </div>
       </div>
     </header>
+
+    <div class="tasks-toolbar">
+  <div class="view-switch">
+    <button 
+      class="switch-option" 
+      :class="{ active: viewMode === 'calendario' }"
+      @click="viewMode = 'calendario'; router.push('/')"
+    >
+      Calendario
+    </button>
+    <button 
+      class="switch-option" 
+      :class="{ active: viewMode === 'lista' }"
+      @click="viewMode = 'lista'; router.push('/task')"
+    >
+      Lista
+    </button>
+  </div>
+</div>
 
     <!-- Calendar Section - FUERA del contenedor limitado -->
     <div v-if="viewMode === 'calendario' && route.path === '/'" class="calendar-wrapper">
       <!-- Calendar Section -->
       <div class="calendar-section">
         <div class="calendar-header">
-          <button class="calendar-nav-btn" @click="prevMonth">◀</button>
-          <h3 class="calendar-title">{{ currentMonthLabel }}</h3>
-          <button class="calendar-nav-btn" @click="nextMonth">▶</button>
+          <!-- Switch arriba a la derecha -->
+          <div class="calendar-header-switch">
+            <div class="view-toggle">
+              <button 
+                class="toggle-option" 
+                :class="{ active: viewMode === 'calendario' }"
+                @click="viewMode = 'calendario'; router.push('/')"
+              >
+                Calendario
+              </button>
+              <button 
+                class="toggle-option" 
+                :class="{ active: viewMode === 'lista' }"
+                @click="viewMode = 'lista'; router.push('/task')"
+              >
+                Lista
+              </button>
+            </div>
+          </div>
+
+          <!-- Título perfectamente centrado -->
+          <div class="calendar-header-center">
+            <button class="calendar-nav-btn" @click="prevMonth">◀</button>
+            <h3 class="calendar-title">{{ currentMonthLabel }}</h3>
+            <button class="calendar-nav-btn" @click="nextMonth">▶</button>
+          </div>
         </div>
         
         <!-- Loading Spinner Overlay -->
@@ -331,7 +366,7 @@ watch(route, (newRoute) => {
     <RouterView />
   </div>
 
-  <footer class="app-footer">
+  <!-- <footer class="app-footer">
   <div class="footer-content">
     <p>&copy; {{ new Date().getFullYear() }} Gestor de Tareas - Desarrollado por Lucio Giraldez y Matías Valansi</p>
     
@@ -339,7 +374,7 @@ watch(route, (newRoute) => {
       🌐 GitHub 
     </a>- Tecnologías Usadas: Vue.js, Pinia, LocalStorage, Axios, VueChart.js, Email.Js</p>     
   </div>
-</footer>
+</footer> -->
 
 </template>
 
@@ -432,15 +467,6 @@ body.dark .header-inner::after {
   color: white;
 }
 
-/* === VIEW SWITCH (Calendario/Lista) === */
-.view-switch {
-  display: flex;
-  background-color: #e5e7eb;
-  border-radius: 9999px;
-  padding: 4px;
-  gap: 0;
-}
-
 .switch-option {
   background: transparent;
   border: none;
@@ -464,9 +490,6 @@ body.dark .header-inner::after {
   box-shadow: 0 2px 8px rgba(79, 131, 204, 0.3);
 }
 
-body.dark .view-switch {
-  background-color: #374151;
-}
 
 body.dark .switch-option {
   color: #9ca3af;
@@ -742,11 +765,23 @@ body.dark .loading-text {
 }
 
 .calendar-header {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.calendar-header-center {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: 2rem;
-  padding: 0 1rem;
+  gap: 1.5rem;
+}
+
+.calendar-header-switch {
+  position: absolute;
+  top: 0;
+  right: 0;
 }
 
 .calendar-title {
@@ -1049,6 +1084,52 @@ body.dark .calendar-nav-btn:hover {
 /* Ocultar highlights por defecto */
 .custom-calendar .vc-highlights {
   z-index: 0 !important;
+}
+
+.tasks-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 1rem;
+}
+
+.view-toggle {
+  display: inline-flex;
+  align-items: center;
+  background: #f1f5f9;
+  border: 1px solid #e5e7eb;
+  border-radius: 9999px;
+  padding: 3px;
+  gap: 0;
+}
+
+.toggle-option {
+  background: transparent;
+  border: none;
+  padding: 0.35rem 0.9rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #6b7280;
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.toggle-option:hover:not(.active) {
+  background: rgba(0, 0, 0, 0.04);
+  color: #374151;
+}
+
+.toggle-option.active {
+  background: #4f83cc;
+  color: white;
+  box-shadow: 0 1px 4px rgba(79, 131, 204, 0.4);
+}
+
+.switch-option {
+  padding: 0.45rem 1.1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-radius: 9999px;
 }
 
 /* === DARK MODE === */

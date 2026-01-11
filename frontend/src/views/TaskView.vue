@@ -220,7 +220,6 @@ watch(globalMonth, (newMonth) => {
       <!-- Buscador de tareas -->
       <div class="search-container">
         <div class="search-input-wrapper">
-          <span class="search-icon">🔍</span>
           <input 
             type="text" 
             v-model="searchQuery"
@@ -251,21 +250,21 @@ watch(globalMonth, (newMonth) => {
           :class="{ active: filtroEstado === 'completadas' }"
           @click="filtroEstado = filtroEstado === 'completadas' ? 'todos' : 'completadas'"
         >
-          ✅ Completadas ({{ contadores.completadas }})
+          Completadas ({{ contadores.completadas }})
         </button>
         <button 
           class="filter-chip" 
           :class="{ active: filtroEstado === 'pendientes' }"
           @click="filtroEstado = filtroEstado === 'pendientes' ? 'todos' : 'pendientes'"
         >
-          ⏳ Pendientes ({{ contadores.pendientes }})
+          Pendientes ({{ contadores.pendientes }})
         </button>
         <button 
           class="filter-chip" 
           :class="{ active: filtroEstado === 'vencidas' }"
           @click="filtroEstado = filtroEstado === 'vencidas' ? 'todos' : 'vencidas'"
         >
-          ❌ Vencidas ({{ contadores.vencidas }})
+          Vencidas ({{ contadores.vencidas }})
         </button>
       </div>
     </div>
@@ -416,17 +415,9 @@ watch(globalMonth, (newMonth) => {
   align-items: center;
 }
 
-.search-icon {
-  position: absolute;
-  left: 1rem;
-  font-size: 1rem;
-  color: #9ca3af;
-  pointer-events: none;
-}
-
 .search-input {
   width: 100%;
-  padding: 0.75rem 2.5rem 0.75rem 2.75rem;
+  padding: 0.75rem 2.5rem 0.75rem 1rem;
   font-size: 1rem;
   border: 1px solid #d1d5db;
   border-radius: 25px;
@@ -434,6 +425,7 @@ watch(globalMonth, (newMonth) => {
   color: #1f2937;
   transition: all 0.2s ease;
   outline: none;
+  text-align: left;
 }
 
 .search-input:focus {
@@ -570,7 +562,7 @@ watch(globalMonth, (newMonth) => {
   border-bottom: 1px solid #e5e7eb;
   cursor: pointer;
   transition: background 0.15s ease;
-  min-height: 90px;
+  min-height: 56px;
 }
 
 .task-item:hover {
@@ -602,11 +594,11 @@ watch(globalMonth, (newMonth) => {
 /* === CONTENIDO DE LA TAREA === */
 .task-content {
   flex: 1;
-  padding: 1rem 1rem 1rem 1.25rem;
+  padding: 0.6rem 1rem 0.6rem 1.25rem;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  gap: 0.4rem;
+  justify-content: flex-start;
+  gap: 0.25rem;
   min-width: 0;
 }
 
@@ -636,13 +628,13 @@ watch(globalMonth, (newMonth) => {
 }
 
 .task-date {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   color: #6b7280;
 }
 
 /* === TÍTULO === */
 .task-title {
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: 600;
   color: #1f2937;
   margin: 0;
@@ -656,7 +648,7 @@ watch(globalMonth, (newMonth) => {
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   color: #6b7280;
   margin: 0;
 }

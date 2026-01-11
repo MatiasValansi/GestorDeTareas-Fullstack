@@ -66,14 +66,12 @@ function togglePasswordVisibility() {
     <div class="login-card">
       <div class="card-header">
         <img src="/logo.png" alt="Logo" class="logo" />
-        <h1 class="title">Gestor de Tareas</h1>
         <p class="subtitle">Ingresá con tu cuenta</p>
       </div>
 
       <div class="form-group">
         <label for="email" class="label">Email</label>
         <div class="input-wrapper">
-          <span class="input-icon">📧</span>
           <input
             id="email"
             v-model="email"
@@ -88,7 +86,6 @@ function togglePasswordVisibility() {
       <div class="form-group">
         <label for="password" class="label">Contraseña</label>
         <div class="input-wrapper">
-          <span class="input-icon">🔒</span>
           <input
             id="password"
             v-model="password"
@@ -97,9 +94,6 @@ function togglePasswordVisibility() {
             class="input"
             autocomplete="current-password"
           />
-          <button type="button" class="toggle-visibility" @click="togglePasswordVisibility">
-            {{ showPassword ? 'Ocultar' : 'Ver' }}
-          </button>
         </div>
       </div>
 
@@ -128,7 +122,7 @@ function togglePasswordVisibility() {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #eef2ff 0%, #f8fafc 100%);
+  background: none;
   padding: 1.5rem;
 }
 
@@ -145,20 +139,15 @@ function togglePasswordVisibility() {
 
 .card-header {
   text-align: center;
-  margin-bottom: 1rem;
+  margin-bottom: 1.25rem;
+  padding-top: 0.5rem;
 }
 
 .logo {
-  width: 72px;
-  height: 72px;
+  max-height: 80px;
+  width: 190px;
   object-fit: contain;
-}
-
-.title {
-  margin: 0.5rem 0 0.25rem;
-  font-size: 1.5rem;
-  font-weight: 800;
-  color: #1f2937;
+  margin-bottom: 0.3rem;
 }
 
 .subtitle {
@@ -177,9 +166,9 @@ function togglePasswordVisibility() {
 }
 
 .input-wrapper {
-  position: relative;
   display: flex;
   align-items: center;
+  gap: 0.4rem;
 }
 
 .input-icon {
@@ -190,37 +179,21 @@ function togglePasswordVisibility() {
 }
 
 .input {
-  width: 100%;
-  padding: 0.75rem 2.75rem 0.75rem 2rem;
+  height: 46px;
+  padding: 0 1rem;
+  flex: 1;
   border: 1px solid #d1d5db;
   border-radius: 10px;
   background: #f9fafb;
-  color: #1f2937;
   font-size: 1rem;
-  outline: none;
-  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
 }
 
 .input:focus {
   border-color: #4f83cc;
   background: #ffffff;
   box-shadow: 0 0 0 3px rgba(79, 131, 204, 0.15);
-}
-
-.toggle-visibility {
-  position: absolute;
-  right: 0.5rem;
-  padding: 0.35rem 0.6rem;
-  border: none;
-  background: #e5e7eb;
-  color: #374151;
-  border-radius: 8px;
-  font-size: 0.85rem;
-  cursor: pointer;
-}
-
-.toggle-visibility:hover {
-  background: #d1d5db;
 }
 
 /* Submit */
