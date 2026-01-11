@@ -84,7 +84,7 @@ const getAssigneesNames = (assignedTo) => {
 const getTaskTooltip = (task) => {
   let tooltip = `${task.title}\nAsignados: ${getAssigneesNames(task.assignedTo)}\nEstado: ${getStatusLabel(task)}`
   if (task.recurringTaskId) {
-    tooltip += '\n🔄 Tarea recurrente'
+    tooltip += '\nTarea recurrente'
   }
   return tooltip
 }
@@ -177,11 +177,11 @@ watch(isLoggedIn, (newValue) => {
 
 <template>
   <div v-if="isLoggedIn">
-    <!-- 🔐 BARRA DE USUARIO -->
+    <!-- BARRA DE USUARIO -->
     <div class="user-bar">
       <div class="user-info">
         <span class="login-alert">
-          🔐 Logueado como: <strong>{{ store.user.email }}</strong>
+        Logueado como: <strong>{{ store.user.email }}</strong>
         </span>
         <span class="login-role">
           Permisos de
@@ -191,10 +191,10 @@ watch(isLoggedIn, (newValue) => {
 
       <div class="top-buttons">
         <button class="toggle-button" @click="toggleDarkMode">
-          {{ darkMode ? '☀️ Claro' : '🌙 Oscuro' }}
+          {{ darkMode ? 'Modo claro' : 'Modo oscuro' }}
         </button>
         <button class="toggle-button danger" @click="logout">
-          🔓 Cerrar sesión
+        Cerrar sesión
         </button>
       </div>
     </div>
@@ -417,6 +417,7 @@ body.dark .user-bar {
 .user-info {
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   gap: 0.2rem;
   font-size: 0.88rem;
 }
@@ -430,7 +431,6 @@ body.dark .user-bar {
 .login-role {
   font-size: 0.85rem;
   color: #1f2937;
-  margin-left: 1.5rem; /* opcional si querés alinearlo un poco a la derecha */
 }
 
 body.dark .login-alert,
@@ -815,17 +815,17 @@ body.dark .calendar-nav-btn:hover {
 
 /* === TAREA INDIVIDUAL EN CALENDARIO === */
 .calendar-task {
-  padding: 2px 4px;
+  padding: 3px 5px;
   margin-bottom: 2px;
   border-radius: 3px;
-  font-size: 0.65rem;
+  font-size: 0.75rem;
   line-height: 1.3;
-  min-height: 18px;
+  min-height: 20px;
   height: auto;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 3px;
+  gap: 4px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -840,12 +840,14 @@ body.dark .calendar-nav-btn:hover {
 }
 
 .task-time {
-  font-weight: 600;
-  opacity: 0.8;
+  font-weight: 700;
+  font-size: 0.8rem;
+  opacity: 0.9;
   flex-shrink: 0;
 }
 
 .task-title {
+  font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
 }

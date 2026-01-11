@@ -51,6 +51,12 @@ export const getAllUsers = async () => {
   return data.payload.map(userAdapter);
 };
 
+// Obtener usuarios del mismo sector (accesible para cualquier usuario autenticado)
+export const getUsersBySector = async () => {
+  const { data } = await api.get('/users/sector');
+  return data.payload.map(userAdapter);
+};
+
 // Crear usuario
 export const createUser = async (user) => {
   const { data } = await api.post("/users/user", { user });

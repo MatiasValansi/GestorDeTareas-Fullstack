@@ -8,6 +8,13 @@ import {
 
 const userRouter = Router();
 
+// Endpoint para obtener usuarios del mismo sector (accesible para cualquier usuario autenticado)
+userRouter.get(
+	"/sector",
+	authByToken,
+	UserController.usersBySector,
+);
+
 // Solo supervisores pueden operar sobre usuarios y siempre dentro de su sector
 userRouter.get(
 	"/user/:id",

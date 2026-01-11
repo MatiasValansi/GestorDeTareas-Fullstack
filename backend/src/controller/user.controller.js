@@ -122,4 +122,34 @@ export const UserController = {
 		});
 		return;
 	},
+
+	// Obtener usuarios del mismo sector (accesible para cualquier usuario autenticado)
+	usersBySector: async (req, res) => {
+		const sector = req.user?.sector;
+		
+		if (!sector) {
+			res.status(400).json({
+				payload: null,
+				message: "No se pudo determinar el sector del usuario",
+				ok: false,
+			});
+			return;
+		}
+
+		try {
+			const users = await mongoUser.getBySector(sector);
+
+			res.status(200).json({
+				message: "Success --> Usuarios del sector encontrados",
+				payload: users,
+				ok: true,
+			});
+		} catch (error) {
+			res.status(500).json({
+				payload: null,
+				message: "Error al obtener usuarios del sector",
+				ok: false,
+			});
+		}
+	},
 };

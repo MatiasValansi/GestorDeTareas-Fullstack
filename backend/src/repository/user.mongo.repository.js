@@ -34,4 +34,8 @@ export class MongoUserRepository {
 		const is_deleted = UserModel.findByIdAndDelete(id).exec();
 		return is_deleted;
 	}
+
+	async getBySector(sector) {
+		return await UserModel.find({ sector }).exec();
+	}
 }
