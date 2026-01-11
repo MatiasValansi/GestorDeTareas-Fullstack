@@ -22,6 +22,7 @@ const selectedMonth = ref(new Date(globalMonth.value))
 
 // Filtros
 const filtroEstado = ref('todos') // 'todos', 'completadas', 'pendientes', 'vencidas'
+const searchQuery = ref('') // Buscador de tareas
 
 // ============ COMPUTED ============
 
@@ -30,10 +31,33 @@ const currentMonthLabel = computed(() => {
   return selectedMonth.value.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })
 })
 
-// Tareas filtradas por estado
-const tareasFiltradas = computed(() => {
-  let filtered = tareas.value
+// Filtrar tareas por el mes seleccionado (doble verificación)
+const tareasDelMes = computed(() => {
+  const month = selectedMonth.value.getMonth()
+  const year = selectedMonth.value.getFullYear()
   
+  return tareas.value.filter(t => {
+    if (!t.deadline) return false
+    const taskDate = new Date(t.deadline)
+    return taskDate.getMonth() === month && taskDate.getFullYear() === year
+  })
+})
+
+// Tareas filtradas por búsqueda y estado
+const tareasFiltradas = computed(() => {
+  let filtered = tareasDelMes.value
+  
+  // Filtrar por búsqueda
+  if (searchQuery.value.trim()) {
+    const query = searchQuery.value.toLowerCase().trim()
+    filtered = filtered.filter(t => {
+      const title = (t.title || t.titulo || '').toLowerCase()
+      const description = (t.description || t.descripcion || '').toLowerCase()
+      return title.includes(query) || description.includes(query)
+    })
+  }
+  
+  // Filtrar por estado
   if (filtroEstado.value === 'completadas') {
     filtered = filtered.filter(t => t.completada || t.status === 'COMPLETADA')
   } else if (filtroEstado.value === 'pendientes') {
@@ -46,13 +70,18 @@ const tareasFiltradas = computed(() => {
   return filtered.sort((a, b) => new Date(a.deadline) - new Date(b.deadline))
 })
 
-// Contadores para los filtros
+// Contadores para los filtros (basados en tareas del mes)
 const contadores = computed(() => ({
-  total: tareas.value.length,
-  completadas: tareas.value.filter(t => t.completada || t.status === 'COMPLETADA').length,
-  pendientes: tareas.value.filter(t => !t.completada && t.status !== 'VENCIDA' && t.status !== 'COMPLETADA').length,
-  vencidas: tareas.value.filter(t => t.status === 'VENCIDA').length
+  total: tareasDelMes.value.length,
+  completadas: tareasDelMes.value.filter(t => t.completada || t.status === 'COMPLETADA').length,
+  pendientes: tareasDelMes.value.filter(t => !t.completada && t.status !== 'VENCIDA' && t.status !== 'COMPLETADA').length,
+  vencidas: tareasDelMes.value.filter(t => t.status === 'VENCIDA').length
 }))
+
+// Limpiar búsqueda
+const clearSearch = () => {
+  searchQuery.value = ''
+}
 
 // ============ MÉTODOS ============
 
@@ -188,6 +217,26 @@ watch(globalMonth, (newMonth) => {
         <button class="month-nav-btn" @click="nextMonth">▶</button>
       </div>
       
+      <!-- Buscador de tareas -->
+      <div class="search-container">
+        <div class="search-input-wrapper">
+          <span class="search-icon">🔍</span>
+          <input 
+            type="text" 
+            v-model="searchQuery"
+            placeholder="Buscar tarea por nombre..."
+            class="search-input"
+          />
+          <button 
+            v-if="searchQuery" 
+            class="clear-search-btn"
+            @click="clearSearch"
+          >
+            ✕
+          </button>
+        </div>
+      </div>
+      
       <!-- Filtros de estado -->
       <div class="filters-row">
         <button 
@@ -279,8 +328,10 @@ watch(globalMonth, (newMonth) => {
 
     <!-- Estado vacío -->
     <div v-else class="empty-state">
-      <div class="empty-icon">📋</div>
-      <p>No hay tareas {{ filtroEstado !== 'todos' ? filtroEstado : '' }} en {{ currentMonthLabel }}</p>
+      <div class="empty-icon">{{ searchQuery ? '🔍' : '📋' }}</div>
+      <p v-if="searchQuery">No se encontraron tareas que coincidan con "{{ searchQuery }}"</p>
+      <p v-else>No hay tareas {{ filtroEstado !== 'todos' ? filtroEstado : '' }} en {{ currentMonthLabel }}</p>
+      <button v-if="searchQuery" class="btn-clear-filters" @click="clearSearch">Limpiar búsqueda</button>
     </div>
   </main>
 </template>
@@ -348,6 +399,73 @@ watch(globalMonth, (newMonth) => {
 
 .month-title:hover {
   background: #f3f4f6;
+}
+
+/* === BUSCADOR === */
+.search-container {
+  margin: 1rem 0;
+  width: 100%;
+  max-width: 500px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.search-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-icon {
+  position: absolute;
+  left: 1rem;
+  font-size: 1rem;
+  color: #9ca3af;
+  pointer-events: none;
+}
+
+.search-input {
+  width: 100%;
+  padding: 0.75rem 2.5rem 0.75rem 2.75rem;
+  font-size: 1rem;
+  border: 1px solid #d1d5db;
+  border-radius: 25px;
+  background: #f9fafb;
+  color: #1f2937;
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+.search-input:focus {
+  border-color: #4f83cc;
+  background: white;
+  box-shadow: 0 0 0 3px rgba(79, 131, 204, 0.15);
+}
+
+.search-input::placeholder {
+  color: #9ca3af;
+}
+
+.clear-search-btn {
+  position: absolute;
+  right: 0.75rem;
+  background: #e5e7eb;
+  border: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 0.75rem;
+  color: #6b7280;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.clear-search-btn:hover {
+  background: #d1d5db;
+  color: #374151;
 }
 
 /* === FILTROS === */
@@ -579,6 +697,22 @@ watch(globalMonth, (newMonth) => {
   margin: 0;
 }
 
+.btn-clear-filters {
+  margin-top: 1rem;
+  padding: 0.6rem 1.2rem;
+  background: #4f83cc;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background 0.2s ease;
+}
+
+.btn-clear-filters:hover {
+  background: #3d6db5;
+}
+
 /* === DARK MODE === */
 body.dark .task-container {
   background-color: #111827;
@@ -603,6 +737,41 @@ body.dark .month-title {
 
 body.dark .month-title:hover {
   background: #374151;
+}
+
+/* Dark mode buscador */
+body.dark .search-input {
+  background: #374151;
+  border-color: #4b5563;
+  color: #f9fafb;
+}
+
+body.dark .search-input:focus {
+  border-color: #3b82f6;
+  background: #1f2937;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+
+body.dark .search-input::placeholder {
+  color: #9ca3af;
+}
+
+body.dark .clear-search-btn {
+  background: #4b5563;
+  color: #d1d5db;
+}
+
+body.dark .clear-search-btn:hover {
+  background: #6b7280;
+  color: #f9fafb;
+}
+
+body.dark .btn-clear-filters {
+  background: #3b82f6;
+}
+
+body.dark .btn-clear-filters:hover {
+  background: #2563eb;
 }
 
 body.dark .filter-chip {
