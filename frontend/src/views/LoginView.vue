@@ -47,7 +47,7 @@ async function handleLogin() {
     message.value = "✅ Login exitoso";
 
     // Redirigimos a una ruta protegida existente (por ejemplo, /task)
-    router.push("/task");
+    router.push("/main");
   } catch (err) {
     console.error(err.response?.data || err.message);
     message.value = "❌ Credenciales inválidas o error en servidor";

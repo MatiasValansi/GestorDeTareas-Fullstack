@@ -8,11 +8,6 @@ const routes = [
     component: () => import('../views/LoginView.vue')
   },
   {
-    path: '/task',
-    name: 'task',
-    component: () => import('../views/TaskView.vue')
-  },
-  {
     path: '/newTask',
     name: 'newTask',
     component: () => import('../views/NewTaskView.vue')
@@ -56,7 +51,13 @@ const routes = [
     path: '/TestLogin',
     name: 'testlogin',
     component: () => import('../components/TestLogin.vue')
-  }
+  },
+
+{
+  path: '/main',
+  name: 'main',
+  component: () => import('../views/MainView.vue')
+}
 
 ]
 

@@ -1,151 +1,28 @@
 <script setup>
-import { ref, onMounted, watch, provide, computed } from 'vue'
+import { ref, onMounted, watch, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import axios from 'axios'
-import DashboardStats from './components/DashboardStats.vue'
-import GraficoTareas from './components/GraficoTareas.vue'
 import { useUserStore } from '@/stores/user'
-import { getCalendarTasks } from '@/services/tasks'
-import { ArgentinaTime } from '@/utils/argentinaTime'
 
+/* =======================
+   STORE / AUTH
+======================= */
 const store = useUserStore()
 const isLoggedIn = computed(() => store.isLoggedIn)
-const MOCKAPI = 'https://685c760b769de2bf085ccc90.mockapi.io/taskapi/tasks'
-const darkMode = ref(false)
-const viewMode = ref('calendario') // 'calendario' o 'lista'
-const total = ref(0)
-const completadas = ref(0)
-const pendientes = ref(0)
+
+/* =======================
+   ROUTER
+======================= */
 const route = useRoute()
 const router = useRouter()
-const dashboardRef = ref()
-provide('dashboardRef', dashboardRef)
 
-// Calendar state
-const currentMonth = ref(new Date())
-provide('currentMonth', currentMonth)
-const calendarTasks = ref([])
-const loadingTasks = ref(false)
+/* =======================
+   UI STATE
+======================= */
+const darkMode = ref(false)
 
-// Group tasks by date for calendar display
-const tasksByDate = computed(() => {
-  const grouped = {}
-  calendarTasks.value.forEach(task => {
-    const dateKey = new Date(task.deadline).toISOString().split('T')[0]
-    if (!grouped[dateKey]) {
-      grouped[dateKey] = []
-    }
-    grouped[dateKey].push(task)
-  })
-  // Sort tasks by time within each day
-  Object.keys(grouped).forEach(date => {
-    grouped[date].sort((a, b) => new Date(a.deadline) - new Date(b.deadline))
-  })
-  return grouped
-})
-
-// Get tasks for a specific day
-const getTasksForDay = (day) => {
-  const dateKey = day.id // Format: YYYY-MM-DD
-  return tasksByDate.value[dateKey] || []
-}
-
-// Get status color class (basado en status de la BD)
-const getStatusColor = (task) => {
-  switch (task.status) {
-    case 'COMPLETADA':
-      return 'task-completed'
-    case 'VENCIDA':
-      return 'task-expired'
-    case 'PENDIENTE':
-    default:
-      return 'task-pending'
-  }
-}
-
-// Get status label for tooltip
-const getStatusLabel = (task) => {
-  switch (task.status) {
-    case 'COMPLETADA':
-      return 'Completada'
-    case 'VENCIDA':
-      return 'Vencida'
-    case 'PENDIENTE':
-    default:
-      return 'Pendiente'
-  }
-}
-
-// Get assignees names for tooltip
-const getAssigneesNames = (assignedTo) => {
-  if (!assignedTo || assignedTo.length === 0) return 'Sin asignar'
-  return assignedTo.map(user => user.name || user.email || 'Usuario').join(', ')
-}
-
-// Build tooltip for task (includes recurring info)
-const getTaskTooltip = (task) => {
-  let tooltip = `${task.title}\nAsignados: ${getAssigneesNames(task.assignedTo)}\nEstado: ${getStatusLabel(task)}`
-  if (task.recurringTaskId) {
-    tooltip += '\nTarea recurrente'
-  }
-  return tooltip
-}
-
-// Format time from deadline - Convertir UTC a hora Argentina para mostrar
-const formatTime = (deadline) => {
-  return ArgentinaTime.formatTime(deadline)
-}
-
-// Navegar al detalle de una tarea
-const goToTaskDetail = (taskId) => {
-  router.push(`/taskDetail/${taskId}`)
-}
-
-// Load calendar tasks
-const loadCalendarTasks = async () => {
-  if (!isLoggedIn.value) return
-  
-  loadingTasks.value = true
-  try {
-    const month = currentMonth.value.getMonth() + 1
-    const year = currentMonth.value.getFullYear()
-    calendarTasks.value = await getCalendarTasks(month, year)
-  } catch (error) {
-    console.error('Error al cargar tareas del calendario:', error)
-    calendarTasks.value = []
-  } finally {
-    loadingTasks.value = false
-  }
-}
-
-const prevMonth = () => {
-  const newDate = new Date(currentMonth.value)
-  newDate.setMonth(newDate.getMonth() - 1)
-  currentMonth.value = newDate
-}
-
-const nextMonth = () => {
-  const newDate = new Date(currentMonth.value)
-  newDate.setMonth(newDate.getMonth() + 1)
-  currentMonth.value = newDate
-}
-
-const currentMonthLabel = computed(() => {
-  return currentMonth.value.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })
-})
-
-const cargarEstadisticas = async () => {
-  try {
-    const res = await axios.get(MOCKAPI)
-    const tareas = res.data
-    total.value = tareas.length
-    completadas.value = tareas.filter(t => t.completada).length
-    pendientes.value = tareas.filter(t => !t.completada).length
-  } catch (err) {
-    console.error('Error al cargar estadísticas', err)
-  }
-}
-
+/* =======================
+   ACTIONS
+======================= */
 const toggleDarkMode = () => {
   darkMode.value = !darkMode.value
   document.body.classList.toggle('dark', darkMode.value)
@@ -156,52 +33,33 @@ const logout = () => {
   router.push('/login')
 }
 
+/* =======================
+   LIFECYCLE
+======================= */
 onMounted(() => {
   if (localStorage.getItem('dark') === 'true') {
     darkMode.value = true
     document.body.classList.add('dark')
   }
-  cargarEstadisticas()
-  loadCalendarTasks()
 })
 
-watch(darkMode, (value) => {
-  localStorage.setItem('dark', value)
-})
-
-// Reload calendar tasks when month changes
-watch(currentMonth, () => {
-  loadCalendarTasks()
-})
-
-// Reload calendar tasks when user logs in
-watch(isLoggedIn, (newValue) => {
-  if (newValue) {
-    loadCalendarTasks()
-  }
-})
-
-// Sincronizar viewMode con la ruta actual
-watch(route, (newRoute) => {
-  if (newRoute.path === '/') {
-    viewMode.value = 'calendario'
-  } else if (newRoute.path === '/task') {
-    viewMode.value = 'lista'
-  }
-}, { immediate: true })
+watch(darkMode, v => localStorage.setItem('dark', v))
 </script>
 
 <template>
+  <!-- =======================
+       USUARIO LOGUEADO
+  ======================== -->
   <div v-if="isLoggedIn">
-    <!-- BARRA DE USUARIO -->
+
+    <!-- USER BAR -->
     <div class="user-bar">
       <div class="user-info">
         <span class="login-alert">
-        Logueado como: <strong>{{ store.user.email }}</strong>
+          Logueado como <strong>{{ store.user.email }}</strong>
         </span>
         <span class="login-role">
-          Permisos de
-          <strong>{{ store.isSupervisor ? 'Supervisor' : 'Usuario' }}</strong>
+          Permisos de <strong>{{ store.isSupervisor ? 'Supervisor' : 'Usuario' }}</strong>
         </span>
       </div>
 
@@ -210,301 +68,65 @@ watch(route, (newRoute) => {
           {{ darkMode ? 'Modo claro' : 'Modo oscuro' }}
         </button>
         <button class="toggle-button danger" @click="logout">
-        Cerrar sesión
+          Cerrar sesión
         </button>
       </div>
     </div>
 
-
-    <!-- ✅ HEADER: LOGO Y NAVBAR SOBRIO -->
+    <!-- HEADER -->
     <header class="header-bar">
       <div class="header-inner">
-        <div class="header-top">
-          <div class="logo-container">
-            <img src="/logo.png" alt="Logo" class="logo-title" />
-          </div>
+        <img src="/logo.png" alt="Logo" class="logo-title" />
 
-          <nav class="navbar">
-            <nav class="navbar">
-              <RouterLink
-                to="/"
-                class="nav-button"
-                :class="{ active: route.path === '/' || route.path === '/task' }"
-              >
-                Tareas
-              </RouterLink>
+        <nav class="navbar">
+          <RouterLink
+            to="/main"
+            class="nav-button"
+            :class="{ active: route.path === '/main' }"
+          >
+            Tareas
+          </RouterLink>
 
-              <RouterLink
-                v-if="store.isSupervisor"
-                to="/users"
-                class="nav-button"
-                :class="{ active: route.path === '/users' }"
-              >
-                Usuarios
-              </RouterLink>
-            </nav>
-          </nav>
-        </div>
+          <RouterLink
+            v-if="store.isSupervisor"
+            to="/users"
+            class="nav-button"
+            :class="{ active: route.path === '/users' }"
+          >
+            Usuarios
+          </RouterLink>
+        </nav>
       </div>
     </header>
 
-    <div class="tasks-toolbar">
-  <div class="view-switch">
-    <button 
-      class="switch-option" 
-      :class="{ active: viewMode === 'calendario' }"
-      @click="viewMode = 'calendario'; router.push('/')"
-    >
-      Calendario
-    </button>
-    <button 
-      class="switch-option" 
-      :class="{ active: viewMode === 'lista' }"
-      @click="viewMode = 'lista'; router.push('/task')"
-    >
-      Lista
-    </button>
-  </div>
-</div>
-
-    <!-- Calendar Section - FUERA del contenedor limitado -->
-    <div v-if="viewMode === 'calendario' && route.path === '/'" class="calendar-wrapper">
-      <!-- Calendar Section -->
-      <div class="calendar-section">
-        <div class="calendar-header">
-          <!-- Switch arriba a la derecha -->
-          <div class="calendar-header-switch">
-            <div class="view-toggle">
-              <button 
-                class="toggle-option" 
-                :class="{ active: viewMode === 'calendario' }"
-                @click="viewMode = 'calendario'; router.push('/')"
-              >
-                Calendario
-              </button>
-              <button 
-                class="toggle-option" 
-                :class="{ active: viewMode === 'lista' }"
-                @click="viewMode = 'lista'; router.push('/task')"
-              >
-                Lista
-              </button>
-            </div>
-          </div>
-
-          <!-- Título perfectamente centrado -->
-          <div class="calendar-header-center">
-            <button class="calendar-nav-btn" @click="prevMonth">◀</button>
-            <h3 class="calendar-title">{{ currentMonthLabel }}</h3>
-            <button class="calendar-nav-btn" @click="nextMonth">▶</button>
-          </div>
-        </div>
-        
-        <!-- Loading Spinner Overlay -->
-        <div v-if="loadingTasks" class="calendar-loading-overlay">
-          <div class="spinner"></div>
-          <span class="loading-text">Cargando tareas...</span>
-        </div>
-        
-        <VCalendar
-          :key="currentMonth.toISOString()"
-          :initial-page="{ month: currentMonth.getMonth() + 1, year: currentMonth.getFullYear() }"
-          :rows="1"
-          :columns="1"
-          expanded
-          borderless
-          transparent
-          :nav-visibility="'hidden'"
-          title-position="left"
-          class="custom-calendar"
-          :first-day-of-week="1"
-        >
-          <template #day-content="{ day }">
-            <div class="day-content-wrapper">
-              <span class="day-number">{{ day.day }}</span>
-              <div class="day-tasks" v-if="!day.isDisabled">
-                <div
-                  v-for="task in getTasksForDay(day)"
-                  :key="task._id"
-                  class="calendar-task"
-                  :class="getStatusColor(task)"
-                  :title="getTaskTooltip(task)"
-                  @click.stop="goToTaskDetail(task._id || task.id)"
-                >
-                  <span class="task-time">{{ formatTime(task.deadline) }}</span>
-                  <span class="task-title">{{ task.title }}</span>
-                </div>
-              </div>
-            </div>
-          </template>
-        </VCalendar>
-      </div>
-    </div>
-
-    <div class="app-container">
-      <main class="main-content">
-        <RouterView />
-      </main>
-
-      <div v-if="route.path === '/'">
-        <div v-if="store.isSupervisor">
-          <h2>📊 Estadísticas Generales</h2>
-          <DashboardStats />
-          <GraficoTareas />
-        </div>
-        <div v-else>
-          <h2>Bienvenido, {{ store.user.name || store.user.nombre }}</h2>
-          <p class="rol-alert">
-            Estás logueado como <strong>Usuario</strong>. No tenés acceso a las estadísticas del inicio.
-          </p>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div v-else>
+    <!-- AQUÍ SE RENDERIZAN LAS VIEWS -->
     <RouterView />
   </div>
 
-  <!-- <footer class="app-footer">
-  <div class="footer-content">
-    <p>&copy; {{ new Date().getFullYear() }} Gestor de Tareas - Desarrollado por Lucio Giraldez y Matías Valansi</p>
-    
-    <p><a href="https://github.com/lucioGiraldez/PNT2TrabajoFinal" target="_blank" rel="noopener" class="footer-link">
-      🌐 GitHub 
-    </a>- Tecnologías Usadas: Vue.js, Pinia, LocalStorage, Axios, VueChart.js, Email.Js</p>     
-  </div>
-</footer> -->
-
+  <!-- =======================
+       NO LOGUEADO
+  ======================== -->
+  <RouterView v-else />
 </template>
 
-
 <style>
+/* =======================
+   BASE
+======================= */
 body {
   background-color: #f4f4f2;
   color: #1f2937;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
-.header-bar {
-  width: 100%;
-  background-color: transparent;
-  padding: 1.5rem 1rem 0.5rem;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+body.dark {
+  background-color: #111827;
+  color: #f9fafb;
 }
 
-.header-inner {
-  background-color: transparent;
-  border: none;
-  box-shadow: none;
-  padding-bottom: 3rem;
-  position: relative;
-}
-
-.header-inner::after {
-  content: "";
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  height: 3px; /* más fino */
-  background: linear-gradient(to bottom, rgba(79, 131, 204, 0.1), transparent); /* menos opacidad */
-  pointer-events: none;
-}
-
-body.dark .header-inner::after {
-  background: linear-gradient(to bottom, rgba(96, 165, 250, 0.1), transparent); /* más suave */
-}
-
-.header-top {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1.2rem;
-}
-
-.logo-container {
-  display: flex;
-  justify-content: center;
-  width: 100%;
-}
-
-.logo-title {
-  width: 240px;
-  object-fit: contain;
-}
-
-/* === NAVBAR === */
-.navbar {
-  display: flex;
-  justify-content: center;
-  gap: 1.2rem;
-  flex-wrap: wrap;
-  margin-top: 1rem;
-}
-
-.nav-button {
-  background-color: #4f83cc;
-  color: white;
-  padding: 0.7rem 1.5rem;
-  border-radius: 9999px;
-  font-weight: 600;
-  text-decoration: none;
-  font-size: 1rem;
-  transition: all 0.2s ease;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
-}
-
-.nav-button:hover {
-  background-color: #3d6db5;
-  transform: translateY(-1px);
-}
-
-.nav-button.active {
-  background-color: #22c55e;
-  color: white;
-}
-
-.switch-option {
-  background: transparent;
-  border: none;
-  padding: 0.6rem 1.4rem;
-  border-radius: 9999px;
-  font-weight: 600;
-  font-size: 0.95rem;
-  color: #6b7280;
-  cursor: pointer;
-  transition: all 0.25s ease;
-}
-
-.switch-option:hover:not(.active) {
-  color: #374151;
-  background-color: rgba(255, 255, 255, 0.5);
-}
-
-.switch-option.active {
-  background-color: #4f83cc;
-  color: white;
-  box-shadow: 0 2px 8px rgba(79, 131, 204, 0.3);
-}
-
-
-body.dark .switch-option {
-  color: #9ca3af;
-}
-
-body.dark .switch-option:hover:not(.active) {
-  color: #e5e7eb;
-  background-color: rgba(255, 255, 255, 0.1);
-}
-
-body.dark .switch-option.active {
-  background-color: #3b82f6;
-  color: white;
-}
-
+/* =======================
+   USER BAR
+======================= */
 .user-bar {
   width: 100%;
   padding: 0.6rem 2rem;
@@ -512,7 +134,6 @@ body.dark .switch-option.active {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  flex-wrap: wrap;
 }
 
 body.dark .user-bar {
@@ -520,708 +141,166 @@ body.dark .user-bar {
 }
 
 .user-info {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.2rem;
-  font-size: 0.88rem;
-}
-
-
-.login-alert {
   font-size: 0.9rem;
-  color: #1f2937;
 }
 
-.login-role {
-  font-size: 0.85rem;
-  color: #1f2937;
+/* =======================
+   HEADER / NAV
+======================= */
+.header-bar {
+  text-align: center;
+  padding: 1.5rem 1rem;
 }
 
-body.dark .login-alert,
-body.dark .login-role {
-  color: #e0d7d7;
+.logo-title {
+  width: 240px;
 }
 
-
-.top-buttons {
+.navbar {
   display: flex;
-  gap: 0.5rem;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 1rem;
 }
 
-.toggle-button {
+.nav-button {
   background-color: #4f83cc;
   color: white;
-  border: none;
-  padding: 0.4rem 0.9rem;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: bold;
-  font-size: 0.85rem;
-  transition: background-color 0.3s ease;
+  padding: 0.6rem 1.4rem;
+  border-radius: 9999px;
+  text-decoration: none;
+  font-weight: 600;
 }
 
-.toggle-button:hover {
-  background-color: #3d6db5;
+.nav-button.active {
+  background-color: #22c55e;
 }
 
-.toggle-button.danger {
-  background-color: #e16060;
-}
-
-.toggle-button.danger:hover {
-  background-color: #c84c4c;
-}
-
-/* === CONTENIDO === */
+/* =======================
+   MAIN LAYOUT
+======================= */
 .app-container {
-  max-width: 900px;
+  max-width: 1610px;      /* 15% más ancho que 1400px */
+  width: 100%;
   margin: 0 auto;
   padding: 2rem;
 }
 
-.main-content {
-  animation: fadeIn 0.6s ease-in-out;
-}
-
-h2 {
-  margin-top: 2rem;
-  font-size: 1.5rem;
-  font-weight: bold;
-  color: #1f2937;
-}
-
-/* === MODO OSCURO === */
-body.dark {
-  background-color: #111827;
-  color: #f9fafb;
-}
-
-body.dark .header-inner {
-  background-color: transparent;
-  box-shadow: none;
-  border: none;
-}
-
-body.dark .nav-button {
-  background-color: #374151;
-  color: #f9fafb;
-}
-
-body.dark .nav-button:hover {
-  background-color: #4b5563;
-}
-
-body.dark .nav-button.active {
-  background-color: #22c55e;
-  color: white;
-}
-
-body.dark .toggle-button {
-  background-color: #334155;
-  color: #f1f5f9;
-}
-
-body.dark .toggle-button:hover {
-  background-color: #475569;
-}
-
-body.dark .toggle-button.danger {
-  background-color: #f87171;
-}
-
-body.dark .toggle-button.danger:hover {
-  background-color: #ef4444;
-}
-
-body.dark h2 {
-  color: #ffffff;
-}
-
-/* === ANIMACIÓN === */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.app-footer {
-  margin-top: 3rem;
-  padding: 1rem;
-  text-align: center;
-  font-size: 0.95rem;
-  color: #4b5563;
-  border-top: 1px solid #e5e7eb;
-  background-color: #f9fafb;
-}
-
-.footer-content {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-  align-items: center;
-  justify-content: center;
-}
-
-.footer-link {
-  color: #4f83cc;
-  text-decoration: none;
-  font-weight: 500;
-  transition: color 0.3s ease;
-}
-
-.footer-link:hover {
-  color: #3d6db5;
-}
-
-/* 🌙 Dark mode compatible */
-body.dark .app-footer {
-  background-color: #1f2937;
-  color: #d1d5db;
-  border-top: 1px solid #374151;
-}
-
-body.dark .footer-link {
-  color: #60a5fa;
-}
-
-body.dark .footer-link:hover {
-  color: #93c5fd;
-}
-
-/* === CALENDAR WRAPPER - 80% WIDTH === */
-.calendar-wrapper {
-  width: 80%;
-  margin: 0 auto 2rem auto;
-  padding: 0;
-}
-
-/* === CALENDAR LOADING === */
-/* === LOADING SPINNER STYLES === */
-.calendar-loading-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(255, 255, 255, 0.9);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-  border-radius: 16px;
-}
-
-body.dark .calendar-loading-overlay {
-  background: rgba(30, 41, 59, 0.95);
-}
-
-.spinner {
-  width: 50px;
-  height: 50px;
-  border: 4px solid #e5e7eb;
-  border-top: 4px solid #4f83cc;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-body.dark .spinner {
-  border-color: #374151;
-  border-top-color: #60a5fa;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-.loading-text {
-  margin-top: 1rem;
-  color: #6b7280;
-  font-size: 1rem;
-  font-weight: 500;
-}
-
-body.dark .loading-text {
-  color: #9ca3af;
-}
-
-/* === CALENDAR STYLES === */
-.calendar-section {
-  position: relative;
-  width: 100% !important;
-  max-width: none !important;
-  margin: 1rem 0;
-  padding: 1.5rem;
+.tasks-content {
   background: white;
   border-radius: 16px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-}
-
-.calendar-header {
-  position: relative;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  margin-bottom: 1.5rem;
-}
-
-.calendar-header-center {
-  display: flex;
-  align-items: center;
-  gap: 1.5rem;
-}
-
-.calendar-header-switch {
-  position: absolute;
-  top: 0;
-  right: 0;
-}
-
-.calendar-title {
-  font-size: 2rem;
-  font-weight: 700;
-  color: #1f2937;
-  text-transform: capitalize;
-  margin: 0;
-}
-
-.calendar-nav-btn {
-  background: #4f83cc;
-  color: white;
-  border: none;
-  width: 50px;
-  height: 50px;
-  border-radius: 12px;
-  cursor: pointer;
-  font-size: 1.3rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
-}
-
-.calendar-nav-btn:hover {
-  background: #3d6db5;
-  transform: scale(1.05);
-}
-
-.custom-calendar {
-  width: 100% !important;
-  --vc-day-content-width: 100% !important;
-  --vc-day-content-height: 100% !important;
-}
-
-/* Dark mode calendar */
-body.dark .calendar-section {
-  background: #1e293b;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-}
-
-body.dark .calendar-title {
-  color: #f1f5f9;
-}
-
-body.dark .calendar-nav-btn {
-  background: #3b82f6;
-}
-
-body.dark .calendar-nav-btn:hover {
-  background: #2563eb;
-}
-
-/* VCalendar FULL override */
-.custom-calendar .vc-container,
-.custom-calendar.vc-container {
-  width: 100% !important;
-  max-width: 100% !important;
-  --vc-bg: transparent !important;
-  --vc-border: none !important;
-}
-
-/* Hide native header */
-.custom-calendar .vc-header,
-.custom-calendar .vc-title {
-  display: none !important;
-}
-
-/* Weeks container */
-.custom-calendar .vc-weeks {
-  padding: 0 !important;
-  width: 100% !important;
-}
-
-/* Weekday headers - días de la semana */
-.custom-calendar .vc-weekdays {
-  padding: 0 !important;
-}
-
-.custom-calendar .vc-weekday {
-  font-size: 1.2rem !important;
-  font-weight: 700 !important;
-  padding: 1.2rem 0 !important;
-  color: #374151 !important;
-  text-transform: uppercase !important;
-  letter-spacing: 0.05em !important;
-  background: #f3f4f6 !important;
-  border: 1px solid #e5e7eb !important;
-}
-
-/* === DÍAS - RECTANGULARES Y PROPORCIONALES === */
-.custom-calendar .vc-day {
-  min-height: 122px !important;
-  height: 122px !important;
-  min-width: 0 !important;
-  padding: 0 !important;
-  border: 1px solid #d1d5db !important;
-  background: #ffffff !important;
-  position: relative !important;
-  overflow: hidden !important;
-  transition: all 0.15s ease !important;
-}
-
-.custom-calendar .vc-day:hover {
-  background: #f0f7ff !important;
-  border-color: #4f83cc !important;
-  box-shadow: inset 0 0 0 3px rgba(79, 131, 204, 0.25) !important;
-}
-
-/* === CONTENIDO DEL DÍA CON TAREAS === */
-.day-content-wrapper {
+  box-shadow: 0 8px 32px rgba(0,0,0,.1);
+  overflow: hidden;
   width: 100%;
-  height: 100%;
-  padding: 4px 6px;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
 }
 
-.day-number {
-  font-size: 0.9rem;
-  font-weight: 700;
-  color: #374151;
-  margin-bottom: 2px;
+body.dark .tasks-content {
+  background: #1e293b;
 }
 
-.day-tasks {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
-  display: block;
-}
-
-/* Scrollbar sutil para tareas */
-.day-tasks::-webkit-scrollbar {
-  width: 3px;
-}
-
-.day-tasks::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.day-tasks::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 3px;
-}
-
-/* === TAREA INDIVIDUAL EN CALENDARIO === */
-.calendar-task {
-  padding: 3px 5px;
-  margin-bottom: 2px;
-  border-radius: 3px;
-  font-size: 0.75rem;
-  line-height: 1.3;
-  min-height: 20px;
-  height: auto;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  transition: background 0.1s ease, box-shadow 0.1s ease;
-  border-left: 3px solid;
-  flex-shrink: 0;
-}
-
-.calendar-task:hover {
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-  filter: brightness(0.95);
-}
-
-.task-time {
-  font-weight: 700;
-  font-size: 0.8rem;
-  opacity: 0.9;
-  flex-shrink: 0;
-}
-
-.task-title {
-  font-weight: 500;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* === COLORES POR ESTADO === */
-.task-completed {
-  background: #d1fae5;
-  color: #065f46;
-  border-color: #10b981;
-}
-
-.task-pending {
-  background: #fef3c7;
-  color: #92400e;
-  border-color: #f59e0b;
-}
-
-.task-expired {
-  background: #fee2e2;
-  color: #991b1b;
-  border-color: #ef4444;
-}
-
-/* === DÍA ACTUAL === */
-.custom-calendar .vc-day.is-today .day-number {
-  background: #4f83cc;
-  color: white;
-  padding: 2px 6px;
-  border-radius: 4px;
-  display: inline-block;
-}
-
-/* === DÍA CLICKEABLE - OCUPA TODO === */
-.custom-calendar .vc-day-content {
-  position: absolute !important;
-  top: 0 !important;
-  left: 0 !important;
-  right: 0 !important;
-  bottom: 0 !important;
-  width: 100% !important;
-  height: 100% !important;
-  min-width: 100% !important;
-  min-height: 100% !important;
-  border-radius: 0 !important;
-  display: flex !important;
-  align-items: flex-start !important;
-  justify-content: flex-start !important;
-  padding: 0 !important;
-  font-size: 1.2rem !important;
-  font-weight: 700 !important;
-  color: #374151 !important;
-  cursor: pointer !important;
-  transition: background 0.15s ease !important;
-  background: transparent !important;
-}
-
-.custom-calendar .vc-day-content:hover {
-  background: rgba(79, 131, 204, 0.05) !important;
-}
-
-.custom-calendar .vc-day-content:focus {
-  outline: none !important;
-  background: rgba(79, 131, 204, 0.15) !important;
-}
-
-/* Día actual */
-.custom-calendar .vc-day.is-today {
-  background: #e8f4fd !important;
-}
-
-.custom-calendar .vc-day.is-today .vc-day-content {
-  color: #1e40af !important;
-  font-weight: 800 !important;
-}
-
-/* Highlight del día actual */
-.custom-calendar .vc-day.is-today .vc-highlights {
-  display: none !important;
-}
-
-/* Días de otros meses - GRISES Y NO INTERACTIVOS */
-.custom-calendar .vc-day.is-not-in-month {
-  background: #e5e7eb !important;
-  pointer-events: none !important;
-  opacity: 0.5 !important;
-}
-
-.custom-calendar .vc-day.is-not-in-month:hover {
-  background: #e5e7eb !important;
-  border-color: #d1d5db !important;
-  box-shadow: none !important;
-}
-
-.custom-calendar .vc-day.is-not-in-month .vc-day-content {
-  color: #9ca3af !important;
-  font-weight: 400 !important;
-  cursor: default !important;
-  pointer-events: none !important;
-}
-
-.custom-calendar .vc-day.is-not-in-month .vc-day-content:hover {
-  background: transparent !important;
-}
-
-/* Espacio para tareas */
-.custom-calendar .vc-day-box-center-bottom {
-  position: absolute !important;
-  top: 50px !important;
-  left: 10px !important;
-  right: 10px !important;
-  bottom: 10px !important;
-  width: auto !important;
-  overflow-y: auto !important;
-  padding: 4px !important;
-}
-
-/* Ocultar highlights por defecto */
-.custom-calendar .vc-highlights {
-  z-index: 0 !important;
-}
-
+/* =======================
+   SWITCH
+======================= */
 .tasks-toolbar {
   display: flex;
   justify-content: flex-end;
-  margin-bottom: 1rem;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.6rem 0.8rem;
+}
+
+
+.view-label {
+  font-size: 0.7rem;
+  color: #6b7280;
+  user-select: none;
 }
 
 .view-toggle {
   display: inline-flex;
-  align-items: center;
-  background: #f1f5f9;
-  border: 1px solid #e5e7eb;
+  background: #e5e7eb;
   border-radius: 9999px;
-  padding: 3px;
-  gap: 0;
+  padding: 2px;
 }
 
 .toggle-option {
-  background: transparent;
   border: none;
-  padding: 0.35rem 0.9rem;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: #6b7280;
-  border-radius: 9999px;
+  background: transparent;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.72rem;
+  font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.toggle-option:hover:not(.active) {
-  background: rgba(0, 0, 0, 0.04);
+  border-radius: 9999px;
   color: #374151;
+  line-height: 1.4;
 }
 
 .toggle-option.active {
-  background: #4f83cc;
+  background: #64748b;
   color: white;
-  box-shadow: 0 1px 4px rgba(79, 131, 204, 0.4);
 }
 
-.switch-option {
-  padding: 0.45rem 1.1rem;
-  font-size: 0.85rem;
-  font-weight: 600;
+.toggle-button {
+  background-color: #d1d5db;    /* sólido, neutro */
+  color: #1f2937;
+  border: none;
+  padding: 0.4rem 0.9rem;
+  font-size: 0.75rem;
+  font-weight: 500;
   border-radius: 9999px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
-/* === DARK MODE === */
-body.dark .custom-calendar .vc-weekday {
-  color: #e5e7eb !important;
-  background: #334155 !important;
-  border-color: #475569 !important;
+.toggle-button:hover {
+  background-color: #9ca3af;
 }
 
-body.dark .custom-calendar .vc-day {
-  border-color: #475569 !important;
-  background: #1e293b !important;
-}
-
-body.dark .custom-calendar .vc-day:hover {
-  background: #2d3a4f !important;
-  border-color: #3b82f6 !important;
-}
-
-body.dark .custom-calendar .vc-day-content {
-  color: #e5e7eb !important;
-}
-
-body.dark .custom-calendar .vc-day-content:hover {
-  background: rgba(59, 130, 246, 0.1) !important;
-}
-
-body.dark .custom-calendar .vc-day.is-today {
-  background: #1e3a5f !important;
-}
-
-body.dark .custom-calendar .vc-day.is-today .vc-day-content {
-  color: #60a5fa !important;
-}
-
-/* Dark mode - Day number */
-body.dark .day-number {
-  color: #e5e7eb;
-}
-
-body.dark .custom-calendar .vc-day.is-today .day-number {
-  background: #3b82f6;
+.toggle-button.danger {
+  background-color: #ef4444;  /* rojo sólido */
   color: white;
 }
 
-/* Dark mode - Task colors */
-body.dark .task-completed {
-  background: #064e3b;
-  color: #a7f3d0;
-  border-color: #10b981;
+.toggle-button.danger:hover {
+  background-color: #dc2626;
 }
 
-body.dark .task-pending {
-  background: #78350f;
-  color: #fde68a;
-  border-color: #f59e0b;
+body.dark .toggle-button {
+  background-color: #374151;
+  color: #f9fafb;
 }
 
-body.dark .task-expired {
-  background: #7f1d1d;
-  color: #fecaca;
-  border-color: #ef4444;
+body.dark .toggle-button:hover {
+  background-color: #4b5563;
 }
 
-/* Dark mode - Scrollbar */
-body.dark .day-tasks::-webkit-scrollbar-thumb {
-  background: #475569;
+body.dark .toggle-button.danger {
+  background-color: #b91c1c;
 }
 
-/* Dark mode - Días de otros meses - GRISES Y NO INTERACTIVOS */
-body.dark .custom-calendar .vc-day.is-not-in-month {
-  background: #1a1f2e !important;
-  pointer-events: none !important;
-  opacity: 0.4 !important;
+body.dark .toggle-button.danger:hover {
+  background-color: #991b1b;
 }
 
-body.dark .custom-calendar .vc-day.is-not-in-month .vc-day-content {
-  color: #4b5563 !important;
-  cursor: default !important;
+/* =======================
+   VIEW CONTAINER
+======================= */
+  .view-container {
+    width: 100%;
+    height: 773px;
+    max-height: 773px;
+    overflow: hidden;
 }
 
-body.dark .custom-calendar .vc-container,
-body.dark .custom-calendar.vc-container {
-  --vc-bg: transparent !important;
-  --vc-color: #f1f5f9 !important;
-  --vc-gray-100: #334155 !important;
-  --vc-gray-200: #475569 !important;
-  --vc-gray-400: #94a3b8 !important;
-  --vc-gray-500: #64748b !important;
-  --vc-gray-600: #cbd5e1 !important;
-  --vc-gray-700: #e2e8f0 !important;
-  --vc-gray-800: #f1f5f9 !important;
-  --vc-gray-900: #f8fafc !important;
+/* =======================
+   TRANSITION
+======================= */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.15s ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 </style>

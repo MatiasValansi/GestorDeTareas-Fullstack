@@ -95,7 +95,7 @@ const getUserName = (user) => {
 
 // Navegación
 const volverAlMenu = () => {
-  router.push('/task')
+  router.push('/main')
 }
 
 const verDetalleUsuario = (userId) => {
@@ -113,7 +113,7 @@ const eliminarTarea = async () => {
 
   try {
     await deleteTask(tarea.value._id ?? tarea.value.id)
-    router.push('/task')
+    volverAlMenu()
   } catch (err) {
     console.error('Error al eliminar tarea', err)
     alert('Hubo un error al eliminar la tarea.')
