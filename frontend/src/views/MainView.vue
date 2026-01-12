@@ -6,13 +6,14 @@ import TaskListView from '@/components/TaskListView.vue'
 import DashboardStats from '@/components/DashboardStats.vue'
 import GraficoTareas from '@/components/GraficoTareas.vue'
 import { useUserStore } from '@/stores/user'
+import TasksToolbar from '@/components/TasksToolbar.vue'
 
 const store = useUserStore()
 
-/* Vista */
+/* Vista actual */
 const viewMode = ref('calendario')
 
-/* Calendar shared state */
+/* Estado compartido del calendario */
 const currentMonth = ref(new Date())
 provide('currentMonth', currentMonth)
 </script>
@@ -21,42 +22,30 @@ provide('currentMonth', currentMonth)
   <div class="app-container">
     <main class="main-content">
 
+      <!-- CONTENIDO PRINCIPAL DE TAREAS -->
       <div class="tasks-content">
 
-        <!-- SWITCH -->
-        <div class="tasks-toolbar">
-          <span class="view-label">Vista</span>
+        <!-- TOOLBAR (MES + SWITCH) -->
+        <TasksToolbar
+          :currentMonth="currentMonth"
+          :viewMode="viewMode"
+          @update:month="currentMonth = $event"
+          @update:view="viewMode = $event"
+        />
 
-          <div class="view-toggle">
-            <button
-              class="toggle-option"
-              :class="{ active: viewMode === 'calendario' }"
-              @click="viewMode = 'calendario'"
-            >
-              Calendario
-            </button>
-
-            <button
-              class="toggle-option"
-              :class="{ active: viewMode === 'lista' }"
-              @click="viewMode = 'lista'"
-            >
-              Lista
-            </button>
-          </div>
-        </div>
-
+        <!-- VISTA CALENDARIO -->
         <div v-show="viewMode === 'calendario'" class="view-container">
           <CalendarView />
         </div>
 
+        <!-- VISTA LISTA -->
         <div v-show="viewMode === 'lista'" class="view-container">
           <TaskListView />
         </div>
 
       </div>
 
-      <!-- STATS -->
+      <!-- PANEL LATERAL / STATS -->
       <div>
         <div v-if="store.isSupervisor">
           <h2>📊 Estadísticas Generales</h2>
@@ -75,3 +64,7 @@ provide('currentMonth', currentMonth)
     </main>
   </div>
 </template>
+<style scoped>
+
+</style>
+

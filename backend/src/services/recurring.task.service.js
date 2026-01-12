@@ -199,12 +199,10 @@ export const RecurringTaskService = {
 		for (const occurrenceDate of occurrenceDates) {
 			const dateStr = occurrenceDate.toISOString().split("T")[0];
 
-			// Skip if task already exists for this date
 			if (existingDates.has(dateStr)) {
 				continue;
 			}
 
-			// Create ONE task per date with ALL assignees
 			const task = new TaskModel({
 				title: recurringTask.title,
 				description: recurringTask.description,
@@ -214,10 +212,15 @@ export const RecurringTaskService = {
 				status: "PENDIENTE",
 				recurringTaskId: recurringTask._id,
 			});
-			const savedTask = await task.save();
-			individualTasks.push(savedTask);
-		}
 
+			try {
+				const savedTask = await task.save();
+				individualTasks.push(savedTask);
+			} catch (err) {
+				if (err.code === 11000) continue;
+				throw err;
+			}
+		}
 		return individualTasks;
 	},
 

@@ -1,6 +1,8 @@
 import { TaskModel } from "../model/Task.js";
 import { TaskRepository } from "../repository/task.repository.js";
 import { ArgentinaTime } from "../utils/argentinaTime.js";
+import { RecurringTaskService } from "./recurring.task.service.js"
+
 
 export const TaskService = {
 	serviceTaskValidation: async (id) => {
@@ -172,8 +174,12 @@ export const TaskService = {
 	 * @returns {Promise<Array>} Tasks with assignedTo populated
 	 */
 	async getCalendarTasks(user, month, year) {
-		// Actualizar tareas vencidas en la BD antes de consultar
-		await this.markExpiredTasks();
+		
+		// Generar (idempotente por índice único)
+		await RecurringTaskService.generateTasksForMonth(year, month, user.id)
+
+		// // Actualizar tareas vencidas en la BD antes de consultar
+		// await this.markExpiredTasks();
 
 		// Calculate date range for the month (include days from prev/next month visible in calendar)
 		const startDate = new Date(Date.UTC(year, month - 1, 1));

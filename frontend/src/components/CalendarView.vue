@@ -104,20 +104,15 @@ const loadCalendarTasks = async () => {
 
 watch(currentMonth, () => loadCalendarTasks(), { immediate: true })
 
-// Asegurar carga al montar el componente
-onMounted(() => {
-  loadCalendarTasks()
-})
+// // Asegurar carga al montar el componente
+// onMounted(() => {
+//   loadCalendarTasks()
+// })
 </script>
 
 <template>
   <div class="calendar-component">
     <!-- HEADER CUSTOM -->
-    <div class="calendar-header">
-      <button class="calendar-nav-btn" @click="prevMonth">◀</button>
-      <h3 class="calendar-title">{{ currentMonthLabel }}</h3>
-      <button class="calendar-nav-btn" @click="nextMonth">▶</button>
-    </div>
 
     <!-- LOADING -->
     <div v-if="loadingTasks" class="calendar-loading-overlay">

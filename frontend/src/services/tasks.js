@@ -15,15 +15,6 @@ export const getAllTasks = async () => {
 // Obtener tareas para el calendario (filtradas según rol del usuario)
 // TAMBIÉN genera las tareas recurrentes y marca las vencidas automáticamente
 export const getCalendarTasks = async (month, year) => {
-  // Paso 1: Generar tareas recurrentes para este mes (también marca vencidas)
-  try {
-    await api.post(`/recurringTask/recurring-tasks/generate/${year}/${month}`);
-  } catch (error) {
-    // Si falla la generación, continuamos igual para mostrar las tareas existentes
-    console.warn('No se pudieron generar tareas recurrentes:', error.message);
-  }
-  
-  // Paso 2: Obtener las tareas del calendario
   const { data } = await api.get(`/tasks/calendar?month=${month}&year=${year}`);
   return data.payload || [];
 };

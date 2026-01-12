@@ -210,13 +210,7 @@ watch(globalMonth, (newMonth) => {
   <main class="task-container">
     <!-- Header con navegación de mes y filtros -->
     <div class="task-header">
-      <!-- Selector de mes -->
-      <div class="month-selector">
-        <button class="month-nav-btn" @click="prevMonth">◀</button>
-        <h2 class="month-title" @click="goToCurrentMonth">{{ currentMonthLabel }}</h2>
-        <button class="month-nav-btn" @click="nextMonth">▶</button>
-      </div>
-      
+     
       <!-- Buscador de tareas -->
       <div class="search-container">
         <div class="search-input-wrapper">
