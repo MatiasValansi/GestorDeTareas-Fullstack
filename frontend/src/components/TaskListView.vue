@@ -37,8 +37,8 @@ const tareasDelMes = computed(() => {
   const year = selectedMonth.value.getFullYear()
   
   return tareas.value.filter(t => {
-    if (!t.deadline) return false
-    const taskDate = new Date(t.deadline)
+    if (!t.date) return false
+    const taskDate = new Date(t.date)
     return taskDate.getMonth() === month && taskDate.getFullYear() === year
   })
 })
@@ -67,7 +67,7 @@ const tareasFiltradas = computed(() => {
   }
   
   // Ordenar por fecha
-  return filtered.sort((a, b) => new Date(a.deadline) - new Date(b.deadline))
+  return filtered.sort((a, b) => new Date(a.date) - new Date(b.date))
 })
 
 // Contadores para los filtros (basados en tareas del mes)

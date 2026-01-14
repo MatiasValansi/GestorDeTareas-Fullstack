@@ -14,6 +14,7 @@ const store = useUserStore()
 // ===== ESTADO DEL FORMULARIO =====
 const titulo = ref('')
 const descripcion = ref('')
+const date = ref('')          // Fecha de la tarea (no usada en el formulario)
 const deadline = ref('')        // Para tareas individuales: fecha y hora completa
 const startingFrom = ref('')    // Para tareas recurrentes: desde cuándo comienza
 
@@ -99,6 +100,12 @@ const nombreUsuarioActual = computed(() => {
   return usuario?.nombre || store.user?.name || 'Usuario'
 })
 
+const fechasValidas = computed(() => {
+  if (!date.value || !deadline.value) return true
+  return new Date(deadline.value) >= new Date(date.value)
+})
+
+
 // Validación del formulario
 const formularioValido = computed(() => {
   if (!titulo.value.trim()) return false
@@ -115,8 +122,11 @@ const formularioValido = computed(() => {
   if (esRecurrente.value) {
     if (!startingFrom.value) return false
   } else {
-    if (!deadline.value) return false
+    if (!date.value || !deadline.value) return false
   }
+
+  if (!fechasValidas.value) return false
+
   
   return true
 })
@@ -192,6 +202,7 @@ const crearTareaIndividual = async () => {
   const tarea = {
     title: titulo.value.trim(),
     description: descripcion.value.trim(),
+    date: formatearFechaParaBackend(date.value),
     deadline: formatearFechaParaBackend(deadline.value),
     assignedTo: asignados,
     status: 'PENDIENTE'
@@ -279,6 +290,7 @@ watch(esRecurrente, (nuevoValor) => {
     tipoPatron.value = 'DAILY_PATTERN'
     startingFrom.value = ''
   } else {
+    date.value = '' 
     deadline.value = ''
   }
 })
@@ -491,31 +503,36 @@ onMounted(obtenerUsuarios)
         </div>
 
                 <!-- ===== FECHA Y HORA ===== -->
-        <div class="form-section">
-          <h3 class="section-title">{{ esRecurrente ? 'Fecha de inicio' : 'Fecha Límite' }}</h3>
-          
-          <div class="form-group last-in-section" v-if="!esRecurrente">
-            <label for="deadline">Fecha y hora límite</label>
-            <p class="field-hint">La tarea debe completarse antes de esta fecha y hora</p>
-            <input 
-              id="deadline"
-              v-model="deadline" 
-              type="datetime-local" 
-              required 
+        <div v-if="!esRecurrente">
+          <!-- FECHA DE LA TAREA -->
+          <div class="form-group">
+            <label for="date">Fecha de la tarea</label>
+            <p class="field-hint">Día en el que la tarea aparece en el calendario</p>
+            <input
+              id="date"
+              v-model="date"
+              type="datetime-local"
+              required
             />
           </div>
 
-          <div class="form-group last-in-section" v-else>
-            <label for="startingFrom">Fecha y hora de inicio</label>
-            <p class="field-hint">Desde esta fecha comenzarán a generarse las tareas</p>
-            <input 
-              id="startingFrom"
-              v-model="startingFrom" 
-              type="datetime-local" 
-              required 
+          <!-- DEADLINE -->
+          <div class="form-group last-in-section">
+            <label for="deadline">Fecha y hora límite</label>
+            <p class="field-hint">La tarea vence en esta fecha y hora</p>
+            <input
+              id="deadline"
+              v-model="deadline"
+              type="datetime-local"
+              required
             />
           </div>
+
+          <p v-if="!fechasValidas" class="error-text">
+            La fecha de vencimiento no puede ser anterior a la fecha de la tarea
+          </p>
         </div>
+
 
 
 

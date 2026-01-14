@@ -21,9 +21,17 @@ const taskSchema = new mongoose.Schema(
 		description: {
 			type: String,
 		},
+		
+		date: {
+		type: Date,
+		required: true,
+		index: true,
+		},
+
 		deadline: {
-			type: Date,
-			required: true,
+		type: Date,
+		required: true,
+		index: true,
 		},
 		createdBy: {
 			type: Schema.Types.ObjectId,
@@ -61,7 +69,7 @@ const taskSchema = new mongoose.Schema(
 );
 
 taskSchema.index(
-	{ recurringTaskId: 1, assignedTo: 1, deadline: 1 },
+	{ recurringTaskId: 1, assignedTo: 1, date: 1 },
 	{
 		unique: true,
 		partialFilterExpression: {
@@ -71,6 +79,7 @@ taskSchema.index(
 );
 
 // Índices para optimizar consultas comunes
+taskSchema.index({ assignedTo: 1, date: 1 });
 taskSchema.index({ assignedTo: 1, deadline: 1 });
 taskSchema.index({ assignedTo: 1, status: 1 });
 

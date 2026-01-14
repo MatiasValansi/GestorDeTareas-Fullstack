@@ -184,12 +184,12 @@ export const RecurringTaskService = {
 		// Get existing tasks to avoid duplicates (check by date + recurringTaskId)
 		const existingTasks = await TaskModel.find({
 			recurringTaskId: recurringTask._id,
-			deadline: { $gte: monthStart, $lte: monthEnd },
-		}).select("deadline");
+			date: { $gte: monthStart, $lte: monthEnd },
+		}).select("date");
 
 		// Build a Set of existing date strings
 		const existingDates = new Set(
-			existingTasks.map((t) => t.deadline.toISOString().split("T")[0])
+			existingTasks.map(t => t.date.toISOString().split("T")[0])
 		);
 
 		// Extract all user ObjectIds from assignedTo (handle populated and non-populated)
@@ -206,6 +206,7 @@ export const RecurringTaskService = {
 			const task = new TaskModel({
 				title: recurringTask.title,
 				description: recurringTask.description,
+				date: occurrenceDate,
 				deadline: occurrenceDate,
 				createdBy,
 				assignedTo: allAssignees,
@@ -450,7 +451,7 @@ export const RecurringTaskService = {
 			await TaskModel.updateMany(
 				{
 					recurringTaskId: recurringTaskId,
-					deadline: { $gte: modificationDate },
+					date: { $gte: modificationDate },
 				},
 				{ $set: updates }
 			);
@@ -458,7 +459,7 @@ export const RecurringTaskService = {
 			// Add legend to past tasks (deadline < now)
 			const pastTasks = await TaskModel.find({
 				recurringTaskId: recurringTaskId,
-				deadline: { $lt: modificationDate },
+				date: { $lt: modificationDate },
 			});
 
 			for (const task of pastTasks) {
@@ -546,7 +547,7 @@ export const RecurringTaskService = {
 
         const deleteResult = await TaskModel.deleteMany({
 				recurringTaskId: id,
-                deadline: { $gt: new Date() },
+                date: { $gt: new Date() },
 			});
         const deletedCount = deleteResult.deletedCount;
 

@@ -18,14 +18,14 @@ const loadingTasks = ref(false)
 const tasksByDate = computed(() => {
   const grouped = {}
   calendarTasks.value.forEach(task => {
-    const dateKey = new Date(task.deadline).toISOString().split('T')[0]
+    const dateKey = new Date(task.date).toISOString().split('T')[0]
     if (!grouped[dateKey]) {
       grouped[dateKey] = []
     }
     grouped[dateKey].push(task)
   })
   Object.keys(grouped).forEach(date => {
-    grouped[date].sort((a, b) => new Date(a.deadline) - new Date(b.deadline))
+    grouped[date].sort((a, b) => new Date(a.date) - new Date(b.date))
   })
   return grouped
 })
@@ -68,7 +68,7 @@ const getTaskTooltip = (task) => {
   return tooltip
 }
 
-const formatTime = (deadline) => ArgentinaTime.formatTime(deadline)
+const formatTime = (date) => ArgentinaTime.formatTime(date)
 
 const goToTaskDetail = (taskId) => router.push(`/taskDetail/${taskId}`)
 
@@ -143,7 +143,7 @@ watch(currentMonth, () => loadCalendarTasks(), { immediate: true })
               :title="getTaskTooltip(task)"
               @click.stop="goToTaskDetail(task._id || task.id)"
             >
-              <span class="task-time">{{ formatTime(task.deadline) }}</span>
+              <span class="task-time">{{ formatTime(task.date) }}</span>
               <span class="task-name">{{ task.title }}</span>
             </div>
           </div>
