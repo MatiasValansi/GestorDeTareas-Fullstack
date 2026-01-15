@@ -1,721 +1,731 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { useUserStore } from '@/stores/user'
-import { getTaskById, deleteTask } from '@/services/tasks'
-import { getUserById } from '@/services/users'
+import { ref, computed, onMounted } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import { useUserStore } from "@/stores/user";
+import { getTaskById, getTaskOwnerId } from "@/services/tasks";
 
-const route = useRoute()
-const router = useRouter()
-const store = useUserStore()
+const route = useRoute();
+const router = useRouter();
+const userStore = useUserStore();
 
-// Estado
-const tarea = ref(null)
-const cargando = ref(true)
-const error = ref("")
+const task = ref(null);
+const loading = ref(true);
+const error = ref("");
+const showTechnicalInfo = ref(false);
 
-// ============ COMPUTED ============
+// Helper para obtener el ID del usuario actual
+const getCurrentUserId = () => {
+    const user = userStore.user;
+    return user?._id ? String(user._id) : user?.id ? String(user.id) : null;
+};
 
-// Datos del usuario asignado
-const assignedUsers = computed(() => {
-  if (!tarea.value?.assignedTo) return []
-  return tarea.value.assignedTo
-})
+// ===== PERMISOS DE EDICIÓN =====
+// Un usuario puede editar si:
+// 1. Es el titular (posición 0 de assignedTo)
+// 2. La tarea NO está vencida
+// 3. La tarea NO es recurrente (generada automáticamente)
+const isOwner = computed(() => {
+    if (!task.value) return false;
+    const currentUserId = getCurrentUserId();
+    const ownerId = getTaskOwnerId(task.value);
+    return currentUserId && ownerId && currentUserId === ownerId;
+});
 
-// Estado de la tarea
-const taskStatus = computed(() => {
-  if (!tarea.value) return { label: 'Desconocido', class: 'status-unknown' }
-  
-  if (tarea.value.status === 'COMPLETADA' || tarea.value.completada) {
-    return { label: 'Completada', class: 'status-completada', icon: '✅' }
-  }
-  if (tarea.value.status === 'VENCIDA') {
-    return { label: 'Vencida', class: 'status-vencida', icon: '❌' }
-  }
-  return { label: 'Pendiente', class: 'status-pendiente', icon: '⏳' }
-})
+const isExpired = computed(() => {
+    if (!task.value?.deadline) return false;
+    return new Date(task.value.deadline) < new Date();
+});
 
-// Es tarea recurrente
-const isRecurring = computed(() => {
-  return !!tarea.value?.recurringTaskId
-})
+const isRecurring = computed(() => !!task.value?.recurringTaskId);
 
-// ============ MÉTODOS ============
+const canEdit = computed(() => {
+    return isOwner.value && !isExpired.value && !isRecurring.value;
+});
 
-// Cargar datos de la tarea
-const cargarTarea = async () => {
-  cargando.value = true
-  error.value = ""
-  try {
-    const data = await getTaskById(route.params.id)
-    const doc = data?.payload?.taskFoundById ?? data?.payload ?? data
-    tarea.value = doc
-  } catch (err) {
-    console.error('Error al cargar datos de tarea:', err)
-    error.value = 'No se pudo cargar la tarea'
-  } finally {
-    cargando.value = false
-  }
-}
+const editBlockReason = computed(() => {
+    if (!isOwner.value) return "Solo el titular de la tarea puede editarla";
+    if (isExpired.value) return "No se pueden editar tareas vencidas";
+    if (isRecurring.value) return "Las tareas recurrentes no se pueden editar directamente";
+    return "";
+});
 
-// Formatear fecha completa
-const formatFechaCompleta = (fechaStr) => {
-  if (!fechaStr) return 'No asignada'
-  const fecha = new Date(fechaStr)
-  const opciones = { 
-    weekday: 'long', 
-    day: 'numeric', 
-    month: 'long', 
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  }
-  return fecha.toLocaleDateString('es-ES', opciones)
-}
+// ===== DATOS DE LA TAREA =====
+onMounted(async () => {
+    try {
+        loading.value = true;
+        const data = await getTaskById(route.params.id);
+        task.value = data;
+    } catch (e) {
+        error.value = e?.response?.data?.message || "Error al cargar la tarea";
+        console.error("Error al cargar tarea:", e);
+    } finally {
+        loading.value = false;
+    }
+});
 
-// Formatear fecha corta
-const formatFechaCorta = (fechaStr) => {
-  if (!fechaStr) return 'No disponible'
-  const fecha = new Date(fechaStr)
-  return fecha.toLocaleDateString('es-ES', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric'
-  })
-}
+// Formatear fechas
+const formatDate = (dateString) => {
+    if (!dateString) return "No especificada";
+    const date = new Date(dateString);
+    return date.toLocaleDateString("es-AR", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+    });
+};
 
-// Obtener nombre del usuario
-const getUserName = (user) => {
-  if (!user) return 'Sin asignar'
-  if (typeof user === 'object') {
-    return user.nombre || user.name || user.email || 'Usuario'
-  }
-  return user
-}
+const formatShortDate = (dateString) => {
+    if (!dateString) return "-";
+    const date = new Date(dateString);
+    return date.toLocaleDateString("es-AR");
+};
+
+// Obtener clase del estado
+const getStatusClass = (status) => {
+    const classes = {
+        PENDIENTE: "status-pending",
+        EN_PROGRESO: "status-progress",
+        COMPLETADA: "status-completed",
+        VENCIDA: "status-expired",
+    };
+    return classes[status] || "status-pending";
+};
+
+const getStatusLabel = (status) => {
+    const labels = {
+        PENDIENTE: "Pendiente",
+        EN_PROGRESO: "En progreso",
+        COMPLETADA: "Completada",
+        VENCIDA: "Vencida",
+    };
+    return labels[status] || status;
+};
+
+// Obtener nombre del titular
+const ownerName = computed(() => {
+    if (!task.value?.assignedTo?.length) return "Sin asignar";
+    const first = task.value.assignedTo[0];
+    if (typeof first === "object") {
+        return first.name || first.nombre || first.fullname || "Usuario";
+    }
+    return "Usuario";
+});
+
+// Verificar si un usuario es el titular
+const isUserOwner = (user, index) => index === 0;
 
 // Navegación
-const volverAlMenu = () => {
-  router.push('/main')
-}
-
-const verDetalleUsuario = (userId) => {
-  const id = typeof userId === 'object' ? userId._id || userId.id : userId
-  if (id) router.push(`/userDetail/${id}`)
-}
-
-const editarTarea = () => {
-  router.push(`/editTask/${tarea.value._id ?? tarea.value.id}`)
-}
-
-const eliminarTarea = async () => {
-  const confirmacion = confirm(`¿Eliminar la tarea "${tarea.value.title ?? tarea.value.titulo}"?`)
-  if (!confirmacion) return
-
-  try {
-    await deleteTask(tarea.value._id ?? tarea.value.id)
-    volverAlMenu()
-  } catch (err) {
-    console.error('Error al eliminar tarea', err)
-    alert('Hubo un error al eliminar la tarea.')
-  }
-}
-
-const fechaTarea = computed(() => {
-  return tarea.value?.date
-    ? formatFechaCompleta(tarea.value.date)
-    : 'No asignada'
-})
-
-const fechaVencimiento = computed(() => {
-  return tarea.value?.deadline
-    ? formatFechaCompleta(tarea.value.deadline)
-    : 'No asignada'
-})
-
-const fechaCreacion = computed(() => {
-  return tarea.value?.createdAt
-    ? formatFechaCorta(tarea.value.createdAt)
-    : '—'
-})
-
-// ============ LIFECYCLE ============
-
-onMounted(() => {
-  cargarTarea()
-})
+const goBack = () => router.push("/task");
+const goToEdit = () => router.push(`/editTask/${route.params.id}`);
 </script>
 
 <template>
-  <div class="detail-container">
-    <!-- Botón volver -->
-    <div class="back-link" @click="volverAlMenu">
-      <span class="back-arrow">←</span>
-      <span class="back-text">Volver a la lista</span>
+    <div class="task-detail-container">
+        <div class="back-link" @click="goBack">← Volver a la lista</div>
+
+        <!-- Loading -->
+        <div v-if="loading" class="loading-state">
+            <div class="spinner"></div>
+            <span>Cargando tarea...</span>
+        </div>
+
+        <!-- Error -->
+        <div v-else-if="error" class="error-state">
+            <span>{{ error }}</span>
+            <button @click="goBack" class="btn-back">Volver</button>
+        </div>
+
+        <!-- Contenido -->
+        <div v-else-if="task" class="task-card">
+            <!-- Header con estado y acciones -->
+            <div class="task-header">
+                <span class="status-badge" :class="getStatusClass(task.status)">
+                    <span class="status-icon">{{ task.status === 'COMPLETADA' ? '✓' : task.status === 'VENCIDA' ? '⚠' : '◷' }}</span>
+                    {{ getStatusLabel(task.status) }}
+                </span>
+
+                <!-- Botón Editar (solo si puede) -->
+                <button 
+                    v-if="canEdit" 
+                    @click="goToEdit" 
+                    class="btn-edit"
+                >
+                    ✏️ Editar
+                </button>
+                
+                <!-- Tooltip si no puede editar pero es tarea suya parcialmente -->
+                <div v-else-if="editBlockReason && (isOwner || task.assignedTo?.some(u => (u._id || u.id || u) === getCurrentUserId()))" class="edit-blocked-notice">
+                    <span class="notice-icon">🔒</span>
+                    <span class="notice-text">{{ editBlockReason }}</span>
+                </div>
+            </div>
+
+            <!-- Título -->
+            <h1 class="task-title">{{ task.title }}</h1>
+
+            <!-- Descripción -->
+            <div class="task-section" v-if="task.description">
+                <span class="section-icon">📄</span>
+                <span class="section-label">Descripción</span>
+                <p class="task-description">{{ task.description }}</p>
+            </div>
+
+            <!-- Fechas -->
+            <div class="dates-grid">
+                <div class="date-card">
+                    <span class="date-icon">📅</span>
+                    <div class="date-content">
+                        <span class="date-label">FECHA DE LA TAREA</span>
+                        <span class="date-value">{{ formatDate(task.date) }}</span>
+                    </div>
+                </div>
+                <div class="date-card deadline" :class="{ expired: isExpired }">
+                    <span class="date-icon">⏰</span>
+                    <div class="date-content">
+                        <span class="date-label">FECHA DE VENCIMIENTO</span>
+                        <span class="date-value">{{ formatDate(task.deadline) }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Fecha de creación -->
+            <div class="created-info">
+                <span class="created-icon">🕐</span>
+                <div class="created-content">
+                    <span class="created-label">CREADA EL</span>
+                    <span class="created-value">{{ formatShortDate(task.createdAt) }}</span>
+                </div>
+            </div>
+
+            <!-- Usuarios asignados -->
+            <div class="task-section">
+                <span class="section-icon">👥</span>
+                <span class="section-label">Usuarios asignados</span>
+                
+                <div class="users-list">
+                    <div 
+                        v-for="(user, index) in task.assignedTo" 
+                        :key="user._id || user.id || index"
+                        class="user-item"
+                        :class="{ 'is-owner': isUserOwner(user, index) }"
+                    >
+                        <span class="user-icon">👤</span>
+                        <span class="user-name">
+                            {{ typeof user === 'object' ? (user.name || user.nombre || user.fullname || 'Usuario') : 'Usuario' }}
+                        </span>
+                        <span v-if="isUserOwner(user, index)" class="owner-badge">👑 Titular</span>
+                        <span class="user-arrow">›</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Info de recurrencia si aplica -->
+            <div v-if="task.recurringTaskId" class="recurring-notice">
+                <span class="recurring-icon">🔄</span>
+                <span class="recurring-text">Esta tarea fue generada automáticamente por una tarea recurrente</span>
+            </div>
+
+            <!-- Información técnica (colapsable) -->
+            <div class="technical-section">
+                <div class="technical-header" @click="showTechnicalInfo = !showTechnicalInfo">
+                    <span class="technical-icon">🔧</span>
+                    <span class="technical-label">Información técnica</span>
+                    <span class="expand-icon">{{ showTechnicalInfo ? '▼' : '▶' }}</span>
+                </div>
+                <Transition name="slide">
+                    <div v-if="showTechnicalInfo" class="technical-content">
+                        <div class="tech-row">
+                            <span class="tech-label">ID:</span>
+                            <code class="tech-value">{{ task._id }}</code>
+                        </div>
+                        <div class="tech-row" v-if="task.recurringTaskId">
+                            <span class="tech-label">Tarea recurrente:</span>
+                            <code class="tech-value">{{ task.recurringTaskId }}</code>
+                        </div>
+                        <div class="tech-row">
+                            <span class="tech-label">Titular ID:</span>
+                            <code class="tech-value">{{ getTaskOwnerId(task) || 'N/A' }}</code>
+                        </div>
+                        <div class="tech-row">
+                            <span class="tech-label">¿Puedo editar?:</span>
+                            <span :class="canEdit ? 'tech-yes' : 'tech-no'">{{ canEdit ? 'Sí' : 'No' }}</span>
+                        </div>
+                    </div>
+                </Transition>
+            </div>
+        </div>
     </div>
-
-    <!-- Loading -->
-    <div v-if="cargando" class="loading-state">
-      <div class="spinner"></div>
-      <span>Cargando tarea...</span>
-    </div>
-
-    <!-- Error -->
-    <div v-else-if="error" class="error-state">
-      <span class="error-icon">⚠️</span>
-      <p>{{ error }}</p>
-      <button class="btn-retry" @click="cargarTarea">Reintentar</button>
-    </div>
-
-    <!-- Contenido de la tarea -->
-    <div v-else-if="tarea" class="task-detail-card">
-      <!-- Header con estado -->
-      <div class="detail-header">
-        <div class="status-badge-large" :class="taskStatus.class">
-          <span class="status-icon">{{ taskStatus.icon }}</span>
-          <span>{{ taskStatus.label }}</span>
-        </div>
-        <div v-if="isRecurring" class="recurring-badge">
-          🔄 Tarea recurrente
-        </div>
-      </div>
-
-      <!-- Título -->
-      <h1 class="task-title">{{ tarea.title || tarea.titulo }}</h1>
-
-      <!-- Descripción -->
-      <div class="detail-section" v-if="tarea.description || tarea.descripcion">
-        <h3 class="section-title">📝 Descripción</h3>
-        <p class="description-text">{{ tarea.description || tarea.descripcion }}</p>
-      </div>
-
-      <!-- Info Grid -->
-      <div class="info-grid">
-        <!-- Fecha de la tarea -->
-        <div class="info-card">
-          <span class="info-icon">📌</span>
-          <div class="info-content">
-            <span class="info-label">Fecha de la tarea</span>
-            <span class="info-value">{{ fechaTarea }}</span>
-          </div>
-        </div>
-
-        <!-- Fecha de vencimiento -->
-        <div class="info-card">
-          <span class="info-icon">⏰</span>
-          <div class="info-content">
-            <span class="info-label">Fecha de vencimiento</span>
-            <span class="info-value">{{ fechaVencimiento }}</span>
-          </div>
-        </div>
-
-        <!-- Fecha de creación (secundaria) -->
-        <div class="info-card">
-          <span class="info-icon">🕐</span>
-          <div class="info-content">
-            <span class="info-label">Creada el</span>
-            <span class="info-value">{{ fechaCreacion }}</span>
-          </div>
-        </div>
-      </div>
-
-
-      <!-- Usuarios asignados -->
-      <div class="detail-section">
-        <h3 class="section-title">👥 Usuarios asignados</h3>
-        <div class="users-list" v-if="assignedUsers.length > 0">
-          <div 
-            v-for="user in assignedUsers" 
-            :key="user._id || user.id || user"
-            class="user-chip"
-            @click="verDetalleUsuario(user)"
-          >
-            <span class="user-avatar">👤</span>
-            <span class="user-name">{{ getUserName(user) }}</span>
-            <span class="user-arrow">›</span>
-          </div>
-        </div>
-        <p v-else class="no-users">Sin usuarios asignados</p>
-      </div>
-
-      <!-- ID de la tarea (colapsable) -->
-      <details class="technical-info">
-        <summary>ℹ️ Información técnica</summary>
-        <div class="tech-content">
-          <p><strong>ID:</strong> {{ tarea._id || tarea.id }}</p>
-          <p v-if="tarea.recurringTaskId"><strong>ID Tarea recurrente:</strong> {{ tarea.recurringTaskId }}</p>
-        </div>
-      </details>
-
-      <!-- Acciones -->
-      <div class="actions-section" v-if="store.isSupervisor">
-        <button class="btn btn-edit" @click="editarTarea">
-          ✏️ Editar Tarea
-        </button>
-        <button class="btn btn-delete" @click="eliminarTarea">
-          🗑️ Eliminar Tarea
-        </button>
-      </div>
-    </div>
-  </div>
 </template>
 
 <style scoped>
-/* === CONTENEDOR PRINCIPAL === */
-.detail-container {
-  max-width: 700px;
-  margin: 0 auto;
-  padding: 1.5rem;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+.task-detail-container {
+    max-width: 700px;
+    margin: 0 auto;
+    padding: 1rem;
 }
 
-/* === BOTÓN VOLVER === */
 .back-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  cursor: pointer;
-  padding: 0.5rem 0;
-  margin-bottom: 1rem;
-  color: #6b7280;
-  font-weight: 500;
-  transition: color 0.2s ease;
+    color: #6b7280;
+    cursor: pointer;
+    margin-bottom: 1.5rem;
+    font-weight: 500;
+    transition: color 0.2s;
 }
 
 .back-link:hover {
-  color: #3b82f6;
+    color: #4f83cc;
 }
 
-.back-arrow {
-  font-size: 1.2rem;
-}
-
-.back-text {
-  font-size: 0.95rem;
-}
-
-/* === LOADING STATE === */
-.loading-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 4rem 2rem;
-  color: #6b7280;
+/* Loading & Error */
+.loading-state,
+.error-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    padding: 3rem;
+    color: #6b7280;
 }
 
 .spinner {
-  width: 40px;
-  height: 40px;
-  border: 3px solid #e5e7eb;
-  border-top-color: #4f83cc;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-  margin-bottom: 1rem;
+    width: 40px;
+    height: 40px;
+    border: 3px solid #e5e7eb;
+    border-top-color: #4f83cc;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+    to { transform: rotate(360deg); }
 }
 
-/* === ERROR STATE === */
-.error-state {
-  text-align: center;
-  padding: 3rem;
-  color: #dc2626;
+.btn-back {
+    padding: 0.5rem 1rem;
+    background: #4f83cc;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
 }
 
-.error-icon {
-  font-size: 3rem;
-  display: block;
-  margin-bottom: 1rem;
+/* Task Card */
+.task-card {
+    background: #1e293b;
+    border-radius: 16px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
-.btn-retry {
-  margin-top: 1rem;
-  padding: 0.6rem 1.2rem;
-  background: #4f83cc;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 500;
+/* Header */
+.task-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
 }
 
-.btn-retry:hover {
-  background: #3d6db5;
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 0.85rem;
 }
 
-/* === CARD PRINCIPAL === */
-.task-detail-card {
-  background: white;
-  border-radius: 16px;
-  padding: 2rem;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-  animation: fadeIn 0.3s ease;
+.status-icon {
+    font-size: 0.9rem;
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+.status-pending {
+    background: #fef3c7;
+    color: #92400e;
 }
 
-/* === HEADER === */
-.detail-header {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-  flex-wrap: wrap;
+.status-progress {
+    background: #dbeafe;
+    color: #1e40af;
 }
 
-.status-badge-large {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.5rem 1rem;
-  border-radius: 20px;
-  font-weight: 600;
-  font-size: 0.95rem;
+.status-completed {
+    background: #d1fae5;
+    color: #065f46;
 }
 
-.status-badge-large.status-completada {
-  background: #d1fae5;
-  color: #065f46;
+.status-expired {
+    background: #fee2e2;
+    color: #991b1b;
 }
 
-.status-badge-large.status-pendiente {
-  background: #fef3c7;
-  color: #92400e;
-}
-
-.status-badge-large.status-vencida {
-  background: #fee2e2;
-  color: #991b1b;
-}
-
-.recurring-badge {
-  background: #e0e7ff;
-  color: #3730a3;
-  padding: 0.4rem 0.8rem;
-  border-radius: 20px;
-  font-size: 0.85rem;
-  font-weight: 500;
-}
-
-/* === TÍTULO === */
-.task-title {
-  font-size: 1.8rem;
-  font-weight: 700;
-  color: #1f2937;
-  margin: 0 0 1.5rem 0;
-  line-height: 1.3;
-}
-
-/* === SECCIONES === */
-.detail-section {
-  margin-bottom: 1.5rem;
-}
-
-.section-title {
-  font-size: 1rem;
-  font-weight: 600;
-  color: #6b7280;
-  margin: 0 0 0.75rem 0;
-}
-
-.description-text {
-  color: #374151;
-  line-height: 1.6;
-  margin: 0;
-  padding: 1rem;
-  background: #f9fafb;
-  border-radius: 10px;
-  border-left: 3px solid #4f83cc;
-}
-
-/* === INFO GRID === */
-.info-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-}
-
-.info-card {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.75rem;
-  padding: 1rem;
-  background: #f9fafb;
-  border-radius: 12px;
-  border: 1px solid #e5e7eb;
-}
-
-.info-icon {
-  font-size: 1.5rem;
-  flex-shrink: 0;
-}
-
-.info-content {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.info-label {
-  font-size: 0.8rem;
-  color: #6b7280;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.info-value {
-  font-size: 0.95rem;
-  color: #1f2937;
-  font-weight: 500;
-}
-
-/* === USUARIOS === */
-.users-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.user-chip {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem 1rem;
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.user-chip:hover {
-  background: #f0f7ff;
-  border-color: #4f83cc;
-}
-
-.user-avatar {
-  font-size: 1.2rem;
-}
-
-.user-name {
-  flex: 1;
-  font-weight: 500;
-  color: #1f2937;
-}
-
-.user-arrow {
-  color: #9ca3af;
-  font-size: 1.2rem;
-}
-
-.no-users {
-  color: #9ca3af;
-  font-style: italic;
-  margin: 0;
-}
-
-/* === INFO TÉCNICA === */
-.technical-info {
-  margin-top: 1.5rem;
-  padding: 1rem;
-  background: #f9fafb;
-  border-radius: 10px;
-  border: 1px solid #e5e7eb;
-}
-
-.technical-info summary {
-  cursor: pointer;
-  font-weight: 500;
-  color: #6b7280;
-  font-size: 0.9rem;
-}
-
-.tech-content {
-  margin-top: 0.75rem;
-  padding-top: 0.75rem;
-  border-top: 1px solid #e5e7eb;
-}
-
-.tech-content p {
-  margin: 0.25rem 0;
-  font-size: 0.85rem;
-  color: #6b7280;
-  word-break: break-all;
-}
-
-/* === ACCIONES === */
-.actions-section {
-  display: flex;
-  gap: 1rem;
-  margin-top: 2rem;
-  padding-top: 1.5rem;
-  border-top: 1px solid #e5e7eb;
-  justify-content: center;
-  flex-wrap: wrap;
-}
-
-.btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1.5rem;
-  font-size: 1rem;
-  font-weight: 600;
-  border: none;
-  border-radius: 10px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
+/* Botón Editar */
 .btn-edit {
-  background: #4cad73;
-  color: white;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: linear-gradient(135deg, #4f83cc, #3b6cb5);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
 }
 
 .btn-edit:hover {
-  background: #3c965f;
-  transform: translateY(-1px);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(79, 131, 204, 0.4);
 }
 
-.btn-delete {
-  background: #e16060;
-  color: white;
+/* Notice de edición bloqueada */
+.edit-blocked-notice {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    background: #374151;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    color: #9ca3af;
 }
 
-.btn-delete:hover {
-  background: #c84c4c;
-  transform: translateY(-1px);
+.notice-icon {
+    font-size: 0.9rem;
 }
 
-/* === DARK MODE === */
-body.dark .detail-container {
-  color: #f9fafb;
-}
-
-body.dark .back-link {
-  color: #9ca3af;
-}
-
-body.dark .back-link:hover {
-  color: #60a5fa;
-}
-
-body.dark .task-detail-card {
-  background: #1f2937;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-}
-
-body.dark .task-title {
-  color: #f9fafb;
-}
-
-body.dark .section-title {
-  color: #9ca3af;
-}
-
-body.dark .description-text {
-  background: #374151;
-  color: #e5e7eb;
-  border-color: #3b82f6;
-}
-
-body.dark .info-card {
-  background: #374151;
-  border-color: #4b5563;
-}
-
-body.dark .info-value {
-  color: #f9fafb;
-}
-
-body.dark .user-chip {
-  background: #374151;
-  border-color: #4b5563;
-}
-
-body.dark .user-chip:hover {
-  background: #1e3a5f;
-  border-color: #3b82f6;
-}
-
-body.dark .user-name {
-  color: #f9fafb;
-}
-
-body.dark .technical-info {
-  background: #374151;
-  border-color: #4b5563;
-}
-
-body.dark .tech-content {
-  border-color: #4b5563;
-}
-
-body.dark .tech-content p {
-  color: #9ca3af;
-}
-
-body.dark .actions-section {
-  border-color: #4b5563;
-}
-
-body.dark .status-badge-large.status-completada {
-  background: #064e3b;
-  color: #a7f3d0;
-}
-
-body.dark .status-badge-large.status-pendiente {
-  background: #78350f;
-  color: #fde68a;
-}
-
-body.dark .status-badge-large.status-vencida {
-  background: #7f1d1d;
-  color: #fecaca;
-}
-
-body.dark .recurring-badge {
-  background: #312e81;
-  color: #c7d2fe;
-}
-
-body.dark .spinner {
-  border-color: #374151;
-  border-top-color: #3b82f6;
-}
-
-/* === RESPONSIVE === */
-@media (max-width: 640px) {
-  .detail-container {
-    padding: 1rem;
-  }
-  
-  .task-detail-card {
-    padding: 1.5rem;
-  }
-  
-  .task-title {
+/* Título */
+.task-title {
     font-size: 1.5rem;
-  }
-  
-  .info-grid {
-    grid-template-columns: 1fr;
-  }
-  
-  .actions-section {
+    font-weight: bold;
+    color: #f1f5f9;
+    margin: 0 0 1.5rem 0;
+}
+
+/* Secciones */
+.task-section {
+    margin-bottom: 1.5rem;
+}
+
+.section-icon {
+    font-size: 1rem;
+    margin-right: 0.5rem;
+}
+
+.section-label {
+    font-size: 0.8rem;
+    color: #9ca3af;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.task-description {
+    margin-top: 0.5rem;
+    padding: 1rem;
+    background: #334155;
+    border-radius: 10px;
+    color: #e2e8f0;
+    line-height: 1.6;
+}
+
+/* Grid de fechas */
+.dates-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.date-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 1rem;
+    background: #334155;
+    border-radius: 10px;
+}
+
+.date-card.expired {
+    background: #7f1d1d;
+}
+
+.date-icon {
+    font-size: 1.2rem;
+}
+
+.date-content {
+    display: flex;
     flex-direction: column;
-  }
-  
-  .btn {
-    width: 100%;
-    justify-content: center;
-  }
+    gap: 0.25rem;
+}
+
+.date-label {
+    font-size: 0.7rem;
+    color: #9ca3af;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.date-value {
+    color: #f1f5f9;
+    font-weight: 500;
+}
+
+/* Fecha de creación */
+.created-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    background: #334155;
+    border-radius: 10px;
+    margin-bottom: 1.5rem;
+}
+
+.created-icon {
+    font-size: 1rem;
+}
+
+.created-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+
+.created-label {
+    font-size: 0.65rem;
+    color: #9ca3af;
+    text-transform: uppercase;
+}
+
+.created-value {
+    color: #e2e8f0;
+    font-weight: 500;
+}
+
+/* Lista de usuarios */
+.users-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+}
+
+.user-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    background: #334155;
+    border-radius: 10px;
+    transition: background 0.2s;
+}
+
+.user-item:hover {
+    background: #3b4a63;
+}
+
+.user-item.is-owner {
+    background: linear-gradient(135deg, #422006 0%, #78350f 100%);
+    border: 1px solid #f59e0b;
+}
+
+.user-icon {
+    font-size: 1rem;
+}
+
+.user-name {
+    flex: 1;
+    color: #f1f5f9;
+    font-weight: 500;
+}
+
+.owner-badge {
+    background: #f59e0b;
+    color: white;
+    padding: 0.2rem 0.6rem;
+    border-radius: 12px;
+    font-size: 0.7rem;
+    font-weight: 600;
+}
+
+.user-arrow {
+    color: #6b7280;
+    font-size: 1.2rem;
+}
+
+/* Notice de recurrencia */
+.recurring-notice {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    background: #312e81;
+    border: 1px solid #4f46e5;
+    border-radius: 10px;
+    margin-bottom: 1.5rem;
+}
+
+.recurring-icon {
+    font-size: 1rem;
+}
+
+.recurring-text {
+    color: #c7d2fe;
+    font-size: 0.85rem;
+}
+
+/* Información técnica */
+.technical-section {
+    background: #0f172a;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.technical-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.technical-header:hover {
+    background: #1e293b;
+}
+
+.technical-icon {
+    font-size: 0.9rem;
+}
+
+.technical-label {
+    flex: 1;
+    color: #9ca3af;
+    font-size: 0.85rem;
+}
+
+.expand-icon {
+    color: #6b7280;
+    font-size: 0.7rem;
+}
+
+.technical-content {
+    padding: 0 1rem 1rem;
+}
+
+.tech-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #1e293b;
+}
+
+.tech-row:last-child {
+    border-bottom: none;
+}
+
+.tech-label {
+    color: #9ca3af;
+    font-size: 0.8rem;
+    min-width: 120px;
+}
+
+.tech-value {
+    color: #4ade80;
+    font-size: 0.75rem;
+    background: #1e293b;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    word-break: break-all;
+}
+
+.tech-yes {
+    color: #4ade80;
+    font-weight: 600;
+}
+
+.tech-no {
+    color: #f87171;
+    font-weight: 600;
+}
+
+/* Transiciones */
+.slide-enter-active,
+.slide-leave-active {
+    transition: all 0.3s ease;
+}
+
+.slide-enter-from,
+.slide-leave-to {
+    opacity: 0;
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+}
+
+.slide-enter-to,
+.slide-leave-from {
+    opacity: 1;
+    max-height: 200px;
+}
+
+/* Light mode */
+body:not(.dark) .task-card {
+    background: #ffffff;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+body:not(.dark) .task-title {
+    color: #1f2937;
+}
+
+body:not(.dark) .task-description,
+body:not(.dark) .date-card,
+body:not(.dark) .created-info,
+body:not(.dark) .user-item {
+    background: #f3f4f6;
+}
+
+body:not(.dark) .user-item.is-owner {
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+}
+
+body:not(.dark) .date-value,
+body:not(.dark) .user-name {
+    color: #1f2937;
+}
+
+body:not(.dark) .technical-section {
+    background: #f9fafb;
+}
+
+body:not(.dark) .technical-header:hover {
+    background: #f3f4f6;
+}
+
+body:not(.dark) .tech-value {
+    background: #e5e7eb;
+    color: #059669;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+    .task-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .dates-grid {
+        grid-template-columns: 1fr;
+    }
 }
 </style>
 

@@ -6,413 +6,320 @@ import { RecurringTaskService } from "./recurring.task.service.js";
 /**
  * TaskService - Capa de lógica de negocio para tareas
  * 
- * Responsabilidades:
- * - Contener TODA la lógica de negocio de tareas
- * - Validar reglas de negocio (fechas, asignaciones, permisos)
- * - Orquestar llamadas a repositorios
- * 
- * Principios Clean Architecture:
- * - El Service NO conoce HTTP (req/res)
- * - El Service NO accede directamente a Mongoose (usa repositorios)
- * - Lanza errores de negocio que el Controller traduce a HTTP
+ * Reglas de negocio principales:
+ * 1. El "titular" es SIEMPRE el usuario en posición 0 de assignedTo
+ * 2. Solo el titular puede editar la tarea
+ * 3. No se pueden editar tareas VENCIDAS ni RECURRENTES
+ * 4. Si supervisor no se incluye en la tarea, debe especificar titularId
  */
 class TaskServiceClass {
-	constructor(taskRepository, userRepository) {
-		this.taskRepository = taskRepository;
-		this.userRepository = userRepository;
-	}
+    constructor(taskRepository, userRepository) {
+        this.taskRepository = taskRepository;
+        this.userRepository = userRepository;
+    }
 
-    // Util: normaliza cualquier id/Document/ObjectId a string
+    // ═══════════════════════════════════════════════════════════════════
+    // HELPERS PRIVADOS
+    // ═══════════════════════════════════════════════════════════════════
+
+    /**
+     * Normaliza cualquier valor a string de ID
+     * Soporta: string, ObjectId, {_id: ...}, {id: ...}
+     */
     _toIdString(val) {
         if (!val) return null;
         if (typeof val === "string") return val;
         if (val._id) return String(val._id);
-        try { return String(val); } catch { return null; }
+        if (val.id) return String(val.id);
+        return String(val);
     }
 
+    /**
+     * Obtiene el ID del titular (posición 0 de assignedTo)
+     */
     _getTaskOwnerId(task) {
-        if (!task.assignedTo || task.assignedTo.length === 0) return null;
-        const firstAssigned = task.assignedTo[0];
-        return this._toIdString(firstAssigned);
+        if (!task?.assignedTo || task.assignedTo.length === 0) return null;
+        return this._toIdString(task.assignedTo[0]);
     }
 
-    _validateCanEdit(task, userIdRaw) {
-        const userId = this._toIdString(userIdRaw);
+    // ═══════════════════════════════════════════════════════════════════
+    // VALIDACIONES DE NEGOCIO
+    // ═══════════════════════════════════════════════════════════════════
+
+    /**
+     * Valida que deadline >= date
+     */
+    _validateDates(date, deadline) {
+        if (!date || !deadline) {
+            throw new Error("Las fechas 'date' y 'deadline' son obligatorias");
+        }
+        const taskDate = new Date(date);
+        const taskDeadline = new Date(deadline);
+        if (taskDeadline < taskDate) {
+            throw new Error("La fecha de vencimiento (deadline) debe ser igual o posterior a la fecha de la tarea (date)");
+        }
+    }
+
+    /**
+     * Valida si el usuario puede editar la tarea
+     * 
+     * REGLAS:
+     * 1. Solo el titular (posición 0) puede editar
+     * 2. No se pueden editar tareas VENCIDAS
+     * 3. No se pueden editar tareas RECURRENTES
+     */
+    _validateCanEdit(task, userId) {
+        const normalizedUserId = this._toIdString(userId);
         const taskOwner = this._getTaskOwnerId(task);
 
-        if (!taskOwner || !userId || taskOwner !== userId) {
+        // Regla 1: Solo el titular puede editar
+        if (!taskOwner || !normalizedUserId || taskOwner !== normalizedUserId) {
             throw new Error("Solo el titular de la tarea (posición 0 en asignados) puede editarla");
         }
+
+        // Regla 2: No editar tareas vencidas
         if (task.status === "VENCIDA") {
             throw new Error("No se pueden editar tareas vencidas");
         }
+
+        // Regla 3: No editar tareas recurrentes
         if (task.recurringTaskId) {
             throw new Error("No se pueden editar tareas recurrentes. Modifique la tarea recurrente original.");
         }
     }
 
-	// ═══════════════════════════════════════════════════════════════════
-	// VALIDACIONES DE NEGOCIO (privadas)
-	// ═══════════════════════════════════════════════════════════════════
+    /**
+     * Valida si el usuario puede eliminar la tarea
+     */
+    _validateCanDelete(task, userId) {
+        const normalizedUserId = this._toIdString(userId);
+        const taskOwner = this._getTaskOwnerId(task);
 
-	/**
-	 * Valida que deadline >= date
-	 * @param {Date} date - Fecha de la tarea
-	 * @param {Date} deadline - Fecha de vencimiento
-	 * @throws {Error} Si deadline < date
-	 */
-	_validateDates(date, deadline) {
-		if (!date || !deadline) {
-			throw new Error("Las fechas 'date' y 'deadline' son obligatorias");
-		}
+        if (!taskOwner || !normalizedUserId || taskOwner !== normalizedUserId) {
+            throw new Error("Solo el titular de la tarea (posición 0 en asignados) puede eliminarla");
+        }
 
-		const taskDate = new Date(date);
-		const taskDeadline = new Date(deadline);
+        if (task.deadline && ArgentinaTime.isExpired(task.deadline)) {
+            throw new Error("Solo se pueden eliminar tareas con fecha de vencimiento futura");
+        }
+    }
 
-		if (taskDeadline < taskDate) {
-			throw new Error("La fecha de vencimiento (deadline) debe ser igual o posterior a la fecha de la tarea (date)");
-		}
-	}
+    /**
+     * Valida y resuelve los usuarios asignados según el rol del creador
+     * 
+     * REGLAS:
+     * - Usuario NO supervisor: se asigna a sí mismo (él es titular)
+     * - Supervisor que SE incluye: él queda como titular (posición 0)
+     * - Supervisor que NO se incluye: DEBE especificar titularId
+     * 
+     * @param {Object} creator - {id, sector, isSupervisor}
+     * @param {Array} assignedTo - IDs de usuarios a asignar
+     * @param {string|null} titularId - ID del titular (cuando supervisor no se incluye)
+     * @returns {Promise<Array>} Array ordenado con titular en posición 0
+     */
+    async _validateAndResolveAssignees(creator, assignedTo, titularId = null) {
+        const { id: creatorId, sector: creatorSector, isSupervisor } = creator;
 
-	/**
-	 * Valida y determina los usuarios asignados según el rol del creador
-	 * @param {Object} creator - Usuario creador {id, sector, isSupervisor}
-	 * @param {Array} assignedTo - Array de IDs de usuarios a asignar
-	 * @returns {Promise<Array>} Array de IDs validados
-	 * @throws {Error} Si las asignaciones son inválidas
-	 */
-	async _validateAndResolveAssignees(creator, assignedTo) {
-		const { id: creatorId, sector: creatorSector, isSupervisor } = creator;
+        // Usuario NO supervisor: siempre se asigna a sí mismo
+        if (!isSupervisor) {
+            return [creatorId];
+        }
 
-		// Si NO es supervisor: se asigna a sí mismo siempre
-		if (!isSupervisor) {
-			return [creatorId];
-		}
+        // ===== SUPERVISOR =====
+        const assignedIds = Array.isArray(assignedTo)
+            ? [...assignedTo]
+            : assignedTo ? [assignedTo] : [];
 
-		// Si ES supervisor: puede asignar a otros
-		const assignedIds = Array.isArray(assignedTo)
-			? assignedTo
-			: assignedTo
-				? [assignedTo]
-				: [];
+        // Si no hay asignados, permitir tarea sin asignar
+        if (assignedIds.length === 0) {
+            return [];
+        }
 
-		// Permitimos tareas sin asignados iniciales para supervisores
-		if (assignedIds.length === 0) {
-			return [];
-		}
+        // Validar que todos pertenezcan al mismo sector
+        const users = await Promise.all(
+            assignedIds.map((id) => this.userRepository.getById(id))
+        );
 
-		// Validar que todos los asignados pertenezcan al mismo sector
-		const users = await Promise.all(
-			assignedIds.map((id) => this.userRepository.getById(id))
-		);
+        const invalidUser = users.find((u) => !u || u.sector !== creatorSector);
+        if (invalidUser !== undefined) {
+            throw new Error("Todos los usuarios asignados deben pertenecer al mismo sector");
+        }
 
-		const invalidUser = users.find(
-			(u) => !u || u.sector !== creatorSector
-		);
+        // ¿El supervisor se incluyó a sí mismo?
+        const supervisorIncluded = assignedIds.some(
+            (id) => this._toIdString(id) === this._toIdString(creatorId)
+        );
 
-		if (invalidUser !== undefined) {
-			throw new Error("Todos los usuarios asignados deben pertenecer al mismo sector que el creador");
-		}
+        if (supervisorIncluded) {
+            // Supervisor se incluyó: él queda como titular (posición 0)
+            const others = assignedIds.filter(
+                (id) => this._toIdString(id) !== this._toIdString(creatorId)
+            );
+            return [creatorId, ...others];
+        }
 
-		return assignedIds;
-	}
+        // Supervisor NO se incluyó: DEBE especificar titularId
+        if (!titularId) {
+            throw new Error("Debe especificar el titular de la tarea (titularId) cuando no se incluye en los asignados");
+        }
 
-	// ═══════════════════════════════════════════════════════════════════
-	// MÉTODOS PÚBLICOS - Casos de Uso
-	// ═══════════════════════════════════════════════════════════════════
+        // Validar que el titular esté en la lista
+        const titularInList = assignedIds.some(
+            (id) => this._toIdString(id) === this._toIdString(titularId)
+        );
+        if (!titularInList) {
+            throw new Error("El titular especificado debe estar en la lista de asignados");
+        }
 
-	/**
-	 * Obtiene todas las tareas
-	 * @returns {Promise<Array>} Lista de tareas
-	 */
-	async getAllTasks() {
-		const tasks = await this.taskRepository.getAll();
-		return tasks || [];
-	}
+        // Reordenar: titular en posición 0
+        const others = assignedIds.filter(
+            (id) => this._toIdString(id) !== this._toIdString(titularId)
+        );
+        return [titularId, ...others];
+    }
 
-	/**
-	 * Obtiene una tarea por ID
-	 * @param {string} taskId - ID de la tarea
-	 * @returns {Promise<Object|null>} Tarea encontrada o null
-	 */
-	async getTaskById(taskId) {
-		const task = await this.taskRepository.getById(taskId);
-		return task || null;
-	}
+    // ═══════════════════════════════════════════════════════════════════
+    // MÉTODOS PÚBLICOS - Casos de Uso
+    // ═══════════════════════════════════════════════════════════════════
 
-	/**
-	 * Crea una nueva tarea
-	 * 
-	 * Reglas de negocio:
-	 * 1. title y deadline son obligatorios
-	 * 2. deadline >= date
-	 * 3. Si NO es supervisor: se asigna a sí mismo
-	 * 4. Si ES supervisor: puede asignar a usuarios del mismo sector
-	 * 
-	 * @param {Object} taskData - Datos de la tarea {title, description, date, deadline, assignedTo}
-	 * @param {Object} creator - Usuario creador {id, sector, isSupervisor}
-	 * @returns {Promise<Object>} Tarea creada
-	 * @throws {Error} Si los datos son inválidos
-	 */
-	async createTask(taskData, creator) {
-		const { title, description, date, deadline, assignedTo, status } = taskData;
+    async getAllTasks() {
+        return (await this.taskRepository.getAll()) || [];
+    }
 
-		// Validación: campos requeridos
-		if (!title || !deadline) {
-			throw new Error("Datos de tarea incompletos (title, deadline son requeridos)");
-		}
+    async getTaskById(taskId) {
+        return (await this.taskRepository.getById(taskId)) || null;
+    }
 
-		// Validación: date es requerido
-		if (!date) {
-			throw new Error("La fecha de la tarea (date) es requerida");
-		}
+    /**
+     * Crea una nueva tarea
+     * 
+     * @param {Object} taskData - {title, description, date, deadline, assignedTo, titularId, status}
+     * @param {Object} creator - {id, sector, isSupervisor}
+     */
+    async createTask(taskData, creator) {
+        const { title, description, date, deadline, assignedTo, titularId, status } = taskData;
 
-		// Validación de fechas: deadline >= date
-		this._validateDates(date, deadline);
+        if (!title || !deadline) {
+            throw new Error("Datos de tarea incompletos (title, deadline son requeridos)");
+        }
+        if (!date) {
+            throw new Error("La fecha de la tarea (date) es requerida");
+        }
 
-		// Resolver asignados según rol del creador
-		const validatedAssignees = await this._validateAndResolveAssignees(creator, assignedTo);
+        this._validateDates(date, deadline);
 
-		// Construir datos de la tarea
-		const newTaskData = {
-			title,
-			description,
-			date: new Date(date),
-			deadline: new Date(deadline),
-			createdBy: creator.id,
-			assignedTo: validatedAssignees,
-			status: status || "PENDIENTE",
-		};
+        // Resolver asignados con lógica de titular
+        const validatedAssignees = await this._validateAndResolveAssignees(
+            creator,
+            assignedTo,
+            titularId
+        );
 
-		// Persistir en repositorio
-		const createdTask = await this.taskRepository.createOne(newTaskData);
+        const newTaskData = {
+            title,
+            description,
+            date: new Date(date),
+            deadline: new Date(deadline),
+            createdBy: creator.id,
+            assignedTo: validatedAssignees,
+            status: status || "PENDIENTE",
+        };
 
-		// Convertir a objeto plano para evitar estructuras circulares
-		return typeof createdTask?.toObject === "function"
-			? createdTask.toObject()
-			: createdTask;
-	}
+        const createdTask = await this.taskRepository.createOne(newTaskData);
 
-	/**
-	 * Actualiza una tarea existente
-	 * 
-	 * Reglas de negocio:
-	 * 1. No se puede modificar assignedTo de tareas recurrentes
-	 * 2. Solo el titular puede modificar assignedTo
-	 * 3. El titular no puede quitarse a sí mismo
-	 * 4. Si se actualiza date/deadline: deadline >= date
-	 * 
-	 * @param {string} taskId - ID de la tarea
-	 * @param {Object} updateData - Datos a actualizar
-	 * @param {Object} requestingUser - Usuario que solicita la actualización
-	 * @returns {Promise<Object|null>} Tarea actualizada o null
-	 * @throws {Error} Si la operación no está permitida
-	 */
-	async updateTask(taskId, updateData, requestingUser) {
-		// Obtener tarea actual
-		const currentTask = await this.taskRepository.getById(taskId);
-		if (!currentTask) return null;
+        return typeof createdTask?.toObject === "function"
+            ? createdTask.toObject()
+            : createdTask;
+    }
 
-		// ===== VALIDACIÓN DE PERMISOS =====
-		const taskOwner = this._getTaskOwnerId(currentTask);
-		const isAssigned = currentTask.assignedTo
-		?.map(id => id.toString())
-		.includes(requestingUser.id);
+    /**
+     * Actualiza una tarea
+     * 
+     * REGLA: Solo el titular (posición 0) puede editar
+     */
+    async updateTask(taskId, updateData, requestingUser) {
+        const currentTask = await this.taskRepository.getById(taskId);
+        if (!currentTask) return null;
 
-		// Usuario normal
-		if (!requestingUser.isSupervisor) {
-		if (!isAssigned) {
-			throw new Error("No puede editar una tarea que no le pertenece");
-		}
+        // Extraer y normalizar el ID del usuario
+        const userId = this._toIdString(requestingUser?.id ?? requestingUser);
 
-		if (currentTask.status === "VENCIDA") {
-			throw new Error("No se puede editar una tarea vencida");
-		}
-		}
+        // Validar permisos (titular, no vencida, no recurrente)
+        this._validateCanEdit(currentTask, userId);
 
-		// Supervisor
-		// (si querés restringir por sector, va acá)
+        // Validar fechas si se actualizan
+        if (updateData.date !== undefined || updateData.deadline !== undefined) {
+            const newDate = updateData.date !== undefined
+                ? new Date(updateData.date)
+                : currentTask.date;
+            const newDeadline = updateData.deadline !== undefined
+                ? new Date(updateData.deadline)
+                : currentTask.deadline;
+            this._validateDates(newDate, newDeadline);
+        }
 
+        // NO permitir cambiar assignedTo en update normal (simplifica la lógica)
+        // Si necesitas cambiar asignados, crear endpoint específico
+        if (updateData.assignedTo !== undefined) {
+            delete updateData.assignedTo;
+        }
 
-		// Validar fechas si se están actualizando
-		if (updateData.date !== undefined || updateData.deadline !== undefined) {
-			const newDate = updateData.date !== undefined 
-				? new Date(updateData.date) 
-				: currentTask.date;
-			const newDeadline = updateData.deadline !== undefined 
-				? new Date(updateData.deadline) 
-				: currentTask.deadline;
-			
-			this._validateDates(newDate, newDeadline);
-		}
+        return this.taskRepository.updateOne(taskId, updateData);
+    }
 
-		// Validaciones especiales para assignedTo
-		if (updateData.assignedTo !== undefined) {
-			if (currentTask.recurringTaskId) {
-				throw new Error("No se puede modificar asignados de una tarea recurrente");
-			}
+    /**
+     * Elimina una tarea
+     */
+    async deleteTask(taskId, requestingUserId) {
+        const taskToDelete = await this.taskRepository.getById(taskId);
+        if (!taskToDelete) return null;
 
-			const taskOwner = this._getTaskOwnerId(currentTask);
+        const userId = this._toIdString(requestingUserId);
+        this._validateCanDelete(taskToDelete, userId);
 
-			if (!requestingUser.isSupervisor && taskOwner !== requestingUser.id) {
-				throw new Error("Solo el titular puede modificar los asignados");
-			}
+        await this.taskRepository.deleteOne(taskId);
+        return taskToDelete;
+    }
 
-			if (!Array.isArray(updateData.assignedTo) || updateData.assignedTo.length < 1) {
-				throw new Error("La tarea debe tener al menos un usuario asignado");
-			}
+    /**
+     * Obtiene tareas para calendario
+     */
+    async getCalendarTasks(user, month, year) {
+        await RecurringTaskService.generateTasksForMonth(year, month, user.id);
 
-			const newFirstUser = updateData.assignedTo[0].toString();
-			if (newFirstUser !== taskOwner) {
-				throw new Error("El titular no puede quitarse a sí mismo");
-			}
-			}
-		
-		
+        const startDate = new Date(Date.UTC(year, month - 1, 1));
+        startDate.setUTCDate(startDate.getUTCDate() - 7);
 
-		// Realizar actualización vía repositorio
-		const taskUpdated = await this.taskRepository.updateOne(taskId, updateData);
-		return taskUpdated;
-	}
+        const endDate = new Date(Date.UTC(year, month, 0));
+        endDate.setUTCDate(endDate.getUTCDate() + 7);
+        endDate.setUTCHours(23, 59, 59, 999);
 
-	/**
-	 * Elimina una tarea
-	 * 
-	 * Reglas de negocio:
-	 * 1. Solo el titular puede eliminar
-	 * 2. Solo se pueden eliminar tareas con deadline futuro
-	 * 
-	 * @param {string} taskId - ID de la tarea
-	 * @param {string} requestingUser - ID del usuario que solicita
-	 * @returns {Promise<Object|null>} Tarea eliminada o null
-	 * @throws {Error} Si la operación no está permitida
-	 */
-	async deleteTask(taskId, requestingUser) {
-		// Obtener tarea a eliminar
-		const taskToDelete = await this.taskRepository.getById(taskId);
-		if (!taskToDelete) return null;
+        let userIdsToQuery;
+        if (user.isSupervisor) {
+            const usersInSector = await this.userRepository.getBySector(user.sector);
+            userIdsToQuery = usersInSector.map((u) => u._id);
+        } else {
+            userIdsToQuery = [user.id];
+        }
 
-		// Regla 1: Solo el titular puede eliminar
-		const taskOwner = this._getTaskOwnerId(taskToDelete);
-		if (!taskOwner || taskOwner !== requestingUser) {
-			throw new Error("Solo el titular de la tarea puede eliminarla");
-		}
+        return this.taskRepository.getByDateRangeAndUsers(startDate, endDate, userIdsToQuery);
+    }
 
-		// Regla 2: Solo eliminar tareas con deadline futuro
-		if (taskToDelete.deadline && ArgentinaTime.isExpired(taskToDelete.deadline)) {
-			throw new Error("Solo se pueden eliminar tareas con fecha de vencimiento futura (hora Argentina)");
-		}
+    async markExpiredTasks() {
+        const now = new Date();
+        console.log(`[markExpiredTasks] Hora Argentina: ${ArgentinaTime.format(now)}`);
+        const result = await this.taskRepository.markExpiredTasks(now);
+        if (result.modifiedCount > 0) {
+            console.log(`  → ${result.modifiedCount} tareas marcadas como VENCIDAS`);
+        }
+        return { modifiedCount: result.modifiedCount };
+    }
 
-		// Realizar eliminación
-		await this.taskRepository.deleteOne(taskId);
-		return taskToDelete;
-	}
-
-	/**
-	 * Obtiene tareas para la vista de calendario
-	 * 
-	 * Reglas de negocio:
-	 * - Supervisor: todas las tareas de usuarios de su sector
-	 * - Usuario regular: solo tareas donde está asignado
-	 * 
-	 * @param {Object} user - Usuario {id, sector, isSupervisor}
-	 * @param {number} month - Mes (1-12)
-	 * @param {number} year - Año
-	 * @returns {Promise<Array>} Tareas del período
-	 */
-	async getCalendarTasks(user, month, year) {
-		// Generar tareas recurrentes (idempotente por índice único)
-		await RecurringTaskService.generateTasksForMonth(year, month, user.id);
-
-		// Calcular rango de fechas (incluir días visibles de meses adyacentes)
-		const startDate = new Date(Date.UTC(year, month - 1, 1));
-		startDate.setUTCDate(startDate.getUTCDate() - 7);
-
-		const endDate = new Date(Date.UTC(year, month, 0)); // Último día del mes
-		endDate.setUTCDate(endDate.getUTCDate() + 7);
-		endDate.setUTCHours(23, 59, 59, 999);
-
-		let userIdsToQuery;
-
-		if (user.isSupervisor) {
-			// Supervisor: obtener usuarios del mismo sector
-			const usersInSector = await this.userRepository.getBySector(user.sector);
-			userIdsToQuery = usersInSector.map((u) => u._id);
-		} else {
-			// Usuario regular: solo sus tareas
-			userIdsToQuery = [user.id];
-		}
-
-		// Consultar tareas vía repositorio
-		const tasks = await this.taskRepository.getByDateRangeAndUsers(
-			startDate,
-			endDate,
-			userIdsToQuery
-		);
-
-		return tasks;
-	}
-
-	// ═══════════════════════════════════════════════════════════════════
-	// MÉTODOS AUXILIARES
-	// ═══════════════════════════════════════════════════════════════════
-
-	/**
-	 * Marca como VENCIDAS todas las tareas cuyo deadline ya pasó
-	 * @returns {Promise<Object>} Resultado con cantidad de tareas actualizadas
-	 */
-	async markExpiredTasks() {
-		const now = new Date();
-
-		console.log(`[markExpiredTasks] Verificando tareas vencidas.`);
-		console.log(`  → Hora UTC actual: ${now.toISOString()}`);
-		console.log(`  → Hora Argentina:  ${ArgentinaTime.format(now)}`);
-
-		const result = await this.taskRepository.markExpiredTasks(now);
-
-		if (result.modifiedCount > 0) {
-			console.log(`  → Se marcaron ${result.modifiedCount} tareas como VENCIDAS`);
-		} else {
-			console.log(`  → No hay tareas para marcar como vencidas`);
-		}
-
-		return { modifiedCount: result.modifiedCount };
-	}
-
-	/**
-	 * Obtiene tareas en un rango de fechas para ciertos usuarios
-	 * @param {Date} from - Fecha inicio
-	 * @param {Date} to - Fecha fin
-	 * @param {Array} userIds - IDs de usuarios
-	 * @returns {Promise<Array>} Tareas encontradas
-	 */
-	async getTasksBetween(from, to, userIds) {
-		await this.markExpiredTasks();
-		return this.taskRepository.getByDateRangeAndUsers(from, to, userIds);
-	}
-
-	// ═══════════════════════════════════════════════════════════════════
-	// MÉTODOS LEGACY (compatibilidad hacia atrás)
-	// ═══════════════════════════════════════════════════════════════════
-
-	/**
-	 * @deprecated Use deleteTask() instead
-	 */
-	async serviceTaskDelete(id, requestingUser) {
-		return this.deleteTask(id, requestingUser);
-	}
-
-	/**
-	 * @deprecated Use updateTask() instead
-	 */
-	async serviceTaskUpdate(id, updateData, requestingUser) {
-		return this.updateTask(id, updateData, requestingUser);
-	}
+    async getTasksBetween(from, to, userIds) {
+        await this.markExpiredTasks();
+        return this.taskRepository.getByDateRangeAndUsers(from, to, userIds);
+    }
 }
-
-// ═══════════════════════════════════════════════════════════════════════════
-// SINGLETON - Instancia única con dependencias inyectadas
-// ═══════════════════════════════════════════════════════════════════════════
 
 const taskRepository = new MongoTaskRepository();
 const userRepository = new MongoUserRepository();

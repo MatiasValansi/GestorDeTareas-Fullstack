@@ -61,6 +61,46 @@ export function getTaskOwnerId(task) {
     return firstAssigned ? String(firstAssigned) : null;
 }
 
+/**
+ * Verifica si el usuario es el titular de la tarea
+ * @param {Object} task - La tarea
+ * @param {string} userId - ID del usuario a verificar
+ * @returns {boolean}
+ */
+export function isTaskOwner(task, userId) {
+    const ownerId = getTaskOwnerId(task);
+    return ownerId && userId && ownerId === String(userId);
+}
+
+/**
+ * Verifica si la tarea está vencida
+ * @param {Object} task
+ * @returns {boolean}
+ */
+export function isTaskExpired(task) {
+    if (!task?.deadline) return false;
+    return new Date(task.deadline) < new Date();
+}
+
+/**
+ * Verifica si la tarea es recurrente
+ * @param {Object} task
+ * @returns {boolean}
+ */
+export function isTaskRecurring(task) {
+    return !!task?.recurringTaskId;
+}
+
+/**
+ * Verifica si el usuario puede editar la tarea
+ * @param {Object} task
+ * @param {string} userId
+ * @returns {boolean}
+ */
+export function canEditTask(task, userId) {
+    return isTaskOwner(task, userId) && !isTaskExpired(task) && !isTaskRecurring(task);
+}
+
 // Actualizar tarea por ID
 export const updateTask = async (id, task) => {
   const { data } = await api.put(`/tasks/task/${id}`, task);
