@@ -185,9 +185,7 @@ const verDetalleTarea = (id) => {
   router.push(`/taskDetail/${id}`)
 }
 
-const irANuevaVistaTarea = () => {
-  router.push('/newTask')
-}
+
 
 // ============ LIFECYCLE ============
 
@@ -267,16 +265,7 @@ watch(globalMonth, (newMonth) => {
         </button>
       </div>
     </div>
-
-    <!-- Botón agregar tarea (solo supervisores) -->
-    <button
-      v-if="store.isSupervisor"
-      class="add-task-btn"
-      @click="irANuevaVistaTarea"
-    >
-      + Nueva Tarea
-    </button>
-
+    
     <!-- Loading state -->
     <div v-if="cargando" class="loading-state">
       <div class="spinner"></div>
@@ -553,26 +542,6 @@ body.dark .filter-chip:hover {
   box-shadow: 0 6px 14px rgba(0,0,0,0.6);
 }
 
-
-/* === BOTÓN AGREGAR TAREA === */
-.add-task-btn {
-  display: block;
-  width: calc(100% - 2rem);
-  margin: 1rem;
-  padding: 0.9rem;
-  background: #4f83cc;
-  color: white;
-  border: none;
-  border-radius: 12px;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.2s ease;
-}
-
-.add-task-btn:hover {
-  background: #3d6db5;
-}
 
 /* === LOADING STATE === */
 .loading-state {

@@ -529,8 +529,8 @@ onMounted(obtenerUsuarios)
           <h3 class="section-title">Fecha y Hora</h3>
           
           <div class="form-group">
-            <label for="date">Fecha de la tarea</label>
-            <p class="field-hint">Día en el que la tarea aparece en el calendario</p>
+            <label for="date">Comienzo</label>
+            <p class="field-hint">Establece cuando empezará la tarea</p>
             <input
               id="date"
               v-model="date"
@@ -540,8 +540,8 @@ onMounted(obtenerUsuarios)
           </div>
 
           <div class="form-group last-in-section">
-            <label for="deadline">Fecha y hora límite</label>
-            <p class="field-hint">La tarea vence en esta fecha y hora</p>
+            <label for="deadline">Vencimiento</label>
+            <p class="field-hint">Establece la fecha límite de la tarea</p>
             <input
               id="deadline"
               v-model="deadline"
@@ -603,7 +603,9 @@ onMounted(obtenerUsuarios)
               <div class="titular-notice">
                 <span class="titular-badge">👑 Titular</span>
                 <span class="titular-name">{{ nombreUsuarioActual }} (Tú)</span>
-                <span class="titular-hint">Solo tú podrás editar esta tarea</span>
+                <span class="titular-hint">Serás el encargado de la tarea.
+                  <p>Podés seleccionar otros usuarios para compartir la tarea</p>
+                </span>
               </div>
               
               <div class="form-group">
@@ -665,7 +667,7 @@ onMounted(obtenerUsuarios)
                   ¿Quién será el titular de esta tarea?
                 </label>
                 <p class="field-hint titular-hint-text">
-                  Solo el titular podrá editar la tarea. Esta persona aparecerá en la posición 0 de asignados.
+                  La persona seleccionada será la encargada de la tarea. Solo el usuario seleccionado podrá editar o gestionarla.
                 </p>
                 <div class="titular-options">
                   <div 
