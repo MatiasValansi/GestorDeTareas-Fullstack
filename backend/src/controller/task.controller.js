@@ -145,71 +145,79 @@ export const TaskController = {
 	 * Actualiza una tarea existente
 	 */
 	taskUpdateOne: async (req, res) => {
-		// Validar autenticación
-		if (!req.user || !req.user.id) {
-			return res.status(401).json({
-				payload: null,
-				message: "Usuario no autenticado",
-				ok: false,
-			});
-		}
+        // Validar autenticación
+        if (!req.user || (!req.user.id && !req.user._id)) {
+            return res.status(401).json({
+                payload: null,
+                message: "Usuario no autenticado",
+                ok: false,
+            });
+        }
 
-		try {
-			// Extraer datos del request
-			const { id } = req.params;
-			const { title, description, completada, completed, status, assignedTo, date, deadline } = req.body;
-			const requestingUser = req.user;
+        try {
+            const { id } = req.params;
+            const { title, description, completada, completed, status, assignedTo, date, deadline } = req.body;
+            const requestingUser = {
+                // normaliza ID a string desde _id o id
+                id: String(req.user._id ?? req.user.id),
+                isSupervisor: !!req.user.isSupervisor,
+            };
 
-			// Construir objeto con campos enviados
-			const updateData = {};
-			if (title !== undefined) updateData.title = title;
-			if (description !== undefined) updateData.description = description;
-			if (status !== undefined) updateData.status = status;
-			if (completada !== undefined) updateData.completed = completada;
-			if (completed !== undefined) updateData.completed = completed;
-			if (assignedTo !== undefined) updateData.assignedTo = assignedTo;
-			if (date !== undefined) updateData.date = date;
-			if (deadline !== undefined) updateData.deadline = deadline;
+            const updateData = {};
+            if (title !== undefined) updateData.title = title;
+            if (description !== undefined) updateData.description = description;
+            if (status !== undefined) updateData.status = status;
+            if (completada !== undefined) updateData.completed = completada;
+            if (completed !== undefined) updateData.completed = completed;
+            if (assignedTo !== undefined) updateData.assignedTo = assignedTo;
+            if (date !== undefined) updateData.date = date;
+            if (deadline !== undefined) updateData.deadline = deadline;
 
-			// Delegar al Service
-			const taskUpdated = await TaskService.updateTask(id, updateData, requestingUser);
+            const taskUpdated = await TaskService.updateTask(id, updateData, requestingUser);
 
-			if (skUpdated) {
-				return res.status(404).json({
-					payload: null,
-					message: `No se puede actualizar la tarea con el id: ${id}`,
-					ok: false,
-				});
-			}
+            if (!taskUpdated) {
+                return res.status(404).json({
+                    payload: null,
+                    message: `No se encontró la tarea con id: ${id}`,
+                    ok: false,
+                });
+            }
 
-			return res.status(200).json({
-				message: "Tarea Actualizada",
-				payload: taskUpdated,
-				ok: true,
-			});
-		} catch (error) {
-			console.error("Error al actualizar tarea:", error);
+            return res.status(200).json({
+                message: "Tarea Actualizada",
+                payload: taskUpdated,
+                ok: true,
+            });
+        } catch (error) {
+            console.error("Error al actualizar tarea:", error);
 
-			// Traducir errores de negocio a HTTP
-			if (error.message.includes("titular") ||
-				error.message.includes("recurrente") ||
-				error.message.includes("asignado") ||
-				error.message.includes("deadline") ||
-				error.message.includes("vencimiento")) {
-				return res.status(403).json({
-					payload: null,
-					message: error.message,
-					ok: false,
-				});
-			}
+            if (error.message.includes("titular") ||
+                error.message.includes("vencida") ||
+                error.message.includes("recurrente") ||
+                error.message.includes("posición 0")) {
+                return res.status(403).json({
+                    payload: null,
+                    message: error.message,
+                    ok: false,
+                });
+            }
 
-			return res.status(500).json({
-				payload: null,
-				message: error.message || "No se pudo actualizar la tarea",
-				ok: false,
-			});
-		}
-	},
+            if (error.message.includes("deadline") ||
+                error.message.includes("asignado")) {
+                return res.status(400).json({
+                    payload: null,
+                    message: error.message,
+                    ok: false,
+                });
+            }
+
+            return res.status(500).json({
+                payload: null,
+                message: error.message || "No se pudo actualizar la tarea",
+                ok: false,
+            });
+        }
+    },
 
 	/**
 	 * DELETE /task/:id

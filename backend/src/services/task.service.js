@@ -22,6 +22,35 @@ class TaskServiceClass {
 		this.userRepository = userRepository;
 	}
 
+    // Util: normaliza cualquier id/Document/ObjectId a string
+    _toIdString(val) {
+        if (!val) return null;
+        if (typeof val === "string") return val;
+        if (val._id) return String(val._id);
+        try { return String(val); } catch { return null; }
+    }
+
+    _getTaskOwnerId(task) {
+        if (!task.assignedTo || task.assignedTo.length === 0) return null;
+        const firstAssigned = task.assignedTo[0];
+        return this._toIdString(firstAssigned);
+    }
+
+    _validateCanEdit(task, userIdRaw) {
+        const userId = this._toIdString(userIdRaw);
+        const taskOwner = this._getTaskOwnerId(task);
+
+        if (!taskOwner || !userId || taskOwner !== userId) {
+            throw new Error("Solo el titular de la tarea (posición 0 en asignados) puede editarla");
+        }
+        if (task.status === "VENCIDA") {
+            throw new Error("No se pueden editar tareas vencidas");
+        }
+        if (task.recurringTaskId) {
+            throw new Error("No se pueden editar tareas recurrentes. Modifique la tarea recurrente original.");
+        }
+    }
+
 	// ═══════════════════════════════════════════════════════════════════
 	// VALIDACIONES DE NEGOCIO (privadas)
 	// ═══════════════════════════════════════════════════════════════════
@@ -86,20 +115,6 @@ class TaskServiceClass {
 		}
 
 		return assignedIds;
-	}
-
-	/**
-	 * Obtiene el ID del titular (owner) de una tarea
-	 * @param {Object} task - Tarea con assignedTo populado o no
-	 * @returns {string|null} ID del titular o null
-	 */
-	_getTaskOwnerId(task) {
-		const firstAssigned = task.assignedTo[0];
-		if (!firstAssigned) return null;
-
-		return firstAssigned._id
-			? firstAssigned._id.toString()
-			: firstAssigned.toString();
 	}
 
 	// ═══════════════════════════════════════════════════════════════════

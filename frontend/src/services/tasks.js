@@ -26,12 +26,40 @@ export const createTask = async (task) => {
   return data;
 };
 
-// Obtener tarea por ID
-export const getTaskById = async (id) => {
-  const { data } = await api.get(`/tasks/task/${id}`);
-  return data;
-};
+/**
+ * Obtiene una tarea por ID
+ * @param {string} taskId - ID de la tarea
+ * @returns {Promise<Object>} - La tarea encontrada
+ */
+export async function getTaskById(taskId) {
+    const { data } = await api.get(`/tasks/task/${taskId}`);
+    // El backend devuelve: { payload: { taskFoundById: {...} }, ok, message }
+    return data?.payload?.taskFoundById ?? data?.payload ?? data;
+}
 
+/**
+ * Extrae el ID del titular (posición 0 de assignedTo)
+ * Soporta: string, ObjectId, objeto populado con _id/id
+ * @param {Object} task - La tarea
+ * @returns {string|null} - ID del titular o null
+ */
+export function getTaskOwnerId(task) {
+    if (!task?.assignedTo?.length) return null;
+    
+    const firstAssigned = task.assignedTo[0];
+    
+    // Si es string directo (ID)
+    if (typeof firstAssigned === "string") return firstAssigned;
+    
+    // Si es objeto populado con _id
+    if (firstAssigned?._id) return String(firstAssigned._id);
+    
+    // Si es objeto con id
+    if (firstAssigned?.id) return String(firstAssigned.id);
+    
+    // Fallback: intentar convertir a string
+    return firstAssigned ? String(firstAssigned) : null;
+}
 
 // Actualizar tarea por ID
 export const updateTask = async (id, task) => {
