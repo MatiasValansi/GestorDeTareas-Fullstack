@@ -120,6 +120,24 @@ const eliminarTarea = async () => {
   }
 }
 
+const fechaTarea = computed(() => {
+  return tarea.value?.date
+    ? formatFechaCompleta(tarea.value.date)
+    : 'No asignada'
+})
+
+const fechaVencimiento = computed(() => {
+  return tarea.value?.deadline
+    ? formatFechaCompleta(tarea.value.deadline)
+    : 'No asignada'
+})
+
+const fechaCreacion = computed(() => {
+  return tarea.value?.createdAt
+    ? formatFechaCorta(tarea.value.createdAt)
+    : '—'
+})
+
 // ============ LIFECYCLE ============
 
 onMounted(() => {
@@ -172,24 +190,34 @@ onMounted(() => {
 
       <!-- Info Grid -->
       <div class="info-grid">
-        <!-- Fecha límite -->
+        <!-- Fecha de la tarea -->
         <div class="info-card">
-          <span class="info-icon">📅</span>
+          <span class="info-icon">📌</span>
           <div class="info-content">
-            <span class="info-label">Fecha límite</span>
-            <span class="info-value">{{ formatFechaCompleta(tarea.deadline) }}</span>
+            <span class="info-label">Fecha de la tarea</span>
+            <span class="info-value">{{ fechaTarea }}</span>
           </div>
         </div>
 
-        <!-- Fecha creación -->
+        <!-- Fecha de vencimiento -->
+        <div class="info-card">
+          <span class="info-icon">⏰</span>
+          <div class="info-content">
+            <span class="info-label">Fecha de vencimiento</span>
+            <span class="info-value">{{ fechaVencimiento }}</span>
+          </div>
+        </div>
+
+        <!-- Fecha de creación (secundaria) -->
         <div class="info-card">
           <span class="info-icon">🕐</span>
           <div class="info-content">
-            <span class="info-label">Fecha de creación</span>
-            <span class="info-value">{{ formatFechaCorta(tarea.createdAt || tarea.creada) }}</span>
+            <span class="info-label">Creada el</span>
+            <span class="info-value">{{ fechaCreacion }}</span>
           </div>
         </div>
       </div>
+
 
       <!-- Usuarios asignados -->
       <div class="detail-section">

@@ -10,7 +10,9 @@ const titulo = ref('')
 const descripcion = ref('')
 const completada = ref('')   // string: "true" | "false"
 const userId = ref('')       // id del usuario asignado
-const deadline = ref('')     // "YYYY-MM-DD"
+const date = ref('')      // fecha de la tarea
+const deadline = ref('') // fecha de vencimiento
+
 
 const taskId = route.params.id   // viene de /editTask/:id
 
@@ -51,10 +53,16 @@ const cargarTareaAEditar = async () => {
     // Usuario asignado: backend la guarda como assignedTo
     userId.value = doc.assignedTo ?? doc.userId ?? ''
 
-    // Deadline: lo pasamos a "YYYY-MM-DD" para el input date
-    if (doc.deadline) {
-      deadline.value = new Date(doc.deadline).toISOString().split('T')[0]
+    const toDatetimeLocal = (dateStr) => {
+      if (!dateStr) return ''
+      const d = new Date(dateStr)
+      return d.toISOString().slice(0, 16) // YYYY-MM-DDTHH:mm
     }
+
+    date.value = toDatetimeLocal(doc.date)
+    deadline.value = toDatetimeLocal(doc.deadline)
+
+
   } catch (error) {
     console.error('Error al cargar la tarea para editar', error)
     alert('No se pudo cargar la tarea para editar.')
@@ -63,18 +71,31 @@ const cargarTareaAEditar = async () => {
 }
 
 const editarTarea = async () => {
+  if (date.value && deadline.value) {
+    const taskDate = new Date(date.value)
+    const deadlineDate = new Date(deadline.value)
+
+    if (deadlineDate < taskDate) {
+      alert('❌ La fecha de vencimiento no puede ser anterior a la fecha de la tarea')
+      return
+    }
+  }
+
+  
   const confirmar = confirm(`¿Guardar cambios de "${titulo.value}"?`)
   if (!confirmar) return
 
   try {
+
     const tareaActualizada = {
-      // nombres que espera tu TaskModel (title, description, completed, assignedTo, deadline)
-      title:       titulo.value,
-      description: descripcion.value,
-      completed:   completada.value === 'true',
-      assignedTo:  userId.value || (taskToEdit.value?.assignedTo ?? taskToEdit.value?.userId),
-      deadline:    deadline.value || null,
-    }
+        title: titulo.value,
+        description: descripcion.value,
+        completed: completada.value === 'true',
+        assignedTo: userId.value || (taskToEdit.value?.assignedTo ?? taskToEdit.value?.userId),
+        date: date.value || null,
+        deadline: deadline.value || null,
+      }
+
 
     console.log('Enviando tarea actualizada al backend:', tareaActualizada)
 
@@ -129,14 +150,25 @@ onMounted(cargarTareaAEditar)
       </div>
 
       <div>
-        <label for="deadline">Fecha límite</label>
+        <label for="date">Fecha de la tarea</label>
         <input
-          v-model="deadline"
-          type="date"
+          v-model="date"
+          type="datetime-local"
           required
           onkeydown="return false"
         />
       </div>
+
+      <div>
+        <label for="deadline">Fecha de vencimiento</label>
+        <input
+          v-model="deadline"
+          type="datetime-local"
+          required
+          onkeydown="return false"
+        />
+      </div>
+
 
       <button type="submit">Guardar tarea editada</button>
     </form>

@@ -1,144 +1,90 @@
-import { MongoTaskRepository } from "../repository/task.mongo.repository.js";
-import { MongoUserRepository } from "../repository/user.mongo.repository.js";
 import { TaskService } from "../services/task.service.js";
 
-const mongoTask = new MongoTaskRepository();
-const mongoUser = new MongoUserRepository();
-
+/**
+ * TaskController - Capa HTTP para tareas
+ * 
+ * Responsabilidades:
+ * - Validar presencia de req.user (autenticación)
+ * - Extraer parámetros (req.params, req.body, req.query)
+ * - Delegar TODA la lógica al TaskService
+ * - Traducir resultados/errores a respuestas HTTP
+ * 
+ * Principios Clean Architecture:
+ * - El Controller NO contiene lógica de negocio
+ * - El Controller NO accede a repositorios directamente
+ * - El Controller solo hace HTTP in → Service → HTTP out
+ */
 export const TaskController = {
+	/**
+	 * GET /allTasks
+	 * Obtiene todas las tareas
+	 */
 	taskAll: async (req, res) => {
-		const tasks = await mongoTask.getAll();
-
-		if (tasks.length == 0) {
-			res.status(404).json({
-				payload: null,
-				message: "No se encontró ninguna tarea",
-				ok: false,
-			});
-			return;
-		}
-
-		res.status(200).json({
-			message: "Success ---> Las tareas fueron halladas correctamente",
-			payload: tasks,
-			ok: true,
-		});
-	},
-
-	taskValidation: async (req, res) => {
-		const { id } = req.params;
-		//const taskFoundById = await TaskService.serviceTaskValidation(id);
-		const taskFoundById = await mongoTask.getById(id);
-
-		if (!taskFoundById) {
-			res.status(404).json({
-				payload: null,
-				message: "La tarea no fue hallada",
-				ok: false,
-			});
-			return null;
-		} else {
-			res.status(200).json({
-				message: "Success --> La tarea fue hallada",
-				payload: { taskFoundById },
-				ok: true,
-			});
-		}
-	},
-
-	taskCreateOne: async (req, res) => {
-		const { task } = req.body;
-
-		if (!req.user || !req.user.id) {
-			return res
-				.status(401)
-				.json({ error: "Usuario no autenticado" });
-		}
-
 		try {
-			const creatorId = req.user.id;
-			const creatorSector = req.user.sector;
-			const isSupervisor = req.user.isSupervisor;
+			const tasks = await TaskService.getAllTasks();
 
-			if (!task || !task.title || !task.deadline) {
-				return res.status(400).json({
-					error: "Datos de tarea incompletos (title, deadline son requeridos)",
+			if (tasks.length === 0) {
+				return res.status(404).json({
+					payload: null,
+					message: "No se encontró ninguna tarea",
+					ok: false,
 				});
 			}
 
-			// Regla: siempre registramos quién creó la tarea
-			const newTaskData = {
-				...task,
-				createdBy: creatorId,
-			};
-
-			// Regla de negocio sobre assignedTo
-			if (!isSupervisor) {
-				// Si NO es supervisor: se asigna a sí mismo siempre
-				newTaskData.assignedTo = [creatorId];
-			} else {
-				// Si ES supervisor: puede asignar a otros (o a sí mismo, opcional)
-				// Validamos que todos los asignados pertenezcan al mismo sector
-				const assignedIds = Array.isArray(task.assignedTo)
-					? task.assignedTo
-					: task.assignedTo
-						? [task.assignedTo]
-						: [];
-
-				if (assignedIds.length === 0) {
-					// Permitimos que el supervisor cree tareas sin asignados iniciales
-					newTaskData.assignedTo = [];
-				} else {
-					// Cargamos usuarios asignados y validamos sector
-					const users = await Promise.all(
-						assignedIds.map((id) => mongoUser.getById(id)),
-					);
-
-					const invalidUser = users.find(
-						(u) => !u || u.sector !== creatorSector,
-					);
-
-					if (invalidUser) {
-						return res.status(403).json({
-							error:
-								"Todos los usuarios asignados deben pertenecer al mismo sector que el creador",
-						});
-					}
-
-					newTaskData.assignedTo = assignedIds;
-				}
-			}
-
-			const taskResponse = await mongoTask.createOne(newTaskData);
-
-			// Importante: convertir el documento de Mongoose a objeto plano
-			// para evitar estructuras circulares que pueden romper JSON.stringify
-			const taskPlain = typeof taskResponse?.toObject === "function"
-				? taskResponse.toObject()
-				: taskResponse;
-
-			res.status(201).json({
-				message: "Success --> La tarea ha sido creada",
-				payload: taskPlain,
+			return res.status(200).json({
+				message: "Success ---> Las tareas fueron halladas correctamente",
+				payload: tasks,
 				ok: true,
 			});
-			return;
-		} catch (e) {
-			console.log({ error: e.message, mensaje: "Algo salió mal" });
-			res.status(404).json({
+		} catch (error) {
+			console.error("Error al obtener tareas:", error);
+			return res.status(500).json({
 				payload: null,
-				message: "No se pudo crear la tarea",
+				message: error.message || "Error al obtener tareas",
 				ok: false,
 			});
-			return;
 		}
 	},
 
-	taskDeleteOne: async (req, res) => {
-		const { id } = req.params;
-		const requestingUserId = req.user?.id;
+	/**
+	 * GET /task/:id
+	 * Obtiene una tarea por ID
+	 */
+	taskValidation: async (req, res) => {
+		try {
+			const { id } = req.params;
+			const task = await TaskService.getTaskById(id);
 
-		if (!requestingUserId) {
+			if (!task) {
+				return res.status(404).json({
+					payload: null,
+					message: "La tarea no fue hallada",
+					ok: false,
+				});
+			}
+
+			return res.status(200).json({
+				message: "Success --> La tarea fue hallada",
+				payload: { taskFoundById: task },
+				ok: true,
+			});
+		} catch (error) {
+			console.error("Error al buscar tarea:", error);
+			return res.status(500).json({
+				payload: null,
+				message: error.message || "Error al buscar tarea",
+				ok: false,
+			});
+		}
+	},
+
+	/**
+	 * POST /task
+	 * Crea una nueva tarea
+	 */
+	taskCreateOne: async (req, res) => {
+		// Validar autenticación (HTTP concern)
+		if (!req.user || !req.user.id) {
 			return res.status(401).json({
 				payload: null,
 				message: "Usuario no autenticado",
@@ -147,25 +93,38 @@ export const TaskController = {
 		}
 
 		try {
-			const deletedTask = await TaskService.serviceTaskDelete(id, requestingUserId);
+			// Extraer datos del request
+			const { task } = req.body;
+			const creator = {
+				id: req.user.id,
+				sector: req.user.sector,
+				isSupervisor: req.user.isSupervisor,
+			};
 
-			if (!deletedTask) {
-				return res.status(404).json({
+			// Delegar al Service
+			const createdTask = await TaskService.createTask(task, creator);
+
+			return res.status(201).json({
+				message: "Success --> La tarea ha sido creada",
+				payload: createdTask,
+				ok: true,
+			});
+		} catch (error) {
+			console.error("Error al crear tarea:", error);
+
+			// Traducir errores de negocio a HTTP
+			if (error.message.includes("incompletos") || 
+				error.message.includes("requerido") ||
+				error.message.includes("requerida") ||
+				error.message.includes("deadline")) {
+				return res.status(400).json({
 					payload: null,
-					message: `No se encontró la tarea con id: ${id}`,
+					message: error.message,
 					ok: false,
 				});
 			}
 
-			return res.status(200).json({
-				message: `Success: La tarea "${deletedTask.title}" fue eliminada`,
-				payload: { deletedTask },
-				ok: true,
-			});
-		} catch (error) {
-			console.error("Error al eliminar tarea", error);
-
-			if (error.message.includes("titular") || error.message.includes("futura")) {
+			if (error.message.includes("sector")) {
 				return res.status(403).json({
 					payload: null,
 					message: error.message,
@@ -175,18 +134,19 @@ export const TaskController = {
 
 			return res.status(500).json({
 				payload: null,
-				message: error.message || "No se pudo eliminar la tarea",
+				message: error.message || "No se pudo crear la tarea",
 				ok: false,
 			});
 		}
 	},
 
+	/**
+	 * PUT /task/:id
+	 * Actualiza una tarea existente
+	 */
 	taskUpdateOne: async (req, res) => {
-		const { id } = req.params;
-		const { title, description, completada, completed, status, assignedTo } = req.body;
-		const requestingUserId = req.user?.id;
-
-		if (!requestingUserId) {
+		// Validar autenticación
+		if (!req.user || !req.user.id) {
 			return res.status(401).json({
 				payload: null,
 				message: "Usuario no autenticado",
@@ -194,21 +154,27 @@ export const TaskController = {
 			});
 		}
 
-		// armamos objeto dinámico sólo con campos enviados
-		const updateData = {};
-		if (title !== undefined) updateData.title = title;
-		if (description !== undefined) updateData.description = description;
-		if (status !== undefined) updateData.status = status;
-		// soporta tanto "completada" (frontend actual) como "completed" (nombre del modelo)
-		if (completada !== undefined) updateData.completed = completada;
-		if (completed !== undefined) updateData.completed = completed;
-		// assignedTo para agregar/quitar usuarios
-		if (assignedTo !== undefined) updateData.assignedTo = assignedTo;
-
 		try {
-			const taskUpdated = await TaskService.serviceTaskUpdate(id, updateData, requestingUserId);
+			// Extraer datos del request
+			const { id } = req.params;
+			const { title, description, completada, completed, status, assignedTo, date, deadline } = req.body;
+			const requestingUser = req.user;
 
-			if (!taskUpdated) {
+			// Construir objeto con campos enviados
+			const updateData = {};
+			if (title !== undefined) updateData.title = title;
+			if (description !== undefined) updateData.description = description;
+			if (status !== undefined) updateData.status = status;
+			if (completada !== undefined) updateData.completed = completada;
+			if (completed !== undefined) updateData.completed = completed;
+			if (assignedTo !== undefined) updateData.assignedTo = assignedTo;
+			if (date !== undefined) updateData.date = date;
+			if (deadline !== undefined) updateData.deadline = deadline;
+
+			// Delegar al Service
+			const taskUpdated = await TaskService.updateTask(id, updateData, requestingUser);
+
+			if (skUpdated) {
 				return res.status(404).json({
 					payload: null,
 					message: `No se puede actualizar la tarea con el id: ${id}`,
@@ -222,12 +188,14 @@ export const TaskController = {
 				ok: true,
 			});
 		} catch (error) {
-			console.error("Error al actualizar tarea", error);
+			console.error("Error al actualizar tarea:", error);
 
-			// Handle specific authorization/validation errors
-			if (error.message.includes("titular") || 
+			// Traducir errores de negocio a HTTP
+			if (error.message.includes("titular") ||
 				error.message.includes("recurrente") ||
-				error.message.includes("asignado")) {
+				error.message.includes("asignado") ||
+				error.message.includes("deadline") ||
+				error.message.includes("vencimiento")) {
 				return res.status(403).json({
 					payload: null,
 					message: error.message,
@@ -244,19 +212,76 @@ export const TaskController = {
 	},
 
 	/**
-	 * Get tasks for calendar view
-	 * GET /tasks/calendar?month=1&year=2026
+	 * DELETE /task/:id
+	 * Elimina una tarea
 	 */
-	calendarTasks: async (req, res) => {
+	taskDeleteOne: async (req, res) => {
+		// Validar autenticación
+		if (!req.user || !req.user.id) {
+			return res.status(401).json({
+				payload: null,
+				message: "Usuario no autenticado",
+				ok: false,
+			});
+		}
+
 		try {
-			if (!req.user || !req.user.id) {
-				return res.status(401).json({
+			// Extraer datos del request
+			const { id } = req.params;
+			const requestingUser = req.user;
+
+			// Delegar al Service
+			const deletedTask = await TaskService.deleteTask(id, requestingUser);
+
+			if (letedTask) {
+				return res.status(404).json({
 					payload: null,
-					message: "Usuario no autenticado",
+					message: `No se encontró la tarea con id: ${id}`,
 					ok: false,
 				});
 			}
 
+			return res.status(200).json({
+				message: `Success: La tarea "${deletedTask.title}" fue eliminada`,
+				payload: { deletedTask },
+				ok: true,
+			});
+		} catch (error) {
+			console.error("Error al eliminar tarea:", error);
+
+			// Traducir errores de negocio a HTTP
+			if (error.message.includes("titular") || error.message.includes("futura")) {
+				return res.status(403).json({
+					payload: null,
+					message: error.message,
+					ok: false,
+				});
+			}
+
+			return res.status(500).json({
+				payload: null,
+				message: error.message || "No se pudo eliminar la tarea",
+				ok: false,
+			});
+		}
+	},
+
+	/**
+	 * GET /calendar?month=1&year=2026
+	 * Obtiene tareas para vista de calendario
+	 */
+	calendarTasks: async (req, res) => {
+		// Validar autenticación
+		if (!req.user || !req.user.id) {
+			return res.status(401).json({
+				payload: null,
+				message: "Usuario no autenticado",
+				ok: false,
+			});
+		}
+
+		try {
+			// Extraer y validar parámetros de query
 			const month = parseInt(req.query.month, 10);
 			const year = parseInt(req.query.year, 10);
 
@@ -268,12 +293,14 @@ export const TaskController = {
 				});
 			}
 
+			// Construir objeto de usuario
 			const user = {
 				id: req.user.id,
 				sector: req.user.sector,
 				isSupervisor: req.user.isSupervisor,
 			};
 
+			// Delegar al Service
 			const tasks = await TaskService.getCalendarTasks(user, month, year);
 
 			return res.status(200).json({
