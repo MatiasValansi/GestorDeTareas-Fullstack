@@ -294,7 +294,7 @@ const enviarFormulario = async () => {
       alert(`Tarea "${titulo.value}" creada con éxito`)
     }
     
-    router.push('/task')
+    router.push('/main')
   } catch (error) {
     console.error('Error al crear tarea:', error)
     const mensaje = error.response?.data?.message || 'Error desconocido'
@@ -305,7 +305,7 @@ const enviarFormulario = async () => {
 }
 
 const volverAlMenu = () => {
-  router.push('/task')
+  router.push('/main')
 }
 
 // ===== WATCHERS =====

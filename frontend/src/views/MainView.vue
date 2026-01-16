@@ -63,7 +63,7 @@ const irANuevaVistaTarea = () => {
       </div>
 
       <!-- PANEL LATERAL / STATS -->
-      <div>
+      <!-- <div>
         <div v-if="store.isSupervisor">
           <h2>📊 Estadísticas Generales</h2>
           <DashboardStats />
@@ -76,7 +76,7 @@ const irANuevaVistaTarea = () => {
             Estás logueado como <strong>Usuario</strong>.
           </p>
         </div>
-      </div>
+      </div> -->
 
     </main>
   </div>

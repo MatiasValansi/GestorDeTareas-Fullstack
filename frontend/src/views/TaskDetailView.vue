@@ -3,6 +3,8 @@ import { ref, computed, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useUserStore } from "@/stores/user";
 import { getTaskById, getTaskOwnerId } from "@/services/tasks";
+import { ArcElement, Title } from "chart.js";
+import { deleteTask } from "@/services/tasks";
 
 const route = useRoute();
 const router = useRouter();
@@ -120,6 +122,19 @@ const isUserOwner = (user, index) => index === 0;
 // Navegación
 const goBack = () => router.push("/task");
 const goToEdit = () => router.push(`/editTask/${route.params.id}`);
+
+const confirmDelete = (id) => {
+  const ok = confirm("¿Estás seguro de que querés eliminar esta tarea?");
+  if (!ok) return;
+   deleteTask(id)
+    .then(() => {
+        alert("Tarea eliminada correctamente");
+        router.push("/main");
+    })
+    .catch((e) => {
+        alert("Error al eliminar la tarea: " + (e?.response?.data?.message || e.message));
+    });
+};
 </script>
 
 <template>
@@ -153,12 +168,19 @@ const goToEdit = () => router.push(`/editTask/${route.params.id}`);
                     @click="goToEdit" 
                     class="btn-edit"
                 >
-                    ✏️ Editar
+                    Editar
+                </button>
+                                <!-- Botón Eliminar (solo si puede) -->
+                <button 
+                    v-if="canEdit" 
+                    @click="confirmDelete(task._id)"
+                    class="btn-delete"
+                >
+                    Eliminar
                 </button>
                 
                 <!-- Tooltip si no puede editar pero es tarea suya parcialmente -->
                 <div v-else-if="editBlockReason && (isOwner || task.assignedTo?.some(u => (u._id || u.id || u) === getCurrentUserId()))" class="edit-blocked-notice">
-                    <span class="notice-icon">🔒</span>
                     <span class="notice-text">{{ editBlockReason }}</span>
                 </div>
             </div>
@@ -167,42 +189,35 @@ const goToEdit = () => router.push(`/editTask/${route.params.id}`);
             <h1 class="task-title">{{ task.title }}</h1>
 
             <!-- Descripción -->
-            <div class="task-section" v-if="task.description">
-                <span class="section-icon">📄</span>
-                <span class="section-label">Descripción</span>
+            <div class="task-section">
+                <span class="section-label">DESCRIPCIÓN</span>
                 <p class="task-description">{{ task.description }}</p>
             </div>
 
-            <!-- Fechas -->
+
+
+            <!-- Descripción -->
+            <div class="task-section">
+                <span class="section-label">FECHA Y HORA</span>
+            </div>
+                        <!-- Fechas -->
             <div class="dates-grid">
                 <div class="date-card">
-                    <span class="date-icon">📅</span>
                     <div class="date-content">
                         <span class="date-label">FECHA DE LA TAREA</span>
                         <span class="date-value">{{ formatDate(task.date) }}</span>
-                    </div>
-                </div>
-                <div class="date-card deadline" :class="{ expired: isExpired }">
-                    <span class="date-icon">⏰</span>
-                    <div class="date-content">
                         <span class="date-label">FECHA DE VENCIMIENTO</span>
                         <span class="date-value">{{ formatDate(task.deadline) }}</span>
+                        <span class="date-label">CREADA EL</span>
+                        <span class="date-value">{{ formatShortDate(task.createdAt) }}</span>
+
                     </div>
                 </div>
             </div>
 
-            <!-- Fecha de creación -->
-            <div class="created-info">
-                <span class="created-icon">🕐</span>
-                <div class="created-content">
-                    <span class="created-label">CREADA EL</span>
-                    <span class="created-value">{{ formatShortDate(task.createdAt) }}</span>
-                </div>
-            </div>
 
             <!-- Usuarios asignados -->
             <div class="task-section">
-                <span class="section-icon">👥</span>
                 <span class="section-label">Usuarios asignados</span>
                 
                 <div class="users-list">
@@ -212,23 +227,21 @@ const goToEdit = () => router.push(`/editTask/${route.params.id}`);
                         class="user-item"
                         :class="{ 'is-owner': isUserOwner(user, index) }"
                     >
-                        <span class="user-icon">👤</span>
                         <span class="user-name">
                             {{ typeof user === 'object' ? (user.name || user.nombre || user.fullname || 'Usuario') : 'Usuario' }}
                         </span>
                         <span v-if="isUserOwner(user, index)" class="owner-badge">👑 Titular</span>
-                        <span class="user-arrow">›</span>
+
                     </div>
                 </div>
             </div>
 
             <!-- Info de recurrencia si aplica -->
             <div v-if="task.recurringTaskId" class="recurring-notice">
-                <span class="recurring-icon">🔄</span>
                 <span class="recurring-text">Esta tarea fue generada automáticamente por una tarea recurrente</span>
             </div>
 
-            <!-- Información técnica (colapsable) -->
+            <!-- SOLO PARA SUPER USUARIOS -->
             <div class="technical-section">
                 <div class="technical-header" @click="showTechnicalInfo = !showTechnicalInfo">
                     <span class="technical-icon">🔧</span>
@@ -366,8 +379,12 @@ const goToEdit = () => router.push(`/editTask/${route.params.id}`);
 
 /* Botón Editar */
 .btn-edit {
+    width: 80px;
+    height: 30px;
+    margin: 1rem 0rem 1rem auto;
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 0.5rem;
     padding: 0.5rem 1rem;
     background: linear-gradient(135deg, #4f83cc, #3b6cb5);
@@ -381,7 +398,29 @@ const goToEdit = () => router.push(`/editTask/${route.params.id}`);
 
 .btn-edit:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(79, 131, 204, 0.4);
+    box-shadow: 0 4px 12px rgba(60, 114, 189, 0.4);
+}
+
+/* Botón Editar */
+.btn-delete {
+    width: 80px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: linear-gradient(135deg, #dd4c4c);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-delete:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(177, 55, 55, 0.4);
 }
 
 /* Notice de edición bloqueada */
@@ -410,7 +449,14 @@ const goToEdit = () => router.push(`/editTask/${route.params.id}`);
 
 /* Secciones */
 .task-section {
+    margin-top: 0;
     margin-bottom: 1.5rem;
+}
+
+/* Unifica el margen inferior de los títulos de sección */
+.section-title-margin {
+    display: block;
+    margin-bottom: 1rem;
 }
 
 .section-icon {
@@ -420,18 +466,19 @@ const goToEdit = () => router.push(`/editTask/${route.params.id}`);
 
 .section-label {
     font-size: 0.8rem;
-    color: #9ca3af;
+    color: #3b3d41;
     text-transform: uppercase;
     letter-spacing: 0.05em;
 }
 
 .task-description {
-    margin-top: 0.5rem;
+    margin-top: 0;
     padding: 1rem;
     background: #334155;
     border-radius: 10px;
-    color: #e2e8f0;
     line-height: 1.6;
+    margin-bottom: 2rem;
+    font-weight: 500;
 }
 
 /* Grid de fechas */
@@ -439,7 +486,8 @@ const goToEdit = () => router.push(`/editTask/${route.params.id}`);
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
     gap: 1rem;
-    margin-bottom: 1rem;
+    margin-bottom: 2rem;
+    margin-top: 0;
 }
 
 .date-card {
@@ -498,16 +546,6 @@ const goToEdit = () => router.push(`/editTask/${route.params.id}`);
     gap: 0.15rem;
 }
 
-.created-label {
-    font-size: 0.65rem;
-    color: #9ca3af;
-    text-transform: uppercase;
-}
-
-.created-value {
-    color: #e2e8f0;
-    font-weight: 500;
-}
 
 /* Lista de usuarios */
 .users-list {

@@ -153,7 +153,7 @@ body.dark .user-bar {
 }
 
 .logo-title {
-  width: 240px;
+  width: 350px;
 }
 
 .navbar {
