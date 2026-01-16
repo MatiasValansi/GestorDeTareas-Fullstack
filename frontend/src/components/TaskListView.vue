@@ -460,8 +460,8 @@ watch(globalMonth, (newMonth) => {
 }
 
 .filter-chip {
-    margin-top: 0.25rem;
-    margin-bottom: 0.25rem;
+  margin-top: 0.25rem;
+  margin-bottom: 0.25rem;
   background: #ffffff;
   border: 2px solid #d1d5db;
   border-radius: 999px;
@@ -471,32 +471,22 @@ watch(globalMonth, (newMonth) => {
   color: #374151;
   cursor: pointer;
   white-space: nowrap;
-  transition: 
-    background 0.2s ease,
-    transform 0.15s ease,
-    box-shadow 0.15s ease;
-  
-  /* CLAVE */
-  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+
+
 }
 
 .filter-chip:hover {
   background: #f3f4f6;
 }
 
-.filter-chip {
-  box-shadow: 0 1px 2px rgba(0,0,0,0.06);
-}
+
 
 .filter-chip:hover {
   transform: translateY(-1px);
-  box-shadow: 0 4px 10px rgba(0,0,0,0.12);
 }
 
 .filter-chip.active {
-  box-shadow:
-    0 0 0 2px rgba(0,0,0,0.15),
-    0 6px 14px rgba(0,0,0,0.15);
+
   transform: translateY(-1px) scale(1.05);
 }
 

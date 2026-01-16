@@ -58,6 +58,7 @@ watch(darkMode, v => localStorage.setItem('dark', v))
         <span class="login-alert">
           Logueado como <strong>{{ store.user.email }}</strong>
         </span>
+        <div></div>
         <span class="login-role">
           Permisos de <strong>{{ store.isSupervisor ? 'Supervisor' : 'Usuario' }}</strong>
         </span>

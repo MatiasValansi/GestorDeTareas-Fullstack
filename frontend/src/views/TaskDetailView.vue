@@ -120,7 +120,7 @@ const ownerName = computed(() => {
 const isUserOwner = (user, index) => index === 0;
 
 // Navegación
-const goBack = () => router.push("/task");
+const goBack = () => router.push("/main");
 const goToEdit = () => router.push(`/editTask/${route.params.id}`);
 
 const confirmDelete = (id) => {
@@ -181,7 +181,7 @@ const confirmDelete = (id) => {
                 
                 <!-- Tooltip si no puede editar pero es tarea suya parcialmente -->
                 <div v-else-if="editBlockReason && (isOwner || task.assignedTo?.some(u => (u._id || u.id || u) === getCurrentUserId()))" class="edit-blocked-notice">
-                    <span class="notice-text">{{ editBlockReason }}</span>
+                    <p class="notice-text">{{ editBlockReason }}</p>
                 </div>
             </div>
 
@@ -274,6 +274,7 @@ const confirmDelete = (id) => {
 </template>
 
 <style scoped>
+
 .task-detail-container {
     max-width: 700px;
     margin: 0 auto;
@@ -360,6 +361,7 @@ const confirmDelete = (id) => {
 .status-pending {
     background: #fef3c7;
     color: #92400e;
+    border-color: #f59e0b;
 }
 
 .status-progress {
@@ -370,11 +372,13 @@ const confirmDelete = (id) => {
 .status-completed {
     background: #d1fae5;
     color: #065f46;
+    border-color: #10b981;
 }
 
 .status-expired {
     background: #fee2e2;
     color: #991b1b;
+    border-color: #ef4444;
 }
 
 /* Botón Editar */
@@ -423,7 +427,7 @@ const confirmDelete = (id) => {
     box-shadow: 0 4px 12px rgba(177, 55, 55, 0.4);
 }
 
-/* Notice de edición bloqueada */
+/* Notice de edición bloqueada
 .edit-blocked-notice {
     display: flex;
     align-items: center;
@@ -433,6 +437,17 @@ const confirmDelete = (id) => {
     border-radius: 8px;
     font-size: 0.8rem;
     color: #9ca3af;
+} */
+
+.edit-blocked-notice {
+    background: none;
+    padding: 0.2rem 0.5rem;
+    border-radius: 999px;
+    box-shadow: none;
+    display: inline;
+    color: #d81d1d;
+    font-size: 0.9rem;
+    background-color: #f7f4f4;
 }
 
 .notice-icon {
