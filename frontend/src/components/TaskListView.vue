@@ -2,7 +2,7 @@
 import { ref, onMounted, computed, watch, inject } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
-import { getCalendarTasks } from '@/services/tasks'
+import { getCalendarTasks, updateTask } from '@/services/tasks'
 import { getAllUsers } from '@/services/users'
 
 const router = useRouter()
@@ -179,6 +179,73 @@ const getAssigneesNames = (assignedTo) => {
   return assignedTo.map(id => getUserNameById(id)).join(', ')
 }
 
+// ============ ACCIONES DE TAREA ============
+
+// Set para rastrear tareas en proceso de actualización
+const updatingTasks = ref(new Set())
+
+// Marcar tarea como completada
+const marcarComoCompletada = async (tarea, event) => {
+  // Prevenir navegación al detalle
+  event.stopPropagation()
+  
+  const taskId = tarea._id || tarea.id
+  
+  // Evitar múltiples clicks
+  if (updatingTasks.value.has(taskId)) return
+  
+  try {
+    updatingTasks.value.add(taskId)
+    
+    // Actualizar en el backend
+    await updateTask(taskId, { 
+      status: 'COMPLETADA',
+      completed: true 
+    })
+    
+    // Actualizar estado local inmediatamente
+    const index = tareas.value.findIndex(t => (t._id || t.id) === taskId)
+    if (index !== -1) {
+      tareas.value[index] = {
+        ...tareas.value[index],
+        status: 'COMPLETADA',
+        completada: true
+      }
+    }
+  } catch (err) {
+    console.error('Error al marcar tarea como completada:', err)
+    error.value = 'Error al actualizar la tarea'
+    setTimeout(() => { error.value = '' }, 3000)
+  } finally {
+    updatingTasks.value.delete(taskId)
+  }
+}
+
+// Verificar si una tarea está pendiente (no completada ni vencida)
+const esTareaPendiente = (tarea) => {
+  return !tarea.completada && tarea.status !== 'COMPLETADA' && tarea.status !== 'VENCIDA'
+}
+
+// Verificar si el usuario logueado está asignado a la tarea
+const usuarioEstaAsignado = (tarea) => {
+  const userId = store.user?.id || store.user?._id
+  if (!userId || !tarea.assignedTo) return false
+  
+  return tarea.assignedTo.some(assigned => {
+    // Si es un objeto populado
+    if (typeof assigned === 'object') {
+      return (assigned._id || assigned.id) === userId
+    }
+    // Si es un string (ID directo)
+    return assigned === userId
+  })
+}
+
+// Verificar si el usuario puede completar la tarea (pendiente + asignado)
+const puedeCompletarTarea = (tarea) => {
+  return esTareaPendiente(tarea) && usuarioEstaAsignado(tarea)
+}
+
 // ============ NAVEGACIÓN ============
 
 const verDetalleTarea = (id) => {
@@ -293,7 +360,7 @@ watch(globalMonth, (newMonth) => {
             <span class="task-status-badge" :class="getStatusClass(tarea)">
               {{ getStatusLabel(tarea) }}
             </span>
-            <span class="task-date">{{ formatFecha(tarea.deadline) }}</span>
+            <span class="task-date">{{ formatFecha(tarea.date) }}</span>
           </div>
           
           <!-- Título de la tarea -->
@@ -303,6 +370,33 @@ watch(globalMonth, (newMonth) => {
           <p class="task-assignee">
             {{ getAssigneesNames(tarea.assignedTo) }}
           </p>
+        </div>
+
+        <!-- Switch para completar (solo si está asignado y pendiente) -->
+        <div 
+          v-if="puedeCompletarTarea(tarea)" 
+          class="task-complete-action"
+          @click.stop
+        >
+          <label class="complete-switch" :class="{ 'is-loading': updatingTasks.has(tarea._id || tarea.id) }">
+            <input 
+              type="checkbox"
+              :disabled="updatingTasks.has(tarea._id || tarea.id)"
+              @change="marcarComoCompletada(tarea, $event)"
+            />
+            <span class="switch-slider"></span>
+            <span class="switch-label">Completar</span>
+          </label>
+        </div>
+
+        <!-- Leyenda si está pendiente pero no asignado -->
+        <div 
+          v-else-if="esTareaPendiente(tarea) && !usuarioEstaAsignado(tarea)" 
+          class="task-no-permission"
+          @click.stop
+        >
+          <span class="no-permission-icon">🔒</span>
+          <span class="no-permission-text">No asignado</span>
         </div>
 
         <!-- Flecha de navegación -->
@@ -685,6 +779,113 @@ body.dark .filter-chip:hover {
   font-size: 0.85rem;
 }
 
+/* === SWITCH COMPLETAR TAREA === */
+.task-complete-action {
+  display: flex;
+  align-items: center;
+  padding: 0 0.5rem;
+  flex-shrink: 0;
+}
+
+.complete-switch {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.complete-switch.is-loading {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.complete-switch input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.switch-slider {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  background: #d1d5db;
+  border-radius: 24px;
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+}
+
+.switch-slider::before {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  background: white;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.complete-switch input:checked + .switch-slider {
+  background: #10b981;
+}
+
+.complete-switch input:checked + .switch-slider::before {
+  transform: translateX(20px);
+}
+
+.complete-switch:hover .switch-slider {
+  background: #9ca3af;
+}
+
+.complete-switch input:checked:hover + .switch-slider {
+  background: #059669;
+}
+
+.switch-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #6b7280;
+  white-space: nowrap;
+}
+
+.complete-switch.is-loading .switch-slider::before {
+  animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* === INDICADOR NO ASIGNADO === */
+.task-no-permission {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.75rem;
+  gap: 0.15rem;
+  flex-shrink: 0;
+}
+
+.no-permission-icon {
+  font-size: 0.9rem;
+  opacity: 0.7;
+}
+
+.no-permission-text {
+  font-size: 0.65rem;
+  font-weight: 500;
+  color: #9ca3af;
+  white-space: nowrap;
+  text-align: center;
+}
+
 /* === FLECHA DE NAVEGACIÓN === */
 .task-arrow {
   display: flex;
@@ -857,6 +1058,24 @@ body.dark .task-assignee {
 }
 
 body.dark .task-arrow {
+  color: #6b7280;
+}
+
+/* Dark mode switch */
+body.dark .switch-slider {
+  background: #4b5563;
+}
+
+body.dark .complete-switch:hover .switch-slider {
+  background: #6b7280;
+}
+
+body.dark .switch-label {
+  color: #9ca3af;
+}
+
+/* Dark mode indicador no asignado */
+body.dark .no-permission-text {
   color: #6b7280;
 }
 

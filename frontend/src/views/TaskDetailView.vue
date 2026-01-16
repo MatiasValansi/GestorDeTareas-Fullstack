@@ -2,7 +2,7 @@
 import { ref, computed, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useUserStore } from "@/stores/user";
-import { getTaskById, getTaskOwnerId } from "@/services/tasks";
+import { getTaskById, getTaskOwnerId, updateTask } from "@/services/tasks";
 import { ArcElement, Title } from "chart.js";
 import { deleteTask } from "@/services/tasks";
 
@@ -14,6 +14,7 @@ const task = ref(null);
 const loading = ref(true);
 const error = ref("");
 const showTechnicalInfo = ref(false);
+const updatingTask = ref(false);
 
 // Helper para obtener el ID del usuario actual
 const getCurrentUserId = () => {
@@ -40,16 +41,67 @@ const isExpired = computed(() => {
 
 const isRecurring = computed(() => !!task.value?.recurringTaskId);
 
+const isCompleted = computed(() => task.value?.status === 'COMPLETADA');
+
 const canEdit = computed(() => {
-    return isOwner.value && !isExpired.value && !isRecurring.value;
+    return isOwner.value && !isExpired.value && !isRecurring.value && !isCompleted.value;
 });
 
 const editBlockReason = computed(() => {
     if (!isOwner.value) return "Solo el titular de la tarea puede editarla";
+    if (isCompleted.value) return "No se pueden editar tareas completadas";
     if (isExpired.value) return "No se pueden editar tareas vencidas";
     if (isRecurring.value) return "Las tareas recurrentes no se pueden editar directamente";
     return "";
 });
+
+// ===== LÓGICA PARA COMPLETAR TAREA =====
+const isAssigned = computed(() => {
+    if (!task.value?.assignedTo) return false;
+    const currentUserId = getCurrentUserId();
+    return task.value.assignedTo.some(assigned => {
+        if (typeof assigned === 'object') {
+            return (assigned._id || assigned.id) === currentUserId;
+        }
+        return assigned === currentUserId;
+    });
+});
+
+const isPending = computed(() => {
+    return task.value && !isCompleted.value && task.value.status !== 'VENCIDA';
+});
+
+const canComplete = computed(() => {
+    return isPending.value && isAssigned.value;
+});
+
+const marcarComoCompletada = async () => {
+    if (!task.value || updatingTask.value) return;
+    
+    const taskId = task.value._id || task.value.id;
+    
+    try {
+        updatingTask.value = true;
+        
+        await updateTask(taskId, {
+            status: 'COMPLETADA',
+            completed: true
+        });
+        
+        // Actualizar estado local
+        task.value = {
+            ...task.value,
+            status: 'COMPLETADA',
+            completada: true
+        };
+    } catch (err) {
+        console.error('Error al marcar tarea como completada:', err);
+        error.value = err?.response?.data?.message || 'Error al actualizar la tarea';
+        setTimeout(() => { error.value = ''; }, 3000);
+    } finally {
+        updatingTask.value = false;
+    }
+};
 
 // ===== DATOS DE LA TAREA =====
 onMounted(async () => {
@@ -185,6 +237,25 @@ const confirmDelete = (id) => {
                 </div>
             </div>
 
+            <!-- Switch para completar tarea (solo si puede) -->
+            <div v-if="canComplete" class="complete-task-section">
+                <label class="complete-switch" :class="{ 'is-loading': updatingTask }">
+                    <input 
+                        type="checkbox"
+                        :disabled="updatingTask"
+                        @change="marcarComoCompletada"
+                    />
+                    <span class="switch-slider"></span>
+                    <span class="switch-label">Marcar como completada</span>
+                </label>
+            </div>
+            
+            <!-- Leyenda si está pendiente pero no asignado -->
+            <div v-else-if="isPending && !isAssigned" class="not-assigned-notice">
+                <span class="notice-icon">🔒</span>
+                <span class="notice-text">No estás asignado a esta tarea</span>
+            </div>
+
             <!-- Título -->
             <h1 class="task-title">{{ task.title }}</h1>
 
@@ -209,7 +280,7 @@ const confirmDelete = (id) => {
                         <span class="date-label">FECHA DE VENCIMIENTO</span>
                         <span class="date-value">{{ formatDate(task.deadline) }}</span>
                         <span class="date-label">CREADA EL</span>
-                        <span class="date-value">{{ formatShortDate(task.createdAt) }}</span>
+                        <span class="date-value">{{ formatDate(task.createdAt) }}</span>
 
                     </div>
                 </div>
@@ -451,6 +522,104 @@ const confirmDelete = (id) => {
 }
 
 .notice-icon {
+    font-size: 0.9rem;
+}
+
+/* === SWITCH COMPLETAR TAREA === */
+.complete-task-section {
+    display: flex;
+    align-items: center;
+    padding: 1rem;
+    background: #d1fae5 !important;
+    border: 1px solid #10b981 !important;
+    border-radius: 10px;
+    margin-bottom: 1.5rem;
+}
+
+.complete-switch {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    cursor: pointer;
+    user-select: none;
+}
+
+.complete-switch.is-loading {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.complete-switch input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.switch-slider {
+    position: relative;
+    width: 50px;
+    height: 26px;
+    background: #4b5563;
+    border-radius: 26px;
+    transition: all 0.3s ease;
+    flex-shrink: 0;
+}
+
+.switch-slider::before {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 20px;
+    height: 20px;
+    background: white;
+    border-radius: 50%;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.complete-switch input:checked + .switch-slider {
+    background: #10b981;
+}
+
+.complete-switch input:checked + .switch-slider::before {
+    transform: translateX(24px);
+}
+
+.complete-switch:hover .switch-slider {
+    background: #6ee7b7;
+}
+
+.complete-switch input:checked:hover + .switch-slider {
+    background: #059669;
+}
+
+.switch-label {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #f1f5f9;
+}
+
+.complete-switch.is-loading .switch-slider::before {
+    animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+/* Notice no asignado */
+.not-assigned-notice {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    background: #374151;
+    border-radius: 10px;
+    margin-bottom: 1.5rem;
+    color: #9ca3af;
     font-size: 0.9rem;
 }
 
@@ -767,6 +936,28 @@ body:not(.dark) .technical-header:hover {
 body:not(.dark) .tech-value {
     background: #e5e7eb;
     color: #059669;
+}
+
+/* Light mode - Switch completar */
+body:not(.dark) .complete-task-section {
+    background: #f3f4f6;
+}
+
+body:not(.dark) .switch-slider {
+    background: #d1d5db;
+}
+
+body:not(.dark) .complete-switch:hover .switch-slider {
+    background: #9ca3af;
+}
+
+body:not(.dark) .switch-label {
+    color: #1f2937;
+}
+
+body:not(.dark) .not-assigned-notice {
+    background: #f3f4f6;
+    color: #6b7280;
 }
 
 /* Responsive */

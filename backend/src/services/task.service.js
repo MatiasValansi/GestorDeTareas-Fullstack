@@ -64,26 +64,42 @@ class TaskServiceClass {
      * Valida si el usuario puede editar la tarea
      * 
      * REGLAS:
-     * 1. Solo el titular (posición 0) puede editar
-     * 2. No se pueden editar tareas VENCIDAS
-     * 3. No se pueden editar tareas RECURRENTES
+     * 1. Solo el titular (posición 0) puede editar campos generales
+     * 2. Cualquier asignado puede marcar como completada
+     * 3. No se pueden editar tareas VENCIDAS
+     * 4. No se pueden editar tareas RECURRENTES (excepto para completar)
      */
-    _validateCanEdit(task, userId) {
+    _validateCanEdit(task, userId, isOnlyCompletionUpdate = false) {
         const normalizedUserId = this._toIdString(userId);
         const taskOwner = this._getTaskOwnerId(task);
 
-        // Regla 1: Solo el titular puede editar
-        if (!taskOwner || !normalizedUserId || taskOwner !== normalizedUserId) {
-            throw new Error("Solo el titular de la tarea (posición 0 en asignados) puede editarla");
+        // Para marcar como completada: cualquier asignado puede hacerlo
+        if (isOnlyCompletionUpdate) {
+            const isAssigned = task.assignedTo?.some(
+                assigned => this._toIdString(assigned) === normalizedUserId
+            );
+            if (!isAssigned) {
+                throw new Error("Solo los usuarios asignados a la tarea pueden marcarla como completada");
+            }
+        } else {
+            // Para ediciones generales: solo el titular
+            if (!taskOwner || !normalizedUserId || taskOwner !== normalizedUserId) {
+                throw new Error("Solo el titular de la tarea (posición 0 en asignados) puede editarla");
+            }
         }
 
-        // Regla 2: No editar tareas vencidas
+        // Regla: No editar tareas vencidas
         if (task.status === "VENCIDA") {
             throw new Error("No se pueden editar tareas vencidas");
         }
 
-        // Regla 3: No editar tareas recurrentes
-        if (task.recurringTaskId) {
+        // Regla: No editar tareas completadas
+        if (task.status === "COMPLETADA") {
+            throw new Error("No se pueden editar tareas que ya están completadas");
+        }
+
+        // Regla: No editar tareas recurrentes (EXCEPTO para marcar como completada)
+        if (task.recurringTaskId && !isOnlyCompletionUpdate) {
             throw new Error("No se pueden editar tareas recurrentes. Modifique la tarea recurrente original.");
         }
     }
@@ -97,6 +113,11 @@ class TaskServiceClass {
 
         if (!taskOwner || !normalizedUserId || taskOwner !== normalizedUserId) {
             throw new Error("Solo el titular de la tarea (posición 0 en asignados) puede eliminarla");
+        }
+
+        // No se pueden eliminar tareas completadas
+        if (task.status === "COMPLETADA") {
+            throw new Error("No se pueden eliminar tareas que ya están completadas");
         }
 
         if (task.deadline && ArgentinaTime.isExpired(task.deadline)) {
@@ -236,6 +257,7 @@ class TaskServiceClass {
      * Actualiza una tarea
      * 
      * REGLA: Solo el titular (posición 0) puede editar
+     * EXCEPCIÓN: Las tareas recurrentes SÍ pueden marcarse como completadas
      */
     async updateTask(taskId, updateData, requestingUser) {
         const currentTask = await this.taskRepository.getById(taskId);
@@ -244,8 +266,13 @@ class TaskServiceClass {
         // Extraer y normalizar el ID del usuario
         const userId = this._toIdString(requestingUser?.id ?? requestingUser);
 
-        // Validar permisos (titular, no vencida, no recurrente)
-        this._validateCanEdit(currentTask, userId);
+        // Detectar si es SOLO una actualización de completado/status
+        const allowedCompletionFields = ['status', 'completed'];
+        const updateFields = Object.keys(updateData);
+        const isOnlyCompletionUpdate = updateFields.every(field => allowedCompletionFields.includes(field));
+
+        // Validar permisos (titular, no vencida, y recurrente solo si es completado)
+        this._validateCanEdit(currentTask, userId, isOnlyCompletionUpdate);
 
         // Validar fechas si se actualizan
         if (updateData.date !== undefined || updateData.deadline !== undefined) {
