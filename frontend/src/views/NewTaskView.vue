@@ -732,7 +732,7 @@ onMounted(obtenerUsuarios)
                 <strong>Titular:</strong> 
                 {{ tareaParaMi ? nombreUsuarioActual + ' (Tú)' : opcionesTitular.find(u => u.id === titularSeleccionado)?.nombre || '-' }}
               </li>
-              <li><strong>Total asignados:</strong> {{ (tareaParaMi ? 1 : 0) + usuariosSeleccionados.length }}</li>
+              <li><strong>Total asignados:</strong> {{ store.isSupervisor ? ((tareaParaMi ? 1 : 0) + usuariosSeleccionados.length) : usuariosSeleccionados.length }}</li>
             </ul>
           </div>
 
