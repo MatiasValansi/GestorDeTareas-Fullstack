@@ -19,6 +19,10 @@ const viewMode = ref('calendario')
 const currentMonth = ref(new Date())
 provide('currentMonth', currentMonth)
 
+/* Filtro de supervisor (todas, otros, mias) */
+const supervisorFilter = ref('todas')
+provide('supervisorFilter', supervisorFilter)
+
 const irANuevaVistaTarea = () => {
   router.push('/newTask')
 }
@@ -42,12 +46,14 @@ const irANuevaVistaTarea = () => {
       <!-- CONTENIDO PRINCIPAL DE TAREAS -->
       <div class="tasks-content">
 
-        <!-- TOOLBAR (MES + SWITCH) -->
+        <!-- TOOLBAR (MES + SWITCH + FILTRO SUPERVISOR) -->
         <TasksToolbar
           :currentMonth="currentMonth"
           :viewMode="viewMode"
+          :supervisorFilter="supervisorFilter"
           @update:month="currentMonth = $event"
           @update:view="viewMode = $event"
+          @update:supervisorFilter="supervisorFilter = $event"
         />
 
         <!-- VISTA CALENDARIO -->

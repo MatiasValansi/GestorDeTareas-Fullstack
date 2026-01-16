@@ -1,5 +1,8 @@
 <script setup>
 import { computed } from 'vue'
+import { useUserStore } from '@/stores/user'
+
+const store = useUserStore()
 
 const props = defineProps({
   currentMonth: {
@@ -9,12 +12,17 @@ const props = defineProps({
   viewMode: {
     type: String,
     required: true
+  },
+  supervisorFilter: {
+    type: String,
+    default: 'todas'
   }
 })
 
 const emit = defineEmits([
   'update:month',
-  'update:view'
+  'update:view',
+  'update:supervisorFilter'
 ])
 
 const monthLabel = computed(() =>
@@ -39,6 +47,22 @@ const nextMonth = () => {
 
 <template>
   <div class="tasks-toolbar">
+
+    <!-- ZONA IZQUIERDA: FILTRO SUPERVISOR -->
+    <div class="toolbar-left">
+      <div v-if="store.isSupervisor" class="supervisor-filter">
+        <label class="filter-label">Filtrar tareas:</label>
+        <select 
+          :value="supervisorFilter"
+          @change="emit('update:supervisorFilter', $event.target.value)"
+          class="filter-select"
+        >
+          <option value="todas">Todas</option>
+          <option value="otros">Solo del Sector</option>
+          <option value="mias">Solo Mías</option>
+        </select>
+      </div>
+    </div>
 
     <!-- ZONA CENTRAL: MES + FLECHAS -->
     <div class="toolbar-center">
@@ -80,6 +104,55 @@ const nextMonth = () => {
   height: 80px;
   padding: 0 2rem;
   box-sizing: border-box;
+}
+
+/* ===========================
+   IZQUIERDA: FILTRO SUPERVISOR
+=========================== */
+.toolbar-left {
+  grid-column: 1;
+  display: flex;
+  justify-content: flex-start;
+}
+
+.supervisor-filter {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.filter-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #6b7280;
+  white-space: nowrap;
+}
+
+.filter-select {
+  padding: 0.5rem 2rem 0.5rem 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #374151;
+  background-color: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.2s ease;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M2 4l4 4 4-4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+}
+
+.filter-select:hover {
+  border-color: #4f83cc;
+  background-color: #e5e7eb;
+}
+
+.filter-select:focus {
+  border-color: #4f83cc;
+  box-shadow: 0 0 0 3px rgba(79, 131, 204, 0.15);
 }
 
 /* ===========================
@@ -157,5 +230,86 @@ const nextMonth = () => {
 .view-toggle button.active {
   background: #1f2937;
   color: white;
+}
+
+/* ===========================
+   DARK MODE
+=========================== */
+body.dark .month-title {
+  color: #f1f5f9;
+}
+
+body.dark .nav-btn {
+  background: #3b82f6;
+}
+
+body.dark .nav-btn:hover {
+  background: #2563eb;
+}
+
+body.dark .view-toggle {
+  background: #374151;
+}
+
+body.dark .view-toggle button {
+  color: #d1d5db;
+}
+
+body.dark .view-toggle button.active {
+  background: #f1f5f9;
+  color: #1f2937;
+}
+
+body.dark .filter-label {
+  color: #9ca3af;
+}
+
+body.dark .filter-select {
+  background-color: #374151;
+  border-color: #4b5563;
+  color: #f1f5f9;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239ca3af' d='M2 4l4 4 4-4'/%3E%3C/svg%3E");
+}
+
+body.dark .filter-select:hover {
+  border-color: #3b82f6;
+  background-color: #4b5563;
+}
+
+body.dark .filter-select:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+
+/* ===========================
+   RESPONSIVE
+=========================== */
+@media (max-width: 900px) {
+  .tasks-toolbar {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto;
+    height: auto;
+    gap: 1rem;
+    padding: 1rem;
+  }
+
+  .toolbar-left {
+    grid-column: 1;
+    justify-content: center;
+  }
+
+  .toolbar-center {
+    grid-column: 1;
+  }
+
+  .toolbar-right {
+    grid-column: 1;
+    justify-content: center;
+  }
+
+  .month-title {
+    font-size: 1.4rem;
+    min-width: auto;
+  }
 }
 </style>

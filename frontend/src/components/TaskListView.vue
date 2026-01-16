@@ -11,6 +11,9 @@ const store = useUserStore()
 // Inyectar el mes del calendario desde App.vue
 const globalMonth = inject('currentMonth', ref(new Date()))
 
+// Inyectar el filtro de supervisor
+const supervisorFilter = inject('supervisorFilter', ref('todas'))
+
 // Estado local
 const tareas = ref([])
 const usuarios = ref([])
@@ -26,21 +29,46 @@ const searchQuery = ref('') // Buscador de tareas
 
 // ============ COMPUTED ============
 
+// Helper para verificar si el usuario está asignado a una tarea
+const usuarioEstaEnTarea = (tarea) => {
+  const userId = store.user?.id || store.user?._id
+  if (!userId || !tarea.assignedTo) return false
+  return tarea.assignedTo.some(assigned => {
+    if (typeof assigned === 'object') {
+      return (assigned._id || assigned.id) === userId
+    }
+    return assigned === userId
+  })
+}
+
 // Label del mes actual
 const currentMonthLabel = computed(() => {
   return selectedMonth.value.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })
 })
 
-// Filtrar tareas por el mes seleccionado (doble verificación)
+// Filtrar tareas por el mes seleccionado y filtro de supervisor
 const tareasDelMes = computed(() => {
   const month = selectedMonth.value.getMonth()
   const year = selectedMonth.value.getFullYear()
   
-  return tareas.value.filter(t => {
+  let filtered = tareas.value.filter(t => {
     if (!t.date) return false
     const taskDate = new Date(t.date)
     return taskDate.getMonth() === month && taskDate.getFullYear() === year
   })
+  
+  // Aplicar filtro de supervisor (solo si es supervisor)
+  if (store.isSupervisor && supervisorFilter.value !== 'todas') {
+    if (supervisorFilter.value === 'mias') {
+      // Solo tareas donde el supervisor está asignado
+      filtered = filtered.filter(t => usuarioEstaEnTarea(t))
+    } else if (supervisorFilter.value === 'otros') {
+      // Solo tareas donde el supervisor NO está asignado
+      filtered = filtered.filter(t => !usuarioEstaEnTarea(t))
+    }
+  }
+  
+  return filtered
 })
 
 // Tareas filtradas por búsqueda y estado

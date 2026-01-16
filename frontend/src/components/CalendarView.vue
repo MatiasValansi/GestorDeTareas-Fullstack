@@ -1,23 +1,53 @@
 <script setup>
 import { ref, computed, watch, inject, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useUserStore } from '@/stores/user'
 import { getCalendarTasks } from '@/services/tasks'
 import { ArgentinaTime } from '@/utils/argentinaTime'
 
 const router = useRouter()
+const store = useUserStore()
 
 // Estado compartido desde App.vue
 const currentMonth = inject('currentMonth')
+
+// Inyectar el filtro de supervisor
+const supervisorFilter = inject('supervisorFilter', ref('todas'))
 
 // Estado local
 const calendarTasks = ref([])
 const loadingTasks = ref(false)
 
+// ================== HELPERS ==================
+
+// Helper para verificar si el usuario está asignado a una tarea
+const usuarioEstaEnTarea = (tarea) => {
+  const userId = store.user?.id || store.user?._id
+  if (!userId || !tarea.assignedTo) return false
+  return tarea.assignedTo.some(assigned => {
+    if (typeof assigned === 'object') {
+      return (assigned._id || assigned.id) === userId
+    }
+    return assigned === userId
+  })
+}
+
 // ================== COMPUTED ==================
 
 const tasksByDate = computed(() => {
+  // Aplicar filtro de supervisor antes de agrupar
+  let filtered = calendarTasks.value
+  
+  if (store.isSupervisor && supervisorFilter.value !== 'todas') {
+    if (supervisorFilter.value === 'mias') {
+      filtered = filtered.filter(t => usuarioEstaEnTarea(t))
+    } else if (supervisorFilter.value === 'otros') {
+      filtered = filtered.filter(t => !usuarioEstaEnTarea(t))
+    }
+  }
+  
   const grouped = {}
-  calendarTasks.value.forEach(task => {
+  filtered.forEach(task => {
     const dateKey = new Date(task.date).toISOString().split('T')[0]
     if (!grouped[dateKey]) {
       grouped[dateKey] = []
@@ -33,8 +63,6 @@ const tasksByDate = computed(() => {
 const currentMonthLabel = computed(() => {
   return currentMonth.value.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })
 })
-
-// ================== HELPERS ==================
 
 const getTasksForDay = (day) => {
   const dateKey = day.id
