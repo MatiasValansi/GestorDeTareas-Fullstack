@@ -80,11 +80,11 @@ export class MongoTaskRepository {
 	 */
 	async getByDateRangeAndUsers(startDate, endDate, userIds) {
 		return await TaskModel.find({
-			deadline: { $gte: startDate, $lte: endDate },
+			date: { $gte: startDate, $lte: endDate },
 			assignedTo: { $in: userIds },
 		})
 			.populate("assignedTo", "name email")
-			.sort({ deadline: 1 })
+			.sort({ date: 1 })
 			.lean();
 	}
 

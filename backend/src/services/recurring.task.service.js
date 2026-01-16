@@ -25,7 +25,8 @@ export const RecurringTaskService = {
 	 * @param {string} params.periodicity - "DIARIA", "SEMANAL", "QUINCENAL" (for DAILY_PATTERN)
 	 * @param {string} params.datePattern - Day of week for DAILY_PATTERN (e.g., "LUNES")
 	 * @param {number} params.numberPattern - Day of month for NUMERIC_PATTERN (1-31)
-	 * @param {Date} params.startingFrom - Anchor date (used for QUINCENAL calculations)
+	 * @param {Date} params.date - Fecha de inicio (anchor date)
+	 * @param {Date} params.deadline - Fecha de vencimiento
 	 * @returns {Promise<Object>} The created recurring task
 	 */
 	async create(params) {
@@ -37,7 +38,8 @@ export const RecurringTaskService = {
 			periodicity,
 			datePattern,
 			numberPattern,
-			startingFrom,
+			date,
+			deadline,
 		} = params;
 
 		// Validate recurrence type and set appropriate values
@@ -70,6 +72,27 @@ export const RecurringTaskService = {
 			throw new Error("Tipo de recurrencia inválido. Use DAILY_PATTERN o NUMERIC_PATTERN");
 		}
 
+		// Validar que date no sea anterior al momento actual
+		if (!date) {
+			throw new Error("La fecha de la tarea (date) es requerida");
+		}
+		const taskDate = new Date(date);
+		if (taskDate < new Date()) {
+			throw new Error("La fecha de la tarea no puede ser anterior al momento actual");
+		}
+
+		// Validar que deadline esté presente y sea >= date
+		if (!deadline) {
+			throw new Error("La fecha de vencimiento (deadline) es requerida");
+		}
+		const taskDeadline = new Date(deadline);
+		if (taskDeadline < new Date()) {
+			throw new Error("La fecha de vencimiento no puede ser anterior al momento actual");
+		}
+		if (taskDeadline < taskDate) {
+			throw new Error("La fecha de vencimiento debe ser igual o posterior a la fecha de la tarea");
+		}
+
 		// Create the recurring task record (no individual tasks yet)
 		const recurringTaskData = {
 			title,
@@ -78,7 +101,8 @@ export const RecurringTaskService = {
 			periodicity: finalPeriodicity,
 			datePattern: finalDatePattern,
 			numberPattern: finalNumberPattern,
-			startingFrom: new Date(startingFrom),
+			date: taskDate,
+			deadline: taskDeadline,
 			active: true,
 		};
 
@@ -164,16 +188,19 @@ export const RecurringTaskService = {
 		const monthEnd = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
 
 		// Don't generate tasks before the recurring task was created
-		const anchorDate = new Date(recurringTask.startingFrom);
+		const anchorDate = new Date(recurringTask.date);
 
 		// If the recurring task starts after this month, skip
 		if (anchorDate > monthEnd) {
 			return [];
 		}
 
+		// Calcular la diferencia entre date y deadline para aplicarla a cada instancia
+		const deadlineOffset = recurringTask.deadline.getTime() - recurringTask.date.getTime();
+
 		// Calculate occurrence dates for this month
 		const occurrenceDates = this._calculateOccurrencesForMonth(
-			recurringTask.startingFrom,
+			recurringTask.date,
 			recurringTask.periodicity,
 			recurringTask.datePattern,
 			recurringTask.numberPattern,
@@ -203,11 +230,14 @@ export const RecurringTaskService = {
 				continue;
 			}
 
+			// Calcular el deadline para esta instancia aplicando el offset
+			const instanceDeadline = new Date(occurrenceDate.getTime() + deadlineOffset);
+
 			const task = new TaskModel({
 				title: recurringTask.title,
 				description: recurringTask.description,
 				date: occurrenceDate,
-				deadline: occurrenceDate,
+				deadline: instanceDeadline,
 				createdBy,
 				assignedTo: allAssignees,
 				status: "PENDIENTE",
@@ -227,8 +257,8 @@ export const RecurringTaskService = {
 
 	/**
 	 * Calculates occurrence dates for a specific month
-	 * IMPORTANTE: Preserva la hora del anchorDate (startingFrom) en las ocurrencias generadas
-	 * @param {Date} anchorDate - Original startingFrom date (define la hora de las tareas)
+	 * IMPORTANTE: Preserva la hora del anchorDate (date) en las ocurrencias generadas
+	 * @param {Date} anchorDate - Original date (define la hora de las tareas)
 	 * @param {string} periodicity - Frequency type
 	 * @param {string} datePattern - Day of week (for weekly patterns)
 	 * @param {number} numberPattern - Day of month (for monthly pattern)

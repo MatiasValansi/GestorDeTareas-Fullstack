@@ -47,6 +47,19 @@ class TaskServiceClass {
     // ═══════════════════════════════════════════════════════════════════
 
     /**
+     * Valida que una fecha no sea anterior al momento actual
+     * Aplica tanto para 'date' como para 'deadline'
+     */
+    _validateNotInPast(date, fieldName = "fecha") {
+        if (!date) return;
+        const now = new Date();
+        const taskDate = new Date(date);
+        if (taskDate < now) {
+            throw new Error(`La ${fieldName} no puede ser anterior al momento actual`);
+        }
+    }
+
+    /**
      * Valida que deadline >= date
      */
     _validateDates(date, deadline) {
@@ -226,6 +239,10 @@ class TaskServiceClass {
         if (!date) {
             throw new Error("La fecha de la tarea (date) es requerida");
         }
+
+        // Validar que las fechas no sean anteriores al momento actual
+        this._validateNotInPast(date, "fecha de la tarea");
+        this._validateNotInPast(deadline, "fecha de vencimiento");
 
         this._validateDates(date, deadline);
 

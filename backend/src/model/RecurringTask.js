@@ -48,7 +48,14 @@ const recurringTaskSchema = new mongoose.Schema(
 			min: 1,
 		},
 
-		startingFrom: {
+		// Fecha de inicio de la tarea recurrente (reemplaza startingFrom)
+		date: {
+			type: Date,
+			required: true,
+		},
+
+		// Fecha de vencimiento para cada instancia generada
+		deadline: {
 			type: Date,
 			required: true,
 		},

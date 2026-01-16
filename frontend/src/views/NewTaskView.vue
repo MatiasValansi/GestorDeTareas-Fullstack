@@ -16,7 +16,6 @@ const titulo = ref('')
 const descripcion = ref('')
 const date = ref('')
 const deadline = ref('')
-const startingFrom = ref('')
 
 // ===== SWITCHES PRINCIPALES =====
 const esRecurrente = ref(false)
@@ -93,6 +92,14 @@ const fechasValidas = computed(() => {
   return new Date(deadline.value) >= new Date(date.value)
 })
 
+// Validar que las fechas no sean anteriores al momento actual
+const fechaEnPasado = computed(() => {
+  const now = new Date()
+  if (date.value && new Date(date.value) < now) return 'date'
+  if (deadline.value && new Date(deadline.value) < now) return 'deadline'
+  return null
+})
+
 // ===== NUEVA LÓGICA: ¿Debe mostrar selector de titular? =====
 // Se muestra cuando:
 // - Es supervisor
@@ -133,13 +140,11 @@ const formularioValido = computed(() => {
     if (usuariosSeleccionados.value.length === 0) return false
   }
   
-  // Validar fechas
-  if (esRecurrente.value) {
-    if (!startingFrom.value) return false
-  } else {
-    if (!date.value || !deadline.value) return false
-    if (!fechasValidas.value) return false
-  }
+  // Validar fechas (ahora date y deadline se usan tanto para tareas normales como recurrentes)
+  if (!date.value || !deadline.value) return false
+  if (!fechasValidas.value) return false
+  // Validar que las fechas no sean anteriores al momento actual
+  if (fechaEnPasado.value) return false
   
   return true
 })
@@ -256,7 +261,8 @@ const crearTareaRecurrente = async () => {
     description: descripcion.value.trim(),
     assignedTo: asignados,
     periodicity: tipoPatron.value === 'NUMERIC_PATTERN' ? 'MENSUAL' : periodicity.value,
-    startingFrom: formatearFechaParaBackend(startingFrom.value),
+    date: formatearFechaParaBackend(date.value),
+    deadline: formatearFechaParaBackend(deadline.value),
     recurrenceType: tipoPatron.value
   }
 
@@ -311,15 +317,13 @@ const volverAlMenu = () => {
 // ===== WATCHERS =====
 watch(esRecurrente, (nuevoValor) => {
   if (!nuevoValor) {
+    // Al desactivar recurrencia, resetear configuración de recurrencia
     periodicity.value = 'SEMANAL'
     datePattern.value = 'LUNES'
     numberPattern.value = 1
     tipoPatron.value = 'DAILY_PATTERN'
-    startingFrom.value = ''
-  } else {
-    date.value = '' 
-    deadline.value = ''
   }
+  // Ya no limpiamos date/deadline porque se usan en ambos casos
 })
 
 watch(tipoPatron, (nuevoValor) => {
@@ -524,13 +528,13 @@ onMounted(obtenerUsuarios)
           </div>
         </div>
 
-        <!-- ===== FECHA Y HORA (solo tareas individuales) ===== -->
-        <div class="form-section" v-if="!esRecurrente">
+        <!-- ===== FECHA Y HORA (para todas las tareas) ===== -->
+        <div class="form-section">
           <h3 class="section-title">Fecha y Hora</h3>
           
           <div class="form-group">
-            <label for="date">Comienzo</label>
-            <p class="field-hint">Establece cuando empezará la tarea</p>
+            <label for="date">{{ esRecurrente ? 'Fecha de inicio' : 'Comienzo' }}</label>
+            <p class="field-hint">{{ esRecurrente ? 'A partir de esta fecha se generarán las tareas recurrentes' : 'Establece cuando empezará la tarea' }}</p>
             <input
               id="date"
               v-model="date"
@@ -541,7 +545,7 @@ onMounted(obtenerUsuarios)
 
           <div class="form-group last-in-section">
             <label for="deadline">Vencimiento</label>
-            <p class="field-hint">Establece la fecha límite de la tarea</p>
+            <p class="field-hint">{{ esRecurrente ? 'Tiempo límite para completar cada instancia de la tarea' : 'Establece la fecha límite de la tarea' }}</p>
             <input
               id="deadline"
               v-model="deadline"
@@ -553,22 +557,14 @@ onMounted(obtenerUsuarios)
           <p v-if="!fechasValidas" class="error-text">
             La fecha de vencimiento no puede ser anterior a la fecha de la tarea
           </p>
-        </div>
 
-        <!-- ===== FECHA INICIO RECURRENCIA ===== -->
-        <div class="form-section" v-if="esRecurrente">
-          <h3 class="section-title">Fecha de Inicio</h3>
-          
-          <div class="form-group last-in-section">
-            <label for="startingFrom">Comenzar desde</label>
-            <p class="field-hint">La primera tarea se generará a partir de esta fecha y hora</p>
-            <input
-              id="startingFrom"
-              v-model="startingFrom"
-              type="datetime-local"
-              required
-            />
-          </div>
+          <p v-if="fechaEnPasado === 'date'" class="error-text">
+            La fecha de la tarea no puede ser anterior a hoy
+          </p>
+
+          <p v-if="fechaEnPasado === 'deadline'" class="error-text">
+            La fecha de vencimiento no puede ser anterior a hoy
+          </p>
         </div>
 
         <!-- ===== ASIGNACIÓN DE USUARIOS ===== -->

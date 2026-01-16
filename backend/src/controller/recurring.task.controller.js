@@ -14,7 +14,8 @@ export const RecurringTaskController = {
 				periodicity,
 				datePattern,
 				numberPattern,
-				startingFrom,
+				date,
+				deadline,
 			} = req.body;
 
 
@@ -26,7 +27,8 @@ export const RecurringTaskController = {
 				periodicity,
 				datePattern,
 				numberPattern,
-				startingFrom,
+				date,
+				deadline,
 			});
 
 
