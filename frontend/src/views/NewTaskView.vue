@@ -561,7 +561,7 @@ onMounted(obtenerUsuarios)
           
           <div class="form-group last-in-section">
             <label for="startingFrom">Comenzar desde</label>
-            <p class="field-hint">La primera tarea se generará a partir de esta fecha</p>
+            <p class="field-hint">La primera tarea se generará a partir de esta fecha y hora</p>
             <input
               id="startingFrom"
               v-model="startingFrom"

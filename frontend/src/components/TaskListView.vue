@@ -520,14 +520,13 @@ watch(globalMonth, (newMonth) => {
 }
 
 .search-input-wrapper {
-  position: relative;
   display: flex;
-  align-items: center;
+  align-items: center; /* 🔥 esto sí centra vertical */
+  position: relative;
 }
 
 .search-input {
   width: 100%;
-  padding: 0.75rem 2.5rem 0.75rem 1rem;
   font-size: 1rem;
   border: 1px solid #d1d5db;
   border-radius: 25px;
@@ -536,6 +535,9 @@ watch(globalMonth, (newMonth) => {
   transition: all 0.2s ease;
   outline: none;
   text-align: left;
+  height: 48px;
+  padding: 0 2.5rem 0 0.75rem 1rem;
+  line-height: 48px;
 }
 
 .search-input:focus {
@@ -551,18 +553,22 @@ watch(globalMonth, (newMonth) => {
 .clear-search-btn {
   position: absolute;
   right: 0.75rem;
-  background: #e5e7eb;
-  border: none;
+  top: 50%;
+  transform: translateY(-50%);
+
   width: 24px;
   height: 24px;
+
+  background: #e5e7eb;
+  border: none;
   border-radius: 50%;
   cursor: pointer;
-  font-size: 0.75rem;
-  color: #6b7280;
+
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
+
+  font-size: 0.75rem;
 }
 
 .clear-search-btn:hover {
@@ -691,13 +697,14 @@ body.dark .filter-chip:hover {
 .task-list-modern {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  background: #f5f7fa;
+  gap: 0.5rem;  
   margin: 0;
   padding: 0.75rem;
   flex: 1;
   overflow-y: auto;
   min-height: 0;
+  max-height: 505px;
+  overflow-y: auto;
 }
 
 /* === ITEM DE TAREA === */
@@ -933,6 +940,7 @@ body.dark .filter-chip:hover {
   padding: 4rem 2rem;
   color: #9ca3af;
   text-align: center;
+
 }
 
 .empty-icon {

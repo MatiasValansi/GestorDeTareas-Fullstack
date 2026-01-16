@@ -32,15 +32,17 @@ const irANuevaVistaTarea = () => {
 <template>
   <div class="app-container">
     <main class="main-content">
-
+      
       <!-- Botón agregar tarea (solo supervisores) -->
     <button
       
       class="add-task-btn"
       @click="irANuevaVistaTarea"
     >
-      + Nueva Tarea
+      <span class="icon">+</span>
+      <span class="label">Agregar tarea</span>
     </button>
+
 
     
       <!-- CONTENIDO PRINCIPAL DE TAREAS -->
@@ -88,14 +90,101 @@ const irANuevaVistaTarea = () => {
   </div>
 </template>
 <style scoped>
-.add-task-btn { 
-  margin: 1rem 1rem 1rem auto; 
-  display: block;
-  padding: 0.9rem; 
-  background: lch(63.64% 84.82 133.75); color: white; border: none; border-radius: 12px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: background 0.2s ease;  } 
+
+.add-task-btn {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  margin: 0.25rem 1rem 1rem auto;
+
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
   
-  .add-task-btn:hover { 
-    background: #3d6db5; 
+
+  width: 56px;
+  height: 56px;
+  padding-left: 16px;
+  padding-bottom: 5px;
+
+  background: #22C55E;
+  color: white;
+  border: none;
+  border-radius: 999px;
+
+  font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+
+  overflow: hidden;
+  white-space: nowrap;
+
+  z-index: 9999;
+
+  transition:
+    width 0.25s ease,
+    background 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.add-task-btn:hover {
+  width: 170px;              /* 🔥 se expande */
+  background: #16A34A;
+  box-shadow: 0 10px 24px rgba(0,0,0,0.25);
+}
+
+.add-task-btn:hover .label {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.add-task-btn:active {
+  background: #15803D;
+}
+
+.add-task-btn .icon {
+  width: 24px;
+  height: 24px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  font-size: 2.4rem;
+  font-weight: 700;
+  line-height: 1;
+
+
+  margin-top: -1px;
+
+  flex-shrink: 0;
+}
+.add-task-btn .label {
+  font-size: 1.05rem;
+  font-weight: 600;
+  line-height: 1;
+  opacity: 0;
+  transform: translateX(-6px);
+  padding-left: 10px;
+  padding-top: 2.2px;
+
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
+}
+
+body.dark .add-task-btn {
+  background: #4ADE80;
+}
+
+body.dark .add-task-btn:hover {
+  background: #22C55E;
+}
+
+  .tasks-content {
+    height: 800px;
   }
 
 

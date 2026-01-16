@@ -79,7 +79,8 @@ watch(darkMode, v => localStorage.setItem('dark', v))
       <div class="header-inner">
         <img src="/logo.png" alt="Logo" class="logo-title" />
 
-        <nav class="navbar">
+        <nav class="navbar" v-if="store.isSupervisor">
+          
           <RouterLink
             to="/main"
             class="nav-button"
@@ -89,7 +90,7 @@ watch(darkMode, v => localStorage.setItem('dark', v))
           </RouterLink>
 
           <RouterLink
-            v-if="store.isSupervisor"
+            
             to="/users"
             class="nav-button"
             :class="{ active: route.path === '/users' }"
