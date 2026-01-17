@@ -538,6 +538,8 @@ export const RecurringTaskService = {
 
     	/**
 	 * Sets active state to false for a recurring task
+	 * IMPORTANTE: Una vez desactivada, NO se puede volver a activar
+	 * Elimina tareas futuras NO completadas, pero mantiene las completadas y las pasadas
 	 * @param {string} id - MongoDB ObjectId
 	 * @returns {Promise<Object>} Update result with recurring task and affected tasks count
 	 */
@@ -548,22 +550,65 @@ export const RecurringTaskService = {
 			return null;
 		}
 
+		// Verificar si ya está desactivada
+		if (recurringTask.active === false || recurringTask.deactivatedAt) {
+			throw new Error("Esta tarea recurrente ya fue desactivada y no puede modificarse");
+		}
+
+		const now = new Date();
+
         const updatedRecurringTask = await RecurringTaskRepository.updateById(
 			id,
-			{ active: false }
+			{ 
+				active: false,
+				deactivatedAt: now
+			}
 		);
 
-        await this.deleteAllFutureIndividualTasks(id);
+        // Eliminar tareas individuales FUTURAS que NO estén completadas
+		const deleteResult = await this.deleteFutureNonCompletedTasks(id, now);
+
 		return {
             updatedRecurringTask,
-
+			deletedFutureTasks: deleteResult.deletedCount,
+			deactivatedAt: now
         };
     },
 
-    	/**
-	 * Deletes all FUTURE individual tasks related to the recurringTask
+    /**
+	 * Deletes all FUTURE individual tasks related to the recurringTask that are NOT completed
+	 * Keeps: tasks with date <= now, OR tasks that are already COMPLETADA
+	 * @param {string} id - MongoDB ObjectId of the recurring task
+	 * @param {Date} referenceDate - Reference date for determining "future"
+	 * @returns {Promise<Object>} Deletion result with count
+	 */
+    async deleteFutureNonCompletedTasks(id, referenceDate) {
+        const recurringTask = await RecurringTaskRepository.getById(id);
+		if (!recurringTask) {
+			return { deletedCount: 0 };
+		}
+
+        // Eliminar tareas que:
+		// 1. Pertenecen a esta recurring task
+		// 2. Tienen date > referenceDate (son futuras)
+		// 3. NO están completadas
+        const deleteResult = await TaskModel.deleteMany({
+			recurringTaskId: id,
+			date: { $gt: referenceDate },
+			status: { $ne: "COMPLETADA" }
+		});
+
+        return {
+            deletedCount: deleteResult.deletedCount,
+        };
+    },
+
+	/**
+	 * NOT EXPOSED TO USERS, FOR ADMIN USE ONLY
+	 * Deletes all FUTURE individual tasks related to the recurringTask (including completed)
 	 * @param {string} id - MongoDB ObjectId of the recurring task
 	 * @returns {Promise<Object|null>} Deletion result with counts, or null if not found
+	 * @deprecated Use deleteFutureNonCompletedTasks instead
 	 */
     async deleteAllFutureIndividualTasks(id) {
 

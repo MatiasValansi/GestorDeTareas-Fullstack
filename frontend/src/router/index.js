@@ -61,6 +61,11 @@ const routes = [
   path: '/recurrent',
   name: 'recurrent',
   component: () => import('../views/RecurrentTasks.vue')
+},
+{
+  path: '/recurringTaskDetail/:id',
+  name: 'recurringTaskDetail',
+  component: () => import('../views/RecurringTaskDetailView.vue')
 }
 
 

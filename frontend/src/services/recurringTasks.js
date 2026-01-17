@@ -26,14 +26,17 @@ export const getRecurringTaskById = async (id) => {
 };
 
 // Actualizar tarea recurrente (solo supervisores)
+// NOTA: No permite reactivar una tarea desactivada
 export const updateRecurringTask = async (id, recurringTask) => {
   const { data } = await api.put(`/recurringTask/recurring-tasks/${id}`, recurringTask);
   return data;
 };
 
-// Eliminar tarea recurrente (solo supervisores)
-export const deleteRecurringTask = async (id) => {
-  const { data } = await api.delete(`/recurringTask/recurring-tasks/${id}`);
+// Desactivar tarea recurrente (solo supervisores)
+// IMPORTANTE: Una vez desactivada, NO se puede volver a activar
+// Elimina tareas futuras no completadas, pero mantiene las completadas
+export const deactivateRecurringTask = async (id) => {
+  const { data } = await api.patch(`/recurringTask/recurring-tasks/${id}/deactivate`);
   return data;
 };
 

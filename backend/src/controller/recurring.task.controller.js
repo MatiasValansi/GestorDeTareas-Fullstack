@@ -97,10 +97,11 @@ export const RecurringTaskController = {
 	// PUT /recurring-tasks/:id
 	// Actualiza título/descripción/assignedTo de la tarea recurrente y afecta tareas individuales
 	// Solo el titular (primer usuario en assignedTo) puede modificar
+	// NO permite reactivar una tarea desactivada
 	update: async (req, res) => {
 		try {
 			const { id } = req.params;
-			const { title, description, assignedTo } = req.body;
+			const { title, description, assignedTo, active } = req.body;
 			const requestingUserId = req.user?.id;
 
 			if (!requestingUserId) {
@@ -108,6 +109,17 @@ export const RecurringTaskController = {
 					ok: false,
 					message: "Usuario no autenticado",
 				});
+			}
+
+			// Verificar si intentan reactivar una tarea desactivada
+			if (active === true) {
+				const existingTask = await RecurringTaskRepository.getById(id);
+				if (existingTask && (existingTask.active === false || existingTask.deactivatedAt)) {
+					return res.status(400).json({
+						ok: false,
+						message: "Una tarea recurrente desactivada no puede volver a activarse",
+					});
+				}
 			}
 
 			const result = await RecurringTaskService.update(
@@ -215,7 +227,8 @@ export const RecurringTaskController = {
 	},
 
 	// DEACTIVATE /recurring-tasks/:id
-	// Desactiva la tarea recurrente Y borra todas sus tareas individuales FUTURAS asociadas
+	// Desactiva la tarea recurrente Y borra todas sus tareas individuales FUTURAS NO COMPLETADAS
+	// Una vez desactivada, NO se puede volver a activar
 	deactivate: async (req, res) => {
 		try {
 			const { id } = req.params;
@@ -230,15 +243,24 @@ export const RecurringTaskController = {
 			}
 
 			return res.status(200).json({
-				message: `Tarea recurrente desactivada correctamente`,
+				message: `Tarea recurrente desactivada correctamente. ${result.deletedFutureTasks || 0} tareas futuras eliminadas.`,
 				payload: result,
 				ok: true,
 			});
 		} catch (error) {
 			console.error("Error al desactivar tarea recurrente", error);
+			
+			// Error específico si ya está desactivada
+			if (error.message?.includes("ya fue desactivada")) {
+				return res.status(400).json({
+					ok: false,
+					message: error.message,
+				});
+			}
+
 			return res.status(500).json({
 				ok: false,
-				message: "No se pudo desactivar la tarea recurrente",
+				message: error.message || "No se pudo desactivar la tarea recurrente",
 			});
 		}
 	},

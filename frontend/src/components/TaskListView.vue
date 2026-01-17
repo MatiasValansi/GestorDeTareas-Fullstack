@@ -8,6 +8,36 @@ import { getAllUsers } from '@/services/users'
 const router = useRouter()
 const store = useUserStore()
 
+// Props para reutilización del componente
+const props = defineProps({
+  // Ocultar filtros de estado (TODAS, COMPLETADA, PENDIENTE, VENCIDA)
+  hideStatusFilters: {
+    type: Boolean,
+    default: false
+  },
+  // Modo del componente: 'tasks' para tareas normales, 'recurring' para tareas recurrentes
+  mode: {
+    type: String,
+    default: 'tasks',
+    validator: (value) => ['tasks', 'recurring'].includes(value)
+  },
+  // Items personalizados (para pasar RecurringTasks externamente)
+  customItems: {
+    type: Array,
+    default: null
+  },
+  // Ruta base para navegación al detalle
+  detailRoute: {
+    type: String,
+    default: '/taskDetail'
+  },
+  // Título personalizado para estado vacío
+  emptyStateTitle: {
+    type: String,
+    default: ''
+  }
+})
+
 // Inyectar el mes del calendario desde App.vue
 const globalMonth = inject('currentMonth', ref(new Date()))
 
@@ -46,12 +76,37 @@ const currentMonthLabel = computed(() => {
   return selectedMonth.value.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })
 })
 
+// Items base: usa customItems si están proporcionados, sino usa tareas cargadas
+const itemsBase = computed(() => {
+  if (props.customItems !== null) {
+    return props.customItems
+  }
+  return tareas.value
+})
+
 // Filtrar tareas por el mes seleccionado y filtro de supervisor
 const tareasDelMes = computed(() => {
+  // Si estamos en modo recurring con customItems, no filtramos por mes
+  if (props.mode === 'recurring' && props.customItems !== null) {
+    let filtered = [...itemsBase.value]
+    
+    // Aplicar filtro de supervisor (solo si es supervisor)
+    if (store.isSupervisor && supervisorFilter.value !== 'todas') {
+      if (supervisorFilter.value === 'mias') {
+        filtered = filtered.filter(t => usuarioEstaEnTarea(t))
+      } else if (supervisorFilter.value === 'otros') {
+        filtered = filtered.filter(t => !usuarioEstaEnTarea(t))
+      }
+    }
+    
+    return filtered
+  }
+  
+  // Modo normal: filtrar por mes
   const month = selectedMonth.value.getMonth()
   const year = selectedMonth.value.getFullYear()
   
-  let filtered = tareas.value.filter(t => {
+  let filtered = itemsBase.value.filter(t => {
     if (!t.date) return false
     const taskDate = new Date(t.date)
     return taskDate.getMonth() === month && taskDate.getFullYear() === year
@@ -85,13 +140,15 @@ const tareasFiltradas = computed(() => {
     })
   }
   
-  // Filtrar por estado
-  if (filtroEstado.value === 'completadas') {
-    filtered = filtered.filter(t => t.completada || t.status === 'COMPLETADA')
-  } else if (filtroEstado.value === 'pendientes') {
-    filtered = filtered.filter(t => !t.completada && t.status !== 'VENCIDA' && t.status !== 'COMPLETADA')
-  } else if (filtroEstado.value === 'vencidas') {
-    filtered = filtered.filter(t => t.status === 'VENCIDA')
+  // Filtrar por estado (solo en modo tasks normal)
+  if (props.mode === 'tasks') {
+    if (filtroEstado.value === 'completadas') {
+      filtered = filtered.filter(t => t.completada || t.status === 'COMPLETADA')
+    } else if (filtroEstado.value === 'pendientes') {
+      filtered = filtered.filter(t => !t.completada && t.status !== 'VENCIDA' && t.status !== 'COMPLETADA')
+    } else if (filtroEstado.value === 'vencidas') {
+      filtered = filtered.filter(t => t.status === 'VENCIDA')
+    }
   }
   
   // Ordenar por fecha
@@ -277,7 +334,7 @@ const puedeCompletarTarea = (tarea) => {
 // ============ NAVEGACIÓN ============
 
 const verDetalleTarea = (id) => {
-  router.push(`/taskDetail/${id}`)
+  router.push(`${props.detailRoute}/${id}`)
 }
 
 
@@ -285,12 +342,20 @@ const verDetalleTarea = (id) => {
 // ============ LIFECYCLE ============
 
 onMounted(async () => {
-  await Promise.all([cargarTareas(), cargarUsuarios()])
+  // Solo cargar tareas si no se proporcionan customItems
+  if (props.customItems === null) {
+    await Promise.all([cargarTareas(), cargarUsuarios()])
+  } else {
+    // Solo cargar usuarios para mostrar nombres
+    await cargarUsuarios()
+  }
 })
 
-// Recargar tareas cuando cambia el mes
+// Recargar tareas cuando cambia el mes (solo si no hay customItems)
 watch(selectedMonth, () => {
-  cargarTareas()
+  if (props.customItems === null) {
+    cargarTareas()
+  }
 })
 
 // Sincronizar con el mes global cuando cambia
@@ -310,7 +375,7 @@ watch(globalMonth, (newMonth) => {
           <input 
             type="text" 
             v-model="searchQuery"
-            placeholder="Buscar tarea por nombre..."
+            :placeholder="mode === 'recurring' ? 'Buscar tarea recurrente...' : 'Buscar tarea por nombre...'"
             class="search-input"
           />
           <button 
@@ -323,8 +388,8 @@ watch(globalMonth, (newMonth) => {
         </div>
       </div>
       
-      <!-- Filtros de estado -->
-      <div class="filters-row">
+      <!-- Filtros de estado (ocultos si hideStatusFilters=true) -->
+      <div v-if="!hideStatusFilters" class="filters-row">
         <button 
            class="filter-chip"
   :class="{
@@ -364,7 +429,7 @@ watch(globalMonth, (newMonth) => {
     <!-- Loading state -->
     <div v-if="cargando" class="loading-state">
       <div class="spinner"></div>
-      <span>Cargando tareas...</span>
+      <span>{{ mode === 'recurring' ? 'Cargando tareas recurrentes...' : 'Cargando tareas...' }}</span>
     </div>
 
     <!-- Error state -->
@@ -379,16 +444,34 @@ watch(globalMonth, (newMonth) => {
         @click="verDetalleTarea(tarea._id || tarea.id)"
       >
         <!-- Indicador de estado (barra lateral) -->
-        <div class="task-status-indicator" :class="getStatusClass(tarea)"></div>
+        <div 
+          class="task-status-indicator" 
+          :class="mode === 'recurring' ? (tarea.active !== false ? 'status-recurring-active' : 'status-recurring-inactive') : getStatusClass(tarea)"
+        ></div>
         
         <!-- Contenido principal -->
         <div class="task-content">
-          <!-- Fila superior: Estado + Fecha -->
+          <!-- Fila superior: Estado/Periodicidad + Fecha -->
           <div class="task-top-row">
-            <span class="task-status-badge" :class="getStatusClass(tarea)">
-              {{ getStatusLabel(tarea) }}
-            </span>
-            <span class="task-date">{{ formatFecha(tarea.date) }}</span>
+            <!-- Modo recurring: mostrar periodicidad -->
+            <template v-if="mode === 'recurring'">
+              <span class="task-periodicity-badge" :class="tarea.active !== false ? 'active' : 'inactive'">
+                🔄 {{ tarea.periodicity }}
+              </span>
+              <span v-if="tarea.datePattern" class="task-date-pattern">
+                {{ tarea.datePattern }}
+              </span>
+              <span v-else-if="tarea.numberPattern" class="task-date-pattern">
+                Día {{ tarea.numberPattern }}
+              </span>
+            </template>
+            <!-- Modo tasks: mostrar estado -->
+            <template v-else>
+              <span class="task-status-badge" :class="getStatusClass(tarea)">
+                {{ getStatusLabel(tarea) }}
+              </span>
+              <span class="task-date">{{ formatFecha(tarea.date) }}</span>
+            </template>
           </div>
           
           <!-- Título de la tarea -->
@@ -398,11 +481,18 @@ watch(globalMonth, (newMonth) => {
           <p class="task-assignee">
             {{ getAssigneesNames(tarea.assignedTo) }}
           </p>
+
+          <!-- Modo recurring: mostrar estado activo/inactivo -->
+          <p v-if="mode === 'recurring'" class="task-recurring-status">
+            <span :class="tarea.active !== false ? 'status-active-text' : 'status-inactive-text'">
+              {{ tarea.active !== false ? '● Activa' : '○ Inactiva' }}
+            </span>
+          </p>
         </div>
 
-        <!-- Switch para completar (solo si está asignado y pendiente) -->
+        <!-- Switch para completar (solo en modo tasks, si está asignado y pendiente) -->
         <div 
-          v-if="puedeCompletarTarea(tarea)" 
+          v-if="mode === 'tasks' && puedeCompletarTarea(tarea)" 
           class="task-complete-action"
           @click.stop
         >
@@ -417,9 +507,9 @@ watch(globalMonth, (newMonth) => {
           </label>
         </div>
 
-        <!-- Leyenda si está pendiente pero no asignado -->
+        <!-- Leyenda si está pendiente pero no asignado (solo modo tasks) -->
         <div 
-          v-else-if="esTareaPendiente(tarea) && !usuarioEstaAsignado(tarea)" 
+          v-else-if="mode === 'tasks' && esTareaPendiente(tarea) && !usuarioEstaAsignado(tarea)" 
           class="task-no-permission"
           @click.stop
         >
@@ -436,8 +526,10 @@ watch(globalMonth, (newMonth) => {
 
     <!-- Estado vacío -->
     <div v-else class="empty-state">
-      <div class="empty-icon">{{ searchQuery ? '🔍' : '📋' }}</div>
-      <p v-if="searchQuery">No se encontraron tareas que coincidan con "{{ searchQuery }}"</p>
+      <div class="empty-icon">{{ searchQuery ? '🔍' : (mode === 'recurring' ? '🔄' : '📋') }}</div>
+      <p v-if="searchQuery">No se encontraron {{ mode === 'recurring' ? 'tareas recurrentes' : 'tareas' }} que coincidan con "{{ searchQuery }}"</p>
+      <p v-else-if="emptyStateTitle">{{ emptyStateTitle }}</p>
+      <p v-else-if="mode === 'recurring'">No hay tareas recurrentes disponibles</p>
       <p v-else>No hay tareas {{ filtroEstado !== 'todos' ? filtroEstado : '' }} en {{ currentMonthLabel }}</p>
       <button v-if="searchQuery" class="btn-clear-filters" @click="clearSearch">Limpiar búsqueda</button>
     </div>
@@ -1126,6 +1218,73 @@ body.dark .loading-state .spinner {
 
 body.dark .empty-state {
   color: #6b7280;
+}
+
+/* === ESTILOS MODO RECURRING === */
+
+/* Indicador de estado para tareas recurrentes */
+.task-status-indicator.status-recurring-active {
+  background: #8b5cf6; /* violeta para activa */
+}
+
+.task-status-indicator.status-recurring-inactive {
+  background: #6b7280; /* gris para inactiva */
+}
+
+/* Badge de periodicidad */
+.task-periodicity-badge {
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.2rem 0.5rem;
+  border-radius: 12px;
+  background: #ede9fe;
+  color: #7c3aed;
+}
+
+.task-periodicity-badge.inactive {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+body.dark .task-periodicity-badge {
+  background: #4c1d95;
+  color: #c4b5fd;
+}
+
+body.dark .task-periodicity-badge.inactive {
+  background: #374151;
+  color: #9ca3af;
+}
+
+/* Patrón de fecha (día de la semana o número) */
+.task-date-pattern {
+  font-size: 0.75rem;
+  color: #6b7280;
+  margin-left: 0.5rem;
+  padding: 0.15rem 0.4rem;
+  background: #f3f4f6;
+  border-radius: 8px;
+}
+
+body.dark .task-date-pattern {
+  background: #374151;
+  color: #9ca3af;
+}
+
+/* Estado activo/inactivo de la tarea recurrente */
+.task-recurring-status {
+  margin: 0;
+  font-size: 0.75rem;
+}
+
+.status-active-text {
+  color: #10b981;
+  font-weight: 600;
+}
+
+.status-inactive-text {
+  color: #9ca3af;
+  font-weight: 500;
 }
 
 /* === RESPONSIVE === */

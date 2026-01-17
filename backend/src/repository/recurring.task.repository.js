@@ -44,11 +44,13 @@ export const RecurringTaskRepository = {
 	 * @returns {Promise<Document|null>} The updated recurring task or null
 	 */
 	async updateById(id, updateData, onUpdateCallback) {
-		// Only allow title, description, and assignedTo updates
+		// Allow title, description, assignedTo, active, and deactivatedAt updates
 		const allowedUpdates = {};
 		if (updateData.title !== undefined) allowedUpdates.title = updateData.title;
 		if (updateData.description !== undefined) allowedUpdates.description = updateData.description;
 		if (updateData.assignedTo !== undefined) allowedUpdates.assignedTo = updateData.assignedTo;
+		if (updateData.active !== undefined) allowedUpdates.active = updateData.active;
+		if (updateData.deactivatedAt !== undefined) allowedUpdates.deactivatedAt = updateData.deactivatedAt;
 
 		const updatedRecurringTask = await RecurringTaskModel.findByIdAndUpdate(
 			id,

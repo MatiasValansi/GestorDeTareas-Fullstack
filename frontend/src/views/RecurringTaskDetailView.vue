@@ -2,17 +2,13 @@
 import { ref, computed, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useUserStore } from "@/stores/user";
-import { getTaskById, getTaskOwnerId, updateTask } from "@/services/tasks";
-import { getRecurringTaskById } from "@/services/recurringTasks";
-import { ArcElement, Title } from "chart.js";
-import { deleteTask } from "@/services/tasks";
+import { getRecurringTaskById, deactivateRecurringTask } from "@/services/recurringTasks";
 
 const route = useRoute();
 const router = useRouter();
 const userStore = useUserStore();
 
 const task = ref(null);
-const recurringTaskInfo = ref(null); // Info de la tarea recurrente padre (si aplica)
 const loading = ref(true);
 const error = ref("");
 const showTechnicalInfo = ref(false);
@@ -24,40 +20,18 @@ const getCurrentUserId = () => {
     return user?._id ? String(user._id) : user?.id ? String(user.id) : null;
 };
 
-// ===== PERMISOS DE EDICIÓN =====
-// Un usuario puede editar si:
-// 1. Es el titular (posición 0 de assignedTo)
-// 2. La tarea NO está vencida
-// 3. La tarea NO es recurrente (generada automáticamente)
-const isOwner = computed(() => {
-    if (!task.value) return false;
-    const currentUserId = getCurrentUserId();
-    const ownerId = getTaskOwnerId(task.value);
-    return currentUserId && ownerId && currentUserId === ownerId;
-});
-
-const isExpired = computed(() => {
-    if (!task.value?.deadline) return false;
-    return new Date(task.value.deadline) < new Date();
-});
-
-const isRecurring = computed(() => !!task.value?.recurringTaskId);
-
-const isCompleted = computed(() => task.value?.status === 'COMPLETADA');
-
+// ===== PERMISOS =====
+// Solo supervisores pueden desactivar tareas recurrentes
 const canEdit = computed(() => {
-    return isOwner.value && !isExpired.value && !isRecurring.value && !isCompleted.value;
+    return userStore.isSupervisor;
 });
 
-const editBlockReason = computed(() => {
-    if (!isOwner.value) return "Solo el titular de la tarea puede editarla";
-    if (isCompleted.value) return "No se pueden editar tareas completadas";
-    if (isExpired.value) return "No se pueden editar tareas vencidas";
-    if (isRecurring.value) return "Las tareas recurrentes no se pueden editar directamente";
-    return "";
+// Verificar si la tarea ya fue desactivada (no se puede reactivar)
+const isDeactivated = computed(() => {
+    return task.value?.active === false || task.value?.deactivatedAt != null;
 });
 
-// ===== LÓGICA PARA COMPLETAR TAREA =====
+// Verificar si el usuario está asignado a la tarea
 const isAssigned = computed(() => {
     if (!task.value?.assignedTo) return false;
     const currentUserId = getCurrentUserId();
@@ -69,37 +43,42 @@ const isAssigned = computed(() => {
     });
 });
 
-const isPending = computed(() => {
-    return task.value && !isCompleted.value && task.value.status !== 'VENCIDA';
-});
+// Verificar si un usuario es el titular (posición 0)
+const isUserOwner = (user, index) => index === 0;
 
-const canComplete = computed(() => {
-    return isPending.value && isAssigned.value;
-});
-
-const marcarComoCompletada = async () => {
-    if (!task.value || updatingTask.value) return;
+// ===== DESACTIVAR TAREA =====
+// IMPORTANTE: Una vez desactivada, NO se puede volver a activar
+const deactivateTask = async () => {
+    if (!task.value || updatingTask.value || !canEdit.value || isDeactivated.value) return;
+    
+    // Mostrar confirmación
+    const confirmed = confirm(
+        "¿Está seguro de que desea desactivar la tarea recurrente?\n\n" +
+        "Una vez que se desactive, NO se podrá volver a activar.\n\n" +
+        "Las tareas individuales futuras no completadas serán eliminadas."
+    );
+    
+    if (!confirmed) return;
     
     const taskId = task.value._id || task.value.id;
     
     try {
         updatingTask.value = true;
         
-        await updateTask(taskId, {
-            status: 'COMPLETADA',
-            completed: true
-        });
+        const response = await deactivateRecurringTask(taskId);
         
-        // Actualizar estado local
+        // Actualizar estado local con la fecha de desactivación
         task.value = {
             ...task.value,
-            status: 'COMPLETADA',
-            completada: true
+            active: false,
+            deactivatedAt: response.payload?.deactivatedAt || new Date().toISOString()
         };
+
+        alert("Tarea recurrente desactivada correctamente");
     } catch (err) {
-        console.error('Error al marcar tarea como completada:', err);
-        error.value = err?.response?.data?.message || 'Error al actualizar la tarea';
-        setTimeout(() => { error.value = ''; }, 3000);
+        console.error('Error al desactivar tarea recurrente:', err);
+        error.value = err?.response?.data?.message || 'Error al desactivar la tarea';
+        setTimeout(() => { error.value = ''; }, 5000);
     } finally {
         updatingTask.value = false;
     }
@@ -109,38 +88,14 @@ const marcarComoCompletada = async () => {
 onMounted(async () => {
     try {
         loading.value = true;
-        const data = await getTaskById(route.params.id);
+        const data = await getRecurringTaskById(route.params.id);
         task.value = data;
-
-        // Si es una tarea generada por una recurrente, obtener info de la recurrente
-        if (data.recurringTaskId) {
-            try {
-                const recurringId = typeof data.recurringTaskId === 'object' 
-                    ? data.recurringTaskId._id || data.recurringTaskId.id 
-                    : data.recurringTaskId;
-                const recurringData = await getRecurringTaskById(recurringId);
-                recurringTaskInfo.value = recurringData;
-            } catch (recurringErr) {
-                // Si no se puede cargar la info de la recurrente, no es crítico
-                console.warn("No se pudo cargar info de tarea recurrente:", recurringErr);
-            }
-        }
     } catch (e) {
-        error.value = e?.response?.data?.message || "Error al cargar la tarea";
-        console.error("Error al cargar tarea:", e);
+        error.value = e?.response?.data?.message || "Error al cargar la tarea recurrente";
+        console.error("Error al cargar tarea recurrente:", e);
     } finally {
         loading.value = false;
     }
-});
-
-// Computed para verificar si la tarea recurrente padre está desactivada
-const isFromDeactivatedRecurring = computed(() => {
-    return recurringTaskInfo.value?.active === false || recurringTaskInfo.value?.deactivatedAt != null;
-});
-
-// Fecha de desactivación de la tarea recurrente padre
-const recurringDeactivatedAt = computed(() => {
-    return recurringTaskInfo.value?.deactivatedAt || null;
 });
 
 // Formatear fechas
@@ -163,66 +118,70 @@ const formatShortDate = (dateString) => {
     return date.toLocaleDateString("es-AR");
 };
 
-// Obtener clase del estado
-const getStatusClass = (status) => {
-    const classes = {
-        PENDIENTE: "status-pending",
-        EN_PROGRESO: "status-progress",
-        COMPLETADA: "status-completed",
-        VENCIDA: "status-expired",
-    };
-    return classes[status] || "status-pending";
-};
-
-const getStatusLabel = (status) => {
+// Mapear periodicidad a texto legible
+const getPeriodicityLabel = (periodicity) => {
     const labels = {
-        PENDIENTE: "Pendiente",
-        EN_PROGRESO: "En progreso",
-        COMPLETADA: "Completada",
-        VENCIDA: "Vencida",
+        DIARIA: "Diaria",
+        SEMANAL: "Semanal",
+        QUINCENAL: "Quincenal",
+        MENSUAL: "Mensual",
     };
-    return labels[status] || status;
+    return labels[periodicity] || periodicity;
 };
 
-// Obtener nombre del titular
-const ownerName = computed(() => {
-    if (!task.value?.assignedTo?.length) return "Sin asignar";
-    const first = task.value.assignedTo[0];
-    if (typeof first === "object") {
-        return first.name || first.nombre || first.fullname || "Usuario";
+// Mapear día de la semana
+const getDayLabel = (day) => {
+    const labels = {
+        LUNES: "Lunes",
+        MARTES: "Martes",
+        MIERCOLES: "Miércoles",
+        JUEVES: "Jueves",
+        VIERNES: "Viernes",
+        SABADO: "Sábado",
+        DOMINGO: "Domingo",
+    };
+    return labels[day] || day;
+};
+
+// Obtener descripción del patrón de repetición
+const getPatternDescription = computed(() => {
+    if (!task.value) return "";
+    
+    const periodicity = task.value.periodicity;
+    const datePattern = task.value.datePattern;
+    const numberPattern = task.value.numberPattern;
+    
+    if (periodicity === "DIARIA") {
+        return "Se repite todos los días";
     }
-    return "Usuario";
+    
+    if (periodicity === "SEMANAL" && datePattern) {
+        return `Se repite cada semana los ${getDayLabel(datePattern)}`;
+    }
+    
+    if (periodicity === "QUINCENAL" && datePattern) {
+        return `Se repite cada dos semanas los ${getDayLabel(datePattern)}`;
+    }
+    
+    if (periodicity === "MENSUAL" && numberPattern) {
+        return `Se repite el día ${numberPattern} de cada mes`;
+    }
+    
+    return `Periodicidad: ${getPeriodicityLabel(periodicity)}`;
 });
 
-// Verificar si un usuario es el titular
-const isUserOwner = (user, index) => index === 0;
-
 // Navegación
-const goBack = () => router.push("/main");
-const goToEdit = () => router.push(`/editTask/${route.params.id}`);
-
-const confirmDelete = (id) => {
-  const ok = confirm("¿Estás seguro de que querés eliminar esta tarea?");
-  if (!ok) return;
-   deleteTask(id)
-    .then(() => {
-        alert("Tarea eliminada correctamente");
-        router.push("/main");
-    })
-    .catch((e) => {
-        alert("Error al eliminar la tarea: " + (e?.response?.data?.message || e.message));
-    });
-};
+const goBack = () => router.push("/recurrent");
 </script>
 
 <template>
     <div class="task-detail-container">
-        <div class="back-link" @click="goBack">← Volver a la lista</div>
+        <div class="back-link" @click="goBack">← Volver a tareas recurrentes</div>
 
         <!-- Loading -->
         <div v-if="loading" class="loading-state">
             <div class="spinner"></div>
-            <span>Cargando tarea...</span>
+            <span>Cargando tarea recurrente...</span>
         </div>
 
         <!-- Error -->
@@ -233,85 +192,93 @@ const confirmDelete = (id) => {
 
         <!-- Contenido -->
         <div v-else-if="task" class="task-card">
-            <!-- Header con estado y acciones -->
+            <!-- Header con estado -->
             <div class="task-header">
-                <span class="status-badge" :class="getStatusClass(task.status)">
-                    <span class="status-icon">{{ task.status === 'COMPLETADA' ? '✓' : task.status === 'VENCIDA' ? '⚠' : '◷' }}</span>
-                    {{ getStatusLabel(task.status) }}
+                <span class="status-badge" :class="task.active !== false ? 'status-active' : 'status-inactive'">
+                    <span class="status-icon">{{ task.active !== false ? '🔄' : '⏸' }}</span>
+                    {{ task.active !== false ? 'Activa' : 'Desactivada' }}
                 </span>
-
-                <!-- Botón Editar (solo si puede) -->
-                <button 
-                    v-if="canEdit" 
-                    @click="goToEdit" 
-                    class="btn-edit"
-                >
-                    Editar
-                </button>
-                                <!-- Botón Eliminar (solo si puede) -->
-                <button 
-                    v-if="canEdit" 
-                    @click="confirmDelete(task._id)"
-                    class="btn-delete"
-                >
-                    Eliminar
-                </button>
-                
-                <!-- Tooltip si no puede editar pero es tarea suya parcialmente -->
-                <div v-else-if="editBlockReason && (isOwner || task.assignedTo?.some(u => (u._id || u.id || u) === getCurrentUserId()))" class="edit-blocked-notice">
-                    <p class="notice-text">{{ editBlockReason }}</p>
-                </div>
             </div>
 
-            <!-- Switch para completar tarea (solo si puede) -->
-            <div v-if="canComplete" class="complete-task-section">
-                <label class="complete-switch" :class="{ 'is-loading': updatingTask }">
-                    <input 
-                        type="checkbox"
-                        :disabled="updatingTask"
-                        @change="marcarComoCompletada"
-                    />
-                    <span class="switch-slider"></span>
-                    <span class="switch-label">Marcar como completada</span>
-                </label>
+            <!-- Mostrar fecha de desactivación si está desactivada -->
+            <div v-if="isDeactivated && task.deactivatedAt" class="deactivated-notice">
+                <span class="notice-icon">⚠️</span>
+                <span class="notice-text">
+                    Esta tarea fue desactivada el {{ formatDate(task.deactivatedAt) }}
+                </span>
+            </div>
+
+            <!-- Botón para desactivar (solo supervisores y si está activa) -->
+            <div v-if="canEdit && !isDeactivated" class="deactivate-task-section">
+                <button 
+                    class="btn-deactivate"
+                    :class="{ 'is-loading': updatingTask }"
+                    :disabled="updatingTask"
+                    @click="deactivateTask"
+                >
+                    <span v-if="updatingTask">Desactivando...</span>
+                    <span v-else>⏸ Desactivar tarea recurrente</span>
+                </button>
+                <p class="deactivate-warning">
+                    ⚠️ Una vez desactivada, no se podrá volver a activar
+                </p>
+            </div>
+
+            <!-- Aviso si ya está desactivada (para supervisores) -->
+            <div v-else-if="canEdit && isDeactivated" class="already-deactivated-notice">
+                <span class="notice-icon">🔒</span>
+                <span class="notice-text">Esta tarea ya fue desactivada y no puede reactivarse</span>
             </div>
             
-            <!-- Leyenda si está pendiente pero no asignado -->
-            <div v-else-if="isPending && !isAssigned" class="not-assigned-notice">
-                <span class="notice-icon">🔒</span>
-                <span class="notice-text">No estás asignado a esta tarea</span>
+            <!-- Leyenda si no es supervisor -->
+            <div v-else-if="!userStore.isSupervisor" class="not-supervisor-notice">
+                <span class="notice-icon">ℹ️</span>
+                <span class="notice-text">Solo los supervisores pueden modificar tareas recurrentes</span>
             </div>
 
             <!-- Título -->
             <h1 class="task-title">{{ task.title }}</h1>
 
+            <!-- Badge de periodicidad -->
+            <div class="periodicity-badge-container">
+                <span class="periodicity-badge">
+                    🔄 {{ getPeriodicityLabel(task.periodicity) }}
+                </span>
+                <span v-if="task.datePattern" class="pattern-badge">
+                    📅 {{ getDayLabel(task.datePattern) }}
+                </span>
+                <span v-else-if="task.numberPattern" class="pattern-badge">
+                    📅 Día {{ task.numberPattern }}
+                </span>
+            </div>
+
+            <!-- Descripción del patrón -->
+            <div class="pattern-description">
+                <span class="pattern-text">{{ getPatternDescription }}</span>
+            </div>
+
             <!-- Descripción -->
             <div class="task-section">
                 <span class="section-label">DESCRIPCIÓN</span>
-                <p class="task-description">{{ task.description }}</p>
+                <p class="task-description">{{ task.description || 'Sin descripción' }}</p>
             </div>
 
-
-
-            <!-- Descripción -->
+            <!-- Fechas -->
             <div class="task-section">
                 <span class="section-label">FECHA Y HORA</span>
             </div>
-                        <!-- Fechas -->
             <div class="dates-grid">
                 <div class="date-card">
                     <div class="date-content">
-                        <span class="date-label">FECHA DE LA TAREA</span>
+                        <span class="date-label">FECHA DE INICIO</span>
                         <span class="date-value">{{ formatDate(task.date) }}</span>
-                        <span class="date-label">FECHA DE VENCIMIENTO</span>
+                        <span class="date-label">VENCIMIENTO (por instancia)</span>
                         <span class="date-value">{{ formatDate(task.deadline) }}</span>
                         <span class="date-label">CREADA EL</span>
                         <span class="date-value">{{ formatDate(task.createdAt) }}</span>
-
                     </div>
                 </div>
             </div>
-
 
             <!-- Usuarios asignados -->
             <div class="task-section">
@@ -328,26 +295,17 @@ const confirmDelete = (id) => {
                             {{ typeof user === 'object' ? (user.name || user.nombre || user.fullname || 'Usuario') : 'Usuario' }}
                         </span>
                         <span v-if="isUserOwner(user, index)" class="owner-badge">👑 Titular</span>
-
                     </div>
                 </div>
             </div>
 
-            <!-- Info de recurrencia si aplica -->
-            <div v-if="task.recurringTaskId" class="recurring-notice">
-                <span class="recurring-icon">🔄</span>
-                <span class="recurring-text">Esta tarea fue generada automáticamente por una tarea recurrente</span>
+            <!-- Info de recurrencia -->
+            <div class="recurring-info-notice">
+                <span class="recurring-icon">ℹ️</span>
+                <span class="recurring-text">Esta tarea genera instancias automáticamente según su periodicidad</span>
             </div>
 
-            <!-- Aviso de tarea recurrente desactivada -->
-            <div v-if="isFromDeactivatedRecurring" class="deactivated-recurring-notice">
-                <span class="deactivated-icon">⚠️</span>
-                <span class="deactivated-text">
-                    La tarea recurrente de la cual se generó esta tarea fue desactivada el {{ formatDate(recurringDeactivatedAt) }}
-                </span>
-            </div>
-
-            <!-- SOLO PARA SUPER USUARIOS -->
+            <!-- INFORMACIÓN TÉCNICA -->
             <div class="technical-section">
                 <div class="technical-header" @click="showTechnicalInfo = !showTechnicalInfo">
                     <span class="technical-icon">🔧</span>
@@ -360,13 +318,23 @@ const confirmDelete = (id) => {
                             <span class="tech-label">ID:</span>
                             <code class="tech-value">{{ task._id }}</code>
                         </div>
-                        <div class="tech-row" v-if="task.recurringTaskId">
-                            <span class="tech-label">Tarea recurrente:</span>
-                            <code class="tech-value">{{ task.recurringTaskId }}</code>
+                        <div class="tech-row">
+                            <span class="tech-label">Periodicidad:</span>
+                            <code class="tech-value">{{ task.periodicity }}</code>
+                        </div>
+                        <div class="tech-row" v-if="task.datePattern">
+                            <span class="tech-label">Patrón día:</span>
+                            <code class="tech-value">{{ task.datePattern }}</code>
+                        </div>
+                        <div class="tech-row" v-if="task.numberPattern">
+                            <span class="tech-label">Patrón número:</span>
+                            <code class="tech-value">{{ task.numberPattern }}</code>
                         </div>
                         <div class="tech-row">
-                            <span class="tech-label">Titular ID:</span>
-                            <code class="tech-value">{{ getTaskOwnerId(task) || 'N/A' }}</code>
+                            <span class="tech-label">Estado:</span>
+                            <span :class="task.active !== false ? 'tech-yes' : 'tech-no'">
+                                {{ task.active !== false ? 'Activa' : 'Inactiva' }}
+                            </span>
                         </div>
                         <div class="tech-row">
                             <span class="tech-label">¿Puedo editar?:</span>
@@ -380,7 +348,6 @@ const confirmDelete = (id) => {
 </template>
 
 <style scoped>
-
 .task-detail-container {
     max-width: 700px;
     margin: 0 auto;
@@ -396,7 +363,7 @@ const confirmDelete = (id) => {
 }
 
 .back-link:hover {
-    color: #4f83cc;
+    color: #8b5cf6;
 }
 
 /* Loading & Error */
@@ -414,7 +381,7 @@ const confirmDelete = (id) => {
     width: 40px;
     height: 40px;
     border: 3px solid #e5e7eb;
-    border-top-color: #4f83cc;
+    border-top-color: #8b5cf6;
     border-radius: 50%;
     animation: spin 1s linear infinite;
 }
@@ -425,7 +392,7 @@ const confirmDelete = (id) => {
 
 .btn-back {
     padding: 0.5rem 1rem;
-    background: #4f83cc;
+    background: #8b5cf6;
     color: white;
     border: none;
     border-radius: 8px;
@@ -464,59 +431,25 @@ const confirmDelete = (id) => {
     font-size: 0.9rem;
 }
 
-.status-pending {
-    background: #fef3c7;
-    color: #92400e;
-    border-color: #f59e0b;
+.status-active {
+    background: #ede9fe;
+    color: #7c3aed;
+    border: 1px solid #8b5cf6;
 }
 
-.status-progress {
-    background: #dbeafe;
-    color: #1e40af;
+.status-inactive {
+    background: #f3f4f6;
+    color: #6b7280;
+    border: 1px solid #9ca3af;
 }
 
-.status-completed {
-    background: #d1fae5;
-    color: #065f46;
-    border-color: #10b981;
-}
-
-.status-expired {
-    background: #fee2e2;
-    color: #991b1b;
-    border-color: #ef4444;
-}
-
-/* Botón Editar */
-.btn-edit {
-    width: 80px;
-    height: 30px;
-    margin: 1rem 0rem 1rem auto;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    padding: 0.5rem 1rem;
-    background: linear-gradient(135deg, #4f83cc, #3b6cb5);
-    color: white;
-    border: none;
-    border-radius: 8px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.btn-edit:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(60, 114, 189, 0.4);
-}
-
-/* Botón Editar */
+/* Botón Eliminar */
 .btn-delete {
     width: 80px;
     height: 30px;
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 0.5rem;
     padding: 0.5rem 1rem;
     background: linear-gradient(135deg, #dd4c4c);
@@ -533,45 +466,103 @@ const confirmDelete = (id) => {
     box-shadow: 0 4px 12px rgba(177, 55, 55, 0.4);
 }
 
-/* Notice de edición bloqueada
-.edit-blocked-notice {
+/* Deactivate Section */
+.deactivate-task-section {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 0.75rem;
-    background: #374151;
-    border-radius: 8px;
-    font-size: 0.8rem;
-    color: #9ca3af;
-} */
-
-.edit-blocked-notice {
-    background: none;
-    padding: 0.2rem 0.5rem;
-    border-radius: 999px;
-    box-shadow: none;
-    display: inline;
-    color: #d81d1d;
-    font-size: 0.9rem;
-    background-color: #f7f4f4;
-}
-
-.notice-icon {
-    font-size: 0.9rem;
-}
-
-/* === SWITCH COMPLETAR TAREA === */
-.complete-task-section {
-    display: flex;
-    align-items: center;
-    padding: 1rem;
-    background: #d1fae5 !important;
-    border: 1px solid #10b981 !important;
+    padding: 1.5rem;
+    background: #fef2f2;
+    border: 1px solid #fca5a5;
     border-radius: 10px;
     margin-bottom: 1.5rem;
 }
 
-.complete-switch {
+.btn-deactivate {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-deactivate:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4);
+}
+
+.btn-deactivate:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.btn-deactivate.is-loading {
+    opacity: 0.7;
+}
+
+.deactivate-warning {
+    margin: 0.75rem 0 0 0;
+    font-size: 0.8rem;
+    color: #991b1b;
+    text-align: center;
+}
+
+/* Deactivated Notice */
+.deactivated-notice {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem;
+    background: #fef3c7;
+    border: 1px solid #f59e0b;
+    border-radius: 10px;
+    margin-bottom: 1.5rem;
+}
+
+.deactivated-notice .notice-icon {
+    font-size: 1.2rem;
+}
+
+.deactivated-notice .notice-text {
+    color: #92400e;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+/* Already Deactivated Notice */
+.already-deactivated-notice {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    background: #f3f4f6;
+    border: 1px solid #d1d5db;
+    border-radius: 10px;
+    margin-bottom: 1.5rem;
+    color: #6b7280;
+    font-size: 0.9rem;
+}
+
+/* Toggle Section (deprecated - kept for backward compatibility) */
+.toggle-task-section {
+    display: flex;
+    align-items: center;
+    padding: 1rem;
+    background: #ede9fe !important;
+    border: 1px solid #8b5cf6 !important;
+    border-radius: 10px;
+    margin-bottom: 1.5rem;
+}
+
+.toggle-switch {
     display: flex;
     align-items: center;
     gap: 0.75rem;
@@ -579,12 +570,12 @@ const confirmDelete = (id) => {
     user-select: none;
 }
 
-.complete-switch.is-loading {
+.toggle-switch.is-loading {
     opacity: 0.6;
     pointer-events: none;
 }
 
-.complete-switch input {
+.toggle-switch input {
     position: absolute;
     opacity: 0;
     width: 0;
@@ -595,7 +586,7 @@ const confirmDelete = (id) => {
     position: relative;
     width: 50px;
     height: 26px;
-    background: #4b5563;
+    background: #6b7280;
     border-radius: 26px;
     transition: all 0.3s ease;
     flex-shrink: 0;
@@ -614,39 +605,30 @@ const confirmDelete = (id) => {
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
-.complete-switch input:checked + .switch-slider {
-    background: #10b981;
+.toggle-switch input:checked + .switch-slider {
+    background: #8b5cf6;
 }
 
-.complete-switch input:checked + .switch-slider::before {
+.toggle-switch input:checked + .switch-slider::before {
     transform: translateX(24px);
 }
 
-.complete-switch:hover .switch-slider {
-    background: #6ee7b7;
+.toggle-switch:hover .switch-slider {
+    background: #9ca3af;
 }
 
-.complete-switch input:checked:hover + .switch-slider {
-    background: #059669;
+.toggle-switch input:checked:hover + .switch-slider {
+    background: #7c3aed;
 }
 
 .switch-label {
     font-size: 0.95rem;
     font-weight: 600;
-    color: #f1f5f9;
+    color: #1f2937;
 }
 
-.complete-switch.is-loading .switch-slider::before {
-    animation: pulse 1s ease-in-out infinite;
-}
-
-@keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
-}
-
-/* Notice no asignado */
-.not-assigned-notice {
+/* Notice no supervisor */
+.not-supervisor-notice {
     display: flex;
     align-items: center;
     gap: 0.5rem;
@@ -663,7 +645,52 @@ const confirmDelete = (id) => {
     font-size: 1.5rem;
     font-weight: bold;
     color: #f1f5f9;
-    margin: 0 0 1.5rem 0;
+    margin: 0 0 1rem 0;
+}
+
+/* Badge de periodicidad */
+.periodicity-badge-container {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+}
+
+.periodicity-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.4rem 0.8rem;
+    background: #4c1d95;
+    color: #c4b5fd;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 0.85rem;
+}
+
+.pattern-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.4rem 0.8rem;
+    background: #374151;
+    color: #9ca3af;
+    border-radius: 20px;
+    font-size: 0.85rem;
+}
+
+/* Descripción del patrón */
+.pattern-description {
+    padding: 0.75rem 1rem;
+    background: linear-gradient(135deg, #312e81 0%, #4c1d95 100%);
+    border-radius: 10px;
+    margin-bottom: 1.5rem;
+}
+
+.pattern-text {
+    color: #c4b5fd;
+    font-size: 0.95rem;
+    font-weight: 500;
 }
 
 /* Secciones */
@@ -672,32 +699,22 @@ const confirmDelete = (id) => {
     margin-bottom: 1.5rem;
 }
 
-/* Unifica el margen inferior de los títulos de sección */
-.section-title-margin {
-    display: block;
-    margin-bottom: 1rem;
-}
-
-.section-icon {
-    font-size: 1rem;
-    margin-right: 0.5rem;
-}
-
 .section-label {
     font-size: 0.8rem;
-    color: #3b3d41;
+    color: #9ca3af;
     text-transform: uppercase;
     letter-spacing: 0.05em;
 }
 
 .task-description {
-    margin-top: 0;
+    margin-top: 0.5rem;
     padding: 1rem;
     background: #334155;
     border-radius: 10px;
     line-height: 1.6;
     margin-bottom: 2rem;
     font-weight: 500;
+    color: #f1f5f9;
 }
 
 /* Grid de fechas */
@@ -706,7 +723,7 @@ const confirmDelete = (id) => {
     grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
     gap: 1rem;
     margin-bottom: 2rem;
-    margin-top: 0;
+    margin-top: 0.5rem;
 }
 
 .date-card {
@@ -718,18 +735,10 @@ const confirmDelete = (id) => {
     border-radius: 10px;
 }
 
-.date-card.expired {
-    background: #7f1d1d;
-}
-
-.date-icon {
-    font-size: 1.2rem;
-}
-
 .date-content {
     display: flex;
     flex-direction: column;
-    gap: 0.25rem;
+    gap: 0.5rem;
 }
 
 .date-label {
@@ -737,34 +746,17 @@ const confirmDelete = (id) => {
     color: #9ca3af;
     text-transform: uppercase;
     letter-spacing: 0.05em;
+    margin-top: 0.5rem;
+}
+
+.date-label:first-child {
+    margin-top: 0;
 }
 
 .date-value {
     color: #f1f5f9;
     font-weight: 500;
 }
-
-/* Fecha de creación */
-.created-info {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.75rem 1rem;
-    background: #334155;
-    border-radius: 10px;
-    margin-bottom: 1.5rem;
-}
-
-.created-icon {
-    font-size: 1rem;
-}
-
-.created-content {
-    display: flex;
-    flex-direction: column;
-    gap: 0.15rem;
-}
-
 
 /* Lista de usuarios */
 .users-list {
@@ -793,10 +785,6 @@ const confirmDelete = (id) => {
     border: 1px solid #f59e0b;
 }
 
-.user-icon {
-    font-size: 1rem;
-}
-
 .user-name {
     flex: 1;
     color: #f1f5f9;
@@ -812,13 +800,8 @@ const confirmDelete = (id) => {
     font-weight: 600;
 }
 
-.user-arrow {
-    color: #6b7280;
-    font-size: 1.2rem;
-}
-
-/* Notice de recurrencia */
-.recurring-notice {
+/* Notice de info recurrencia */
+.recurring-info-notice {
     display: flex;
     align-items: center;
     gap: 0.75rem;
@@ -835,27 +818,6 @@ const confirmDelete = (id) => {
 
 .recurring-text {
     color: #c7d2fe;
-    font-size: 0.85rem;
-}
-
-/* Notice de tarea recurrente desactivada */
-.deactivated-recurring-notice {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.75rem 1rem;
-    background: #7f1d1d;
-    border: 1px solid #dc2626;
-    border-radius: 10px;
-    margin-bottom: 1.5rem;
-}
-
-.deactivated-recurring-notice .deactivated-icon {
-    font-size: 1rem;
-}
-
-.deactivated-recurring-notice .deactivated-text {
-    color: #fecaca;
     font-size: 0.85rem;
 }
 
@@ -917,7 +879,7 @@ const confirmDelete = (id) => {
 }
 
 .tech-value {
-    color: #4ade80;
+    color: #a78bfa;
     font-size: 0.75rem;
     background: #1e293b;
     padding: 0.25rem 0.5rem;
@@ -967,7 +929,6 @@ body:not(.dark) .task-title {
 
 body:not(.dark) .task-description,
 body:not(.dark) .date-card,
-body:not(.dark) .created-info,
 body:not(.dark) .user-item {
     background: #f3f4f6;
 }
@@ -981,6 +942,33 @@ body:not(.dark) .user-name {
     color: #1f2937;
 }
 
+body:not(.dark) .task-description {
+    color: #374151;
+}
+
+body:not(.dark) .periodicity-badge {
+    background: #ede9fe;
+    color: #7c3aed;
+}
+
+body:not(.dark) .pattern-badge {
+    background: #f3f4f6;
+    color: #6b7280;
+}
+
+body:not(.dark) .pattern-description {
+    background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
+}
+
+body:not(.dark) .pattern-text {
+    color: #6d28d9;
+}
+
+body:not(.dark) .status-active {
+    background: #ede9fe;
+    color: #7c3aed;
+}
+
 body:not(.dark) .technical-section {
     background: #f9fafb;
 }
@@ -991,29 +979,21 @@ body:not(.dark) .technical-header:hover {
 
 body:not(.dark) .tech-value {
     background: #e5e7eb;
-    color: #059669;
+    color: #7c3aed;
 }
 
-/* Light mode - Switch completar */
-body:not(.dark) .complete-task-section {
-    background: #f3f4f6;
-}
-
-body:not(.dark) .switch-slider {
-    background: #d1d5db;
-}
-
-body:not(.dark) .complete-switch:hover .switch-slider {
-    background: #9ca3af;
-}
-
-body:not(.dark) .switch-label {
-    color: #1f2937;
-}
-
-body:not(.dark) .not-assigned-notice {
+body:not(.dark) .not-supervisor-notice {
     background: #f3f4f6;
     color: #6b7280;
+}
+
+body:not(.dark) .recurring-info-notice {
+    background: #ede9fe;
+    border-color: #8b5cf6;
+}
+
+body:not(.dark) .recurring-text {
+    color: #6d28d9;
 }
 
 /* Responsive */
@@ -1026,6 +1006,9 @@ body:not(.dark) .not-assigned-notice {
     .dates-grid {
         grid-template-columns: 1fr;
     }
+
+    .periodicity-badge-container {
+        flex-direction: column;
+    }
 }
 </style>
-

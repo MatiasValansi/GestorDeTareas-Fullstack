@@ -64,6 +64,13 @@ const recurringTaskSchema = new mongoose.Schema(
 			type: Boolean,
 			default: true,
 		},
+
+		// Fecha en que fue desactivada (null si está activa)
+		// Una vez desactivada, NO se puede volver a activar
+		deactivatedAt: {
+			type: Date,
+			default: null,
+		},
 	},
 	{
 		timestamps: true,
