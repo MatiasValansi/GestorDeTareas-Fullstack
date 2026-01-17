@@ -51,13 +51,18 @@ const routes = [
     path: '/TestLogin',
     name: 'testlogin',
     component: () => import('../components/TestLogin.vue')
-  },
-
+},
 {
   path: '/main',
   name: 'main',
   component: () => import('../views/MainView.vue')
+},
+{
+  path: '/recurrent',
+  name: 'recurrent',
+  component: () => import('../views/RecurrentTasks.vue')
 }
+
 
 ]
 

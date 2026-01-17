@@ -23,6 +23,8 @@ provide('currentMonth', currentMonth)
 const supervisorFilter = ref('todas')
 provide('supervisorFilter', supervisorFilter)
 
+const selectedCategory = ref('tareas')
+
 const irANuevaVistaTarea = () => {
   router.push('/newTask')
 }
@@ -42,7 +44,6 @@ const irANuevaVistaTarea = () => {
       <span class="icon">+</span>
       <span class="label">Agregar tarea</span>
     </button>
-
 
     
       <!-- CONTENIDO PRINCIPAL DE TAREAS -->
@@ -186,7 +187,6 @@ body.dark .add-task-btn:hover {
   .tasks-content {
     height: 800px;
   }
-
 
 </style>
 

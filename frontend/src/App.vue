@@ -79,7 +79,7 @@ watch(darkMode, v => localStorage.setItem('dark', v))
       <div class="header-inner">
         <img src="/logo.png" alt="Logo" class="logo-title" />
 
-        <nav class="navbar" v-if="store.isSupervisor">
+        <nav class="navbar">
           
           <RouterLink
             to="/main"
@@ -90,6 +90,14 @@ watch(darkMode, v => localStorage.setItem('dark', v))
           </RouterLink>
 
           <RouterLink
+            to="/recurrent"
+            class="nav-button"
+            :class="{ active: route.path === '/recurrent' }"
+          >
+            Recurrentes
+          </RouterLink>
+
+          <RouterLink  v-if="store.isSupervisor"
             
             to="/users"
             class="nav-button"
@@ -172,6 +180,8 @@ body.dark .user-bar {
   border-radius: 9999px;
   text-decoration: none;
   font-weight: 600;
+
+  width: 130px;
 }
 
 .nav-button.active {
