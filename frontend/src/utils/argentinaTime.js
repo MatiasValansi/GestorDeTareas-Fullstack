@@ -153,6 +153,32 @@ export const ArgentinaTime = {
   isFuture(utcDate) {
     return !this.isPast(utcDate);
   },
+
+  /**
+   * Obtiene la clave de fecha (YYYY-MM-DD) en zona horaria Argentina
+   * Útil para agrupar tareas por día según hora Argentina
+   * @param {Date|string} utcDate - Fecha en UTC
+   * @returns {string} Fecha en formato "YYYY-MM-DD" según hora Argentina
+   * 
+   * @example
+   * // Una tarea guardada a las 02:00 UTC del 20 de enero
+   * // En Argentina son las 23:00 del 19 de enero
+   * ArgentinaTime.getDateKey("2026-01-20T02:00:00.000Z")
+   * // Resultado: "2026-01-19"
+   */
+  getDateKey(utcDate) {
+    if (!utcDate) return "";
+    
+    const date = new Date(utcDate);
+    const formatter = new Intl.DateTimeFormat("sv-SE", {
+      timeZone: ARGENTINA_TIMEZONE,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+    
+    return formatter.format(date);
+  },
 };
 
 export default ArgentinaTime;

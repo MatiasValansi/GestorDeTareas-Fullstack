@@ -48,7 +48,8 @@ const tasksByDate = computed(() => {
   
   const grouped = {}
   filtered.forEach(task => {
-    const dateKey = new Date(task.date).toISOString().split('T')[0]
+    // Usar hora Argentina para determinar el día correcto
+    const dateKey = ArgentinaTime.getDateKey(task.date)
     if (!grouped[dateKey]) {
       grouped[dateKey] = []
     }
