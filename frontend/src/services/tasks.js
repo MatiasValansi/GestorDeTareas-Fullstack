@@ -101,6 +101,31 @@ export function canEditTask(task, userId) {
     return isTaskOwner(task, userId) && !isTaskExpired(task) && !isTaskRecurring(task);
 }
 
+/**
+ * Verifica si la tarea es compartida (tiene más de un asignado)
+ * @param {Object} task
+ * @returns {boolean}
+ */
+export function isTaskShared(task) {
+    return (task?.assignedTo?.length || 0) > 1;
+}
+
+/**
+ * Obtiene los IDs de todos los usuarios asignados a la tarea
+ * @param {Object} task
+ * @returns {string[]}
+ */
+export function getAssignedUserIds(task) {
+    if (!task?.assignedTo?.length) return [];
+    
+    return task.assignedTo.map(assigned => {
+        if (typeof assigned === "string") return assigned;
+        if (assigned?._id) return String(assigned._id);
+        if (assigned?.id) return String(assigned.id);
+        return assigned ? String(assigned) : null;
+    }).filter(Boolean);
+}
+
 // Actualizar tarea por ID
 export const updateTask = async (id, task) => {
   const { data } = await api.put(`/tasks/task/${id}`, task);

@@ -78,7 +78,7 @@ export const TaskController = {
 
         try {
             const { id } = req.params;
-            const { title, description, completed, status, date, deadline } = req.body;
+            const { title, description, completed, status, date, deadline, assignedTo } = req.body;
 
             const requestingUser = {
                 id: String(req.user._id ?? req.user.id),
@@ -92,6 +92,7 @@ export const TaskController = {
             if (completed !== undefined) updateData.completed = completed;
             if (date !== undefined) updateData.date = date;
             if (deadline !== undefined) updateData.deadline = deadline;
+            if (assignedTo !== undefined) updateData.assignedTo = assignedTo;
 
             const taskUpdated = await TaskService.updateTask(id, updateData, requestingUser);
 
@@ -106,11 +107,20 @@ export const TaskController = {
             if (error.message.includes("titular") ||
                 error.message.includes("posición 0") ||
                 error.message.includes("vencida") ||
-                error.message.includes("recurrente")) {
+                error.message.includes("recurrente") ||
+                error.message.includes("removido")) {
                 return res.status(403).json({ payload: null, message: error.message, ok: false });
             }
 
-            if (error.message.includes("deadline")) {
+            if (error.message.includes("deadline") ||
+                error.message.includes("fecha") ||
+                error.message.includes("anterior") ||
+                error.message.includes("cambios")) {
+                return res.status(400).json({ payload: null, message: error.message, ok: false });
+            }
+
+            if (error.message.includes("no existe") ||
+                error.message.includes("sector")) {
                 return res.status(400).json({ payload: null, message: error.message, ok: false });
             }
 

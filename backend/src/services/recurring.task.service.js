@@ -118,7 +118,6 @@ export const RecurringTaskService = {
 	async markExpiredTasks() {
 		const now = new Date();
 		
-		console.log(`[RecurringTaskService.markExpiredTasks] Verificando tareas vencidas. Hora: ${now.toISOString()} | Argentina: ${ArgentinaTime.format(now)}`);
 		
 		const result = await TaskModel.updateMany(
 			{
@@ -130,9 +129,7 @@ export const RecurringTaskService = {
 			},
 		);
 		
-		if (result.modifiedCount > 0) {
-			console.log(`[RecurringTaskService.markExpiredTasks] Se marcaron ${result.modifiedCount} tareas como VENCIDAS`);
-		}
+		
 		
 		return { expiredTasksMarked: result.modifiedCount };
 	},

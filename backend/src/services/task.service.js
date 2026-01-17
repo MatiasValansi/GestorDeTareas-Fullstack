@@ -271,6 +271,92 @@ class TaskServiceClass {
     }
 
     /**
+     * Valida que las fechas de actualización no sean anteriores a la fecha actual
+     * @param {Date|string} date - Fecha de inicio de la tarea
+     * @param {Date|string} deadline - Fecha de vencimiento de la tarea
+     */
+    _validateUpdateDatesNotInPast(date, deadline) {
+        const now = new Date();
+        
+        if (date !== undefined) {
+            const taskDate = new Date(date);
+            if (taskDate < now) {
+                throw new Error("La fecha de inicio no puede ser anterior al momento actual de modificación");
+            }
+        }
+        
+        if (deadline !== undefined) {
+            const taskDeadline = new Date(deadline);
+            if (taskDeadline < now) {
+                throw new Error("La fecha de vencimiento no puede ser anterior al momento actual de modificación");
+            }
+        }
+    }
+
+    /**
+     * Valida y procesa la actualización de assignedTo
+     * 
+     * REGLAS:
+     * 1. El titular (posición 0) NO puede quitarse de la tarea
+     * 2. Si la tarea pasa de individual a compartida, debe agregar al menos un usuario
+     * 3. Si no hay cambios reales en assignedTo, no se debe permitir la actualización
+     * 
+     * @param {Object} currentTask - Tarea actual
+     * @param {Array} newAssignedTo - Nueva lista de asignados
+     * @returns {Array|null} - Array de IDs validado o null si no hay cambios
+     */
+    async _validateAndProcessAssignedToUpdate(currentTask, newAssignedTo) {
+        if (!newAssignedTo || !Array.isArray(newAssignedTo)) {
+            return null;
+        }
+
+        const currentOwnerId = this._getTaskOwnerId(currentTask);
+        const currentAssignedIds = (currentTask.assignedTo || []).map(id => this._toIdString(id));
+        const newAssignedIds = newAssignedTo.map(id => this._toIdString(id));
+
+        // Validar que el titular siga en la lista
+        if (!newAssignedIds.includes(currentOwnerId)) {
+            throw new Error("El titular de la tarea (posición 0) no puede ser removido de los asignados");
+        }
+
+        // Verificar que el titular siga en posición 0
+        if (newAssignedIds[0] !== currentOwnerId) {
+            throw new Error("El titular de la tarea debe permanecer en la posición 0 de los asignados");
+        }
+
+        // Verificar si hay cambios reales
+        const currentSorted = [...currentAssignedIds].sort();
+        const newSorted = [...newAssignedIds].sort();
+        
+        const hasChanges = currentSorted.length !== newSorted.length ||
+            currentSorted.some((id, idx) => id !== newSorted[idx]);
+
+        if (!hasChanges) {
+            return null; // No hay cambios
+        }
+
+        // Validar que todos los nuevos usuarios existan y pertenezcan al mismo sector
+        const currentOwner = await this.userRepository.getById(currentOwnerId);
+        if (!currentOwner) {
+            throw new Error("No se pudo obtener la información del titular de la tarea");
+        }
+
+        for (const userId of newAssignedIds) {
+            if (userId === currentOwnerId) continue; // Ya validamos al titular
+            
+            const user = await this.userRepository.getById(userId);
+            if (!user) {
+                throw new Error(`El usuario con ID ${userId} no existe`);
+            }
+            if (user.sector !== currentOwner.sector) {
+                throw new Error("Todos los usuarios asignados deben pertenecer al mismo sector");
+            }
+        }
+
+        return newAssignedIds;
+    }
+
+    /**
      * Actualiza una tarea
      * 
      * REGLA: Solo el titular (posición 0) puede editar
@@ -293,6 +379,10 @@ class TaskServiceClass {
 
         // Validar fechas si se actualizan
         if (updateData.date !== undefined || updateData.deadline !== undefined) {
+            // Primero validar que las nuevas fechas no sean anteriores al momento actual
+            this._validateUpdateDatesNotInPast(updateData.date, updateData.deadline);
+            
+            // Luego validar la relación entre date y deadline
             const newDate = updateData.date !== undefined
                 ? new Date(updateData.date)
                 : currentTask.date;
@@ -302,10 +392,24 @@ class TaskServiceClass {
             this._validateDates(newDate, newDeadline);
         }
 
-        // NO permitir cambiar assignedTo en update normal (simplifica la lógica)
-        // Si necesitas cambiar asignados, crear endpoint específico
+        // Procesar actualización de assignedTo si se proporciona
         if (updateData.assignedTo !== undefined) {
-            delete updateData.assignedTo;
+            const validatedAssignedTo = await this._validateAndProcessAssignedToUpdate(
+                currentTask, 
+                updateData.assignedTo
+            );
+            
+            if (validatedAssignedTo === null) {
+                // No hay cambios reales en assignedTo, eliminarlo del update
+                delete updateData.assignedTo;
+            } else {
+                updateData.assignedTo = validatedAssignedTo;
+            }
+        }
+
+        // Verificar que haya algo que actualizar
+        if (Object.keys(updateData).length === 0) {
+            throw new Error("No hay cambios para guardar");
         }
 
         return this.taskRepository.updateOne(taskId, updateData);
