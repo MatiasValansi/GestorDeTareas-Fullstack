@@ -206,5 +206,126 @@ export const ArgentinaTime = {
 		
 		return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}-03:00`;
 	},
+
+	// ═══════════════════════════════════════════════════════════════════
+	// FUNCIONES PARA CÁLCULO DE DÍA DE SEMANA EN HORA ARGENTINA
+	// ═══════════════════════════════════════════════════════════════════
+
+	/**
+	 * Obtiene el día de la semana en hora Argentina (0 = Domingo, 1 = Lunes, etc.)
+	 * CRÍTICO: Una fecha UTC que es lunes 01:00 puede ser domingo 22:00 en Argentina
+	 * 
+	 * @param {Date} utcDate - Fecha en UTC (de la BD)
+	 * @returns {number} Día de la semana en Argentina (0-6)
+	 * 
+	 * @example
+	 * // UTC: 2026-01-19T01:00:00Z (Lunes en UTC)
+	 * // Argentina: 2026-01-18T22:00:00 (Domingo en Argentina)
+	 * // Retorna: 0 (Domingo)
+	 */
+	getArgentinaDay(utcDate) {
+		if (!utcDate) return null;
+		const argDate = this.utcToArgentina(utcDate);
+		// Usamos getUTCDay() porque utcToArgentina ya ajustó el tiempo
+		return argDate.getUTCDay();
+	},
+
+	/**
+	 * Obtiene el día del mes en hora Argentina
+	 * 
+	 * @param {Date} utcDate - Fecha en UTC (de la BD)
+	 * @returns {number} Día del mes en Argentina (1-31)
+	 */
+	getArgentinaDate(utcDate) {
+		if (!utcDate) return null;
+		const argDate = this.utcToArgentina(utcDate);
+		return argDate.getUTCDate();
+	},
+
+	/**
+	 * Obtiene el mes en hora Argentina (0-11)
+	 * 
+	 * @param {Date} utcDate - Fecha en UTC
+	 * @returns {number} Mes en Argentina (0-11)
+	 */
+	getArgentinaMonth(utcDate) {
+		if (!utcDate) return null;
+		const argDate = this.utcToArgentina(utcDate);
+		return argDate.getUTCMonth();
+	},
+
+	/**
+	 * Obtiene el año en hora Argentina
+	 * 
+	 * @param {Date} utcDate - Fecha en UTC
+	 * @returns {number} Año en Argentina
+	 */
+	getArgentinaYear(utcDate) {
+		if (!utcDate) return null;
+		const argDate = this.utcToArgentina(utcDate);
+		return argDate.getUTCFullYear();
+	},
+
+	/**
+	 * Obtiene la hora en Argentina (0-23)
+	 * 
+	 * @param {Date} utcDate - Fecha en UTC
+	 * @returns {number} Hora en Argentina (0-23)
+	 */
+	getArgentinaHours(utcDate) {
+		if (!utcDate) return null;
+		const argDate = this.utcToArgentina(utcDate);
+		return argDate.getUTCHours();
+	},
+
+	/**
+	 * Obtiene los minutos (igual en cualquier zona horaria)
+	 * 
+	 * @param {Date} utcDate - Fecha en UTC
+	 * @returns {number} Minutos (0-59)
+	 */
+	getArgentinaMinutes(utcDate) {
+		if (!utcDate) return null;
+		return new Date(utcDate).getUTCMinutes();
+	},
+
+	/**
+	 * Crea una fecha UTC a partir de componentes en hora Argentina
+	 * IMPORTANTE: Recibe hora Argentina y retorna el equivalente UTC
+	 * 
+	 * @param {number} year - Año en Argentina
+	 * @param {number} month - Mes (0-11) en Argentina
+	 * @param {number} day - Día del mes en Argentina
+	 * @param {number} hours - Hora en Argentina (0-23)
+	 * @param {number} minutes - Minutos
+	 * @param {number} seconds - Segundos
+	 * @returns {Date} Fecha en UTC
+	 * 
+	 * @example
+	 * // Crear domingo 18/01/2026 22:00 Argentina
+	 * // Retorna: 2026-01-19T01:00:00.000Z (UTC)
+	 */
+	createFromArgentinaComponents(year, month, day, hours = 0, minutes = 0, seconds = 0) {
+		// Primero creamos la fecha como si fuera UTC
+		const asIfUtc = new Date(Date.UTC(year, month, day, hours, minutes, seconds, 0));
+		// Luego restamos el offset de Argentina (sumamos 3 horas para convertir a UTC)
+		return new Date(asIfUtc.getTime() - ARGENTINA_OFFSET_MS);
+	},
+
+	/**
+	 * Calcula los días hasta el próximo día de semana objetivo, en hora Argentina
+	 * 
+	 * @param {Date} utcDate - Fecha de referencia en UTC
+	 * @param {number} targetDay - Día de semana objetivo (0 = Domingo, 1 = Lunes, etc.)
+	 * @returns {number} Días hasta el próximo targetDay (0 si ya es ese día)
+	 */
+	daysUntilTargetDay(utcDate, targetDay) {
+		const currentDay = this.getArgentinaDay(utcDate);
+		let diff = targetDay - currentDay;
+		if (diff < 0) {
+			diff += 7;
+		}
+		return diff;
+	},
 };
 

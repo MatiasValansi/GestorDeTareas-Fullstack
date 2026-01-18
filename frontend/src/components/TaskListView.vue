@@ -44,6 +44,9 @@ const globalMonth = inject('currentMonth', ref(new Date()))
 // Inyectar el filtro de supervisor
 const supervisorFilter = inject('supervisorFilter', ref('todas'))
 
+// Inyectar filtro por usuario específico (para UserDetailView)
+const filterUserId = inject('filterUserId', ref(null))
+
 // Estado local
 const tareas = ref([])
 const usuarios = ref([])
@@ -71,6 +74,17 @@ const usuarioEstaEnTarea = (tarea) => {
   })
 }
 
+// Helper para verificar si un usuario específico está asignado a una tarea
+const usuarioEspecificoEstaEnTarea = (tarea, targetUserId) => {
+  if (!targetUserId || !tarea.assignedTo) return false
+  return tarea.assignedTo.some(assigned => {
+    if (typeof assigned === 'object') {
+      return (assigned._id || assigned.id) === targetUserId
+    }
+    return assigned === targetUserId
+  })
+}
+
 // Label del mes actual
 const currentMonthLabel = computed(() => {
   return selectedMonth.value.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })
@@ -90,8 +104,10 @@ const tareasDelMes = computed(() => {
   if (props.mode === 'recurring' && props.customItems !== null) {
     let filtered = [...itemsBase.value]
     
-    // Aplicar filtro de supervisor (solo si es supervisor)
-    if (store.isSupervisor && supervisorFilter.value !== 'todas') {
+    // Si hay un filterUserId (vista de detalle de usuario), filtrar por ese usuario
+    if (filterUserId.value) {
+      filtered = filtered.filter(t => usuarioEspecificoEstaEnTarea(t, filterUserId.value))
+    } else if (store.isSupervisor && supervisorFilter.value !== 'todas') {
       if (supervisorFilter.value === 'mias') {
         filtered = filtered.filter(t => usuarioEstaEnTarea(t))
       } else if (supervisorFilter.value === 'otros') {
@@ -112,8 +128,10 @@ const tareasDelMes = computed(() => {
     return taskDate.getMonth() === month && taskDate.getFullYear() === year
   })
   
-  // Aplicar filtro de supervisor (solo si es supervisor)
-  if (store.isSupervisor && supervisorFilter.value !== 'todas') {
+  // Si hay un filterUserId (vista de detalle de usuario), filtrar por ese usuario
+  if (filterUserId.value) {
+    filtered = filtered.filter(t => usuarioEspecificoEstaEnTarea(t, filterUserId.value))
+  } else if (store.isSupervisor && supervisorFilter.value !== 'todas') {
     if (supervisorFilter.value === 'mias') {
       // Solo tareas donde el supervisor está asignado
       filtered = filtered.filter(t => usuarioEstaEnTarea(t))

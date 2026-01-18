@@ -14,6 +14,9 @@ const currentMonth = inject('currentMonth')
 // Inyectar el filtro de supervisor
 const supervisorFilter = inject('supervisorFilter', ref('todas'))
 
+// Inyectar filtro por usuario específico (para UserDetailView)
+const filterUserId = inject('filterUserId', ref(null))
+
 // Estado local
 const calendarTasks = ref([])
 const loadingTasks = ref(false)
@@ -32,13 +35,27 @@ const usuarioEstaEnTarea = (tarea) => {
   })
 }
 
+// Helper para verificar si un usuario específico está asignado a una tarea
+const usuarioEspecificoEstaEnTarea = (tarea, targetUserId) => {
+  if (!targetUserId || !tarea.assignedTo) return false
+  return tarea.assignedTo.some(assigned => {
+    if (typeof assigned === 'object') {
+      return (assigned._id || assigned.id) === targetUserId
+    }
+    return assigned === targetUserId
+  })
+}
+
 // ================== COMPUTED ==================
 
 const tasksByDate = computed(() => {
   // Aplicar filtro de supervisor antes de agrupar
   let filtered = calendarTasks.value
   
-  if (store.isSupervisor && supervisorFilter.value !== 'todas') {
+  // Si hay un filterUserId (vista de detalle de usuario), filtrar por ese usuario
+  if (filterUserId.value) {
+    filtered = filtered.filter(t => usuarioEspecificoEstaEnTarea(t, filterUserId.value))
+  } else if (store.isSupervisor && supervisorFilter.value !== 'todas') {
     if (supervisorFilter.value === 'mias') {
       filtered = filtered.filter(t => usuarioEstaEnTarea(t))
     } else if (supervisorFilter.value === 'otros') {
