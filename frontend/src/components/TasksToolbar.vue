@@ -1,8 +1,10 @@
 <script setup>
 import { computed } from 'vue'
 import { useUserStore } from '@/stores/user'
-
+import { useRoute } from 'vue-router'
 const store = useUserStore()
+const route = useRoute()
+
 
 const props = defineProps({
   currentMonth: {
@@ -43,6 +45,14 @@ const nextMonth = () => {
   d.setMonth(d.getMonth() + 1)
   emit('update:month', d)
 }
+
+const mostrarFiltroSupervisor = computed(() => {
+  return (
+    store.isSupervisor &&
+    (route.name === 'main' || route.name === 'mainRedirect')
+  )
+})
+
 </script>
 
 <template>
@@ -50,7 +60,7 @@ const nextMonth = () => {
 
     <!-- ZONA IZQUIERDA: FILTRO SUPERVISOR -->
     <div class="toolbar-left">
-      <div v-if="store.isSupervisor" class="supervisor-filter">
+      <div v-if="mostrarFiltroSupervisor" class="supervisor-filter">
         <label class="filter-label">Filtrar tareas:</label>
         <select 
           :value="supervisorFilter"

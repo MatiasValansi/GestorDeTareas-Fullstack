@@ -195,7 +195,6 @@ const goBack = () => router.push("/recurrent");
             <!-- Header con estado -->
             <div class="task-header">
                 <span class="status-badge" :class="task.active !== false ? 'status-active' : 'status-inactive'">
-                    <span class="status-icon">{{ task.active !== false ? '🔄' : '⏸' }}</span>
                     {{ task.active !== false ? 'Activa' : 'Desactivada' }}
                 </span>
             </div>
@@ -242,13 +241,13 @@ const goBack = () => router.push("/recurrent");
             <!-- Badge de periodicidad -->
             <div class="periodicity-badge-container">
                 <span class="periodicity-badge">
-                    🔄 {{ getPeriodicityLabel(task.periodicity) }}
+                   {{ getPeriodicityLabel(task.periodicity) }}
                 </span>
                 <span v-if="task.datePattern" class="pattern-badge">
-                    📅 {{ getDayLabel(task.datePattern) }}
+                    {{ getDayLabel(task.datePattern) }}
                 </span>
                 <span v-else-if="task.numberPattern" class="pattern-badge">
-                    📅 Día {{ task.numberPattern }}
+                    Día {{ task.numberPattern }}
                 </span>
             </div>
 
@@ -302,7 +301,7 @@ const goBack = () => router.push("/recurrent");
             <!-- Info de recurrencia -->
             <div class="recurring-info-notice">
                 <span class="recurring-icon">ℹ️</span>
-                <span class="recurring-text">Esta tarea genera instancias automáticamente según su periodicidad</span>
+                <span class="recurring-text">Esta configuración genera tareas automáticamente según su periodicidad</span>
             </div>
 
             <!-- INFORMACIÓN TÉCNICA -->

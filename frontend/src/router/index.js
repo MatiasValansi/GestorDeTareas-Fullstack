@@ -66,8 +66,12 @@ const routes = [
   path: '/recurringTaskDetail/:id',
   name: 'recurringTaskDetail',
   component: () => import('../views/RecurringTaskDetailView.vue')
+},
+{
+  path: '/',
+  name: 'mainRedirect',
+  component: () => import('../views/MainView.vue')
 }
-
 
 ]
 

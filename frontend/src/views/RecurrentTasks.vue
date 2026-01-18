@@ -108,7 +108,7 @@ onMounted(async () => {
       <div class="tasks-content">
         <!-- Header de la vista -->
         <div class="recurrent-tasks-header">
-          <h1 class="page-title">🔄 Tareas Recurrentes</h1>
+          <h1 class="page-title">Tareas Recurrentes</h1>
           <p class="page-subtitle">
             {{ store.isSupervisor 
               ? 'Tareas recurrentes de tu equipo y las asignadas a ti' 

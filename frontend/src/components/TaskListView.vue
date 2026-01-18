@@ -456,7 +456,7 @@ watch(globalMonth, (newMonth) => {
             <!-- Modo recurring: mostrar periodicidad -->
             <template v-if="mode === 'recurring'">
               <span class="task-periodicity-badge" :class="tarea.active !== false ? 'active' : 'inactive'">
-                🔄 {{ tarea.periodicity }}
+                {{ tarea.periodicity }}
               </span>
               <span v-if="tarea.datePattern" class="task-date-pattern">
                 {{ tarea.datePattern }}
@@ -526,7 +526,7 @@ watch(globalMonth, (newMonth) => {
 
     <!-- Estado vacío -->
     <div v-else class="empty-state">
-      <div class="empty-icon">{{ searchQuery ? '🔍' : (mode === 'recurring' ? '🔄' : '📋') }}</div>
+      <div class="empty-icon">{{ searchQuery ? '🔍' : (mode === 'recurring' ? '' : '') }}</div>
       <p v-if="searchQuery">No se encontraron {{ mode === 'recurring' ? 'tareas recurrentes' : 'tareas' }} que coincidan con "{{ searchQuery }}"</p>
       <p v-else-if="emptyStateTitle">{{ emptyStateTitle }}</p>
       <p v-else-if="mode === 'recurring'">No hay tareas recurrentes disponibles</p>
