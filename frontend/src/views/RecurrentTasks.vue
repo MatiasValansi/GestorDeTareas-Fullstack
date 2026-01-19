@@ -1,89 +1,25 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { useUserStore } from '@/stores/user'
-import { getAllRecurringTasks } from '@/services/recurringTasks'
-import { getAllUsers } from '@/services/users'
+import { getMyRecurringTasks } from '@/services/recurringTasks'
 import TaskListView from '@/components/TaskListView.vue'
 
 const store = useUserStore()
 
 // Estado
 const recurringTasks = ref([])
-const usuarios = ref([])
 const cargando = ref(false)
 const error = ref('')
 
-// Cargar usuarios para obtener sectores
-const cargarUsuarios = async () => {
-  try {
-    usuarios.value = await getAllUsers()
-  } catch (err) {
-    console.error('Error al cargar usuarios', err)
-  }
-}
-
-// Obtener el sector del usuario actual
-const getSectorUsuarioActual = () => {
-  return store.user?.sector || null
-}
-
-// Verificar si el usuario logueado está asignado a una tarea recurrente
-const usuarioEstaAsignado = (task) => {
-  const userId = store.user?.id || store.user?._id
-  if (!userId || !task.assignedTo) return false
-  
-  return task.assignedTo.some(assigned => {
-    if (typeof assigned === 'object') {
-      return (assigned._id || assigned.id) === userId
-    }
-    return assigned === userId
-  })
-}
-
-// Verificar si algún usuario asignado pertenece al mismo sector del supervisor
-const algunAsignadoMismoSector = (task, sectorSupervisor) => {
-  if (!task.assignedTo || !sectorSupervisor) return false
-  
-  return task.assignedTo.some(assigned => {
-    // Si está populado, obtener sector directamente
-    if (typeof assigned === 'object' && assigned.sector) {
-      return assigned.sector === sectorSupervisor
-    }
-    // Si es solo ID, buscar en la lista de usuarios
-    const userId = typeof assigned === 'object' ? (assigned._id || assigned.id) : assigned
-    const user = usuarios.value.find(u => (u._id || u.id) === userId)
-    return user?.sector === sectorSupervisor
-  })
-}
-
-// Filtrar tareas recurrentes según permisos:
-// - Usuario normal: solo ve las que tiene asignadas
-// - Supervisor: ve las propias + las de usuarios de su mismo sector
-const recurringTasksFiltradas = computed(() => {
-  const sectorActual = getSectorUsuarioActual()
-  
-  return recurringTasks.value.filter(task => {
-    // Si el usuario está asignado, siempre puede ver la tarea
-    if (usuarioEstaAsignado(task)) {
-      return true
-    }
-    
-    // Si es supervisor, puede ver tareas de usuarios del mismo sector
-    if (store.isSupervisor && sectorActual) {
-      return algunAsignadoMismoSector(task, sectorActual)
-    }
-    
-    return false
-  })
-})
-
-// Cargar tareas recurrentes
+// Cargar tareas recurrentes (el backend ya filtra según el rol del usuario)
 const cargarRecurringTasks = async () => {
   cargando.value = true
   error.value = ''
   try {
-    const todas = await getAllRecurringTasks()
-    recurringTasks.value = todas
+    // El endpoint /my-tasks ya retorna las tareas filtradas según el rol:
+    // - Usuario normal: solo las que tiene asignadas
+    // - Supervisor: todas las de usuarios de su mismo sector
+    recurringTasks.value = await getMyRecurringTasks()
   } catch (err) {
     error.value = 'Error al cargar tareas recurrentes'
     console.error('Error cargando recurring tasks:', err)
@@ -92,10 +28,15 @@ const cargarRecurringTasks = async () => {
   }
 }
 
+// Mensaje para estado vacío según el rol
+const emptyStateMessage = computed(() => {
+  if (store.isSupervisor) {
+    return 'No hay tareas recurrentes asignadas a usuarios de su sector.'
+  }
+  return 'Su usuario aún no tiene tareas recurrentes asignadas.'
+})
+
 onMounted(async () => {
-  // Cargar usuarios primero para tener la info de sectores
-  await cargarUsuarios()
-  // Luego cargar las tareas recurrentes
   await cargarRecurringTasks()
 })
 </script>
@@ -133,9 +74,9 @@ onMounted(async () => {
           v-else
           :hide-status-filters="true"
           mode="recurring"
-          :custom-items="recurringTasksFiltradas"
+          :custom-items="recurringTasks"
           detail-route="/recurringTaskDetail"
-          empty-state-title="No hay tareas recurrentes disponibles para ti"
+          :empty-state-title="emptyStateMessage"
         />
       </div>
     </main>

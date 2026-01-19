@@ -29,6 +29,28 @@ export const RecurringTaskRepository = {
 	},
 
 	/**
+	 * Gets all recurring tasks assigned to a specific user
+	 * @param {string} userId - The user ID to filter by
+	 * @returns {Promise<Document[]>} Array of recurring tasks assigned to the user
+	 */
+	async getByAssignedUser(userId) {
+		return await RecurringTaskModel.find({ assignedTo: userId }).populate("assignedTo");
+	},
+
+	/**
+	 * Gets all recurring tasks where any assigned user belongs to a specific sector
+	 * @param {string} sector - The sector to filter by
+	 * @returns {Promise<Document[]>} Array of recurring tasks with users from the sector
+	 */
+	async getBySector(sector) {
+		// First get all tasks with populated users, then filter by sector
+		const allTasks = await RecurringTaskModel.find().populate("assignedTo");
+		return allTasks.filter(task => 
+			task.assignedTo.some(user => user.sector === sector)
+		);
+	},
+
+	/**
 	 * Gets all active recurring tasks
 	 * @returns {Promise<Document[]>} Array of active recurring tasks
 	 */

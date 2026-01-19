@@ -19,6 +19,14 @@ export const getAllRecurringTasks = async () => {
   return data.payload || [];
 };
 
+// Obtener mis tareas recurrentes según rol (usuarios y supervisores)
+// - Usuario normal: solo las asignadas a él
+// - Supervisor: todas las de usuarios de su mismo sector
+export const getMyRecurringTasks = async () => {
+  const { data } = await api.get("/recurringTask/recurring-tasks/my-tasks");
+  return data.payload || [];
+};
+
 // Obtener tarea recurrente por ID (solo supervisores)
 export const getRecurringTaskById = async (id) => {
   const { data } = await api.get(`/recurringTask/recurring-tasks/${id}`);

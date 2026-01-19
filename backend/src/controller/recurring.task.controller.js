@@ -67,6 +67,37 @@ export const RecurringTaskController = {
 		}
 	},
 
+	// GET /recurring-tasks/my-tasks
+	// Obtiene las tareas recurrentes según el rol del usuario:
+	// - Usuario normal: solo las que tiene asignadas
+	// - Supervisor: todas las de usuarios de su mismo sector
+	getMyTasks: async (req, res) => {
+		try {
+			const { user } = req;
+			let tasks;
+
+			if (user.isSupervisor) {
+				// Supervisor: obtener todas las tareas donde hay usuarios de su sector
+				tasks = await RecurringTaskRepository.getBySector(user.sector);
+			} else {
+				// Usuario normal: solo sus tareas asignadas
+				tasks = await RecurringTaskRepository.getByAssignedUser(user.id);
+			}
+
+			return res.status(200).json({
+				message: "Tareas recurrentes obtenidas correctamente",
+				payload: tasks,
+				ok: true,
+			});
+		} catch (error) {
+			console.error("Error al obtener mis tareas recurrentes", error);
+			return res.status(500).json({
+				ok: false,
+				message: "No se pudieron obtener las tareas recurrentes",
+			});
+		}
+	},
+
 	// GET /recurring-tasks/:id
 	// Obtiene una tarea recurrente por id
 	getById: async (req, res) => {

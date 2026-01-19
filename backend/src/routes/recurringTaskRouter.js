@@ -20,6 +20,15 @@ recurringTaskRouter.get(
 	RecurringTaskController.getAll,
 );
 
+// Endpoint para obtener tareas recurrentes según el rol del usuario
+// - Usuario normal: solo las que tiene asignadas
+// - Supervisor: todas las de usuarios de su mismo sector
+recurringTaskRouter.get(
+	"/recurring-tasks/my-tasks",
+	authByToken,
+	RecurringTaskController.getMyTasks,
+);
+
 recurringTaskRouter.get(
 	"/recurring-tasks/:id",
 	authByToken,
