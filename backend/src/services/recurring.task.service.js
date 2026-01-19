@@ -40,6 +40,7 @@ export const RecurringTaskService = {
 			numberPattern,
 			date,
 			deadline,
+			includeWeekends,
 		} = params;
 
 		// Validate recurrence type and set appropriate values
@@ -104,6 +105,8 @@ export const RecurringTaskService = {
 			date: taskDate,
 			deadline: taskDeadline,
 			active: true,
+			// Para periodicidad DIARIA: indica si incluye fines de semana (default: true)
+			includeWeekends: includeWeekends !== undefined ? includeWeekends : true,
 		};
 
 		const createdRecurringTask = await RecurringTaskRepository.create(recurringTaskData);
@@ -206,7 +209,8 @@ export const RecurringTaskService = {
 			recurringTask.datePattern,
 			recurringTask.numberPattern,
 			year,
-			month
+			month,
+			recurringTask.includeWeekends !== false // default true para compatibilidad
 		);
 
 		// Get existing tasks to avoid duplicates (check by date + recurringTaskId)
@@ -269,9 +273,10 @@ export const RecurringTaskService = {
 	 * @param {number} numberPattern - Day of month (for monthly pattern)
 	 * @param {number} year - Target year (calendario Argentina)
 	 * @param {number} month - Target month (1-12, calendario Argentina)
+	 * @param {boolean} includeWeekends - Para DIARIA: si incluir sábados y domingos (default: true)
 	 * @returns {Date[]} Array of occurrence dates in UTC within the month
 	 */
-	_calculateOccurrencesForMonth(anchorDate, periodicity, datePattern, numberPattern, year, month) {
+	_calculateOccurrencesForMonth(anchorDate, periodicity, datePattern, numberPattern, year, month, includeWeekends = true) {
 		// Los límites del mes en UTC, extendidos para cubrir cualquier hora Argentina
 		// El inicio del mes en Argentina (00:00) es el día anterior a las 03:00 UTC
 		// El fin del mes en Argentina (23:59) es el día siguiente a las 02:59 UTC
@@ -287,7 +292,7 @@ export const RecurringTaskService = {
 
 		switch (periodicity) {
 			case "DIARIA":
-				return this._calculateDailyForMonth(monthStart, monthEnd, anchorDate, anchorHours, anchorMinutes, anchorSeconds);
+				return this._calculateDailyForMonth(monthStart, monthEnd, anchorDate, anchorHours, anchorMinutes, anchorSeconds, includeWeekends);
 
 			case "SEMANAL":
 				return this._calculateWeeklyForMonth(monthStart, monthEnd, datePattern, 1, anchorDate, anchorHours, anchorMinutes, anchorSeconds);
@@ -305,15 +310,19 @@ export const RecurringTaskService = {
 
 	/**
 	 * Calculates daily occurrences for a specific month
+	 * IMPORTANTE: Usa hora Argentina para determinar el día de la semana
+	 * ya que las fechas se guardan en UTC pero representan hora Argentina
+	 * 
 	 * @param {Date} monthStart - First day of month
 	 * @param {Date} monthEnd - Last day of month
 	 * @param {Date} anchorDate - Original start date
 	 * @param {number} hours - Hora UTC del anchor
 	 * @param {number} minutes - Minutos del anchor
 	 * @param {number} seconds - Segundos del anchor
+	 * @param {boolean} includeWeekends - Si incluir sábados (6) y domingos (0) en hora Argentina
 	 * @returns {Date[]} Array of daily occurrence dates
 	 */
-	_calculateDailyForMonth(monthStart, monthEnd, anchorDate, hours, minutes, seconds) {
+	_calculateDailyForMonth(monthStart, monthEnd, anchorDate, hours, minutes, seconds, includeWeekends = true) {
 		const occurrences = [];
 		const anchor = new Date(anchorDate);
 
@@ -326,7 +335,16 @@ export const RecurringTaskService = {
 		currentDate.setUTCHours(hours, minutes, seconds, 0);
 
 		while (currentDate <= monthEnd) {
-			occurrences.push(new Date(currentDate));
+			// CRÍTICO: Usar hora Argentina para determinar el día de la semana
+			// Una fecha UTC que es martes 00:30 puede ser lunes 21:30 en Argentina
+			const dayOfWeekArgentina = ArgentinaTime.getArgentinaDay(currentDate);
+			
+			// Si includeWeekends es false, omitir sábados (6) y domingos (0) EN HORA ARGENTINA
+			const isWeekend = dayOfWeekArgentina === 0 || dayOfWeekArgentina === 6;
+			if (includeWeekends || !isWeekend) {
+				occurrences.push(new Date(currentDate));
+			}
+			
 			currentDate.setUTCDate(currentDate.getUTCDate() + 1);
 		}
 

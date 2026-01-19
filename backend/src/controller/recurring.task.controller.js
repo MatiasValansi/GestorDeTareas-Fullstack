@@ -16,6 +16,7 @@ export const RecurringTaskController = {
 				numberPattern,
 				date,
 				deadline,
+				includeWeekends,
 			} = req.body;
 
 
@@ -29,6 +30,7 @@ export const RecurringTaskController = {
 				numberPattern,
 				date,
 				deadline,
+				includeWeekends,
 			});
 
 

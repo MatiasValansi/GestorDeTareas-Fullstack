@@ -826,7 +826,7 @@ body.dark .filter-chip:hover {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   cursor: pointer;
   transition: all 0.15s ease;
-  min-height: 90px;
+  min-height: 110px;
   overflow: hidden;
 }
 

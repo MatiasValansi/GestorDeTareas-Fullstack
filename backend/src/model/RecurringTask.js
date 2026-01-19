@@ -71,6 +71,14 @@ const recurringTaskSchema = new mongoose.Schema(
 			type: Date,
 			default: null,
 		},
+
+		// Para tareas DIARIAS: incluir o no fines de semana (sábado y domingo)
+		// true = todos los días (lunes a domingo)
+		// false = solo días hábiles (lunes a viernes)
+		includeWeekends: {
+			type: Boolean,
+			default: true,
+		},
 	},
 	{
 		timestamps: true,

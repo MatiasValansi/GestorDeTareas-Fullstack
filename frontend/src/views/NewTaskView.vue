@@ -34,6 +34,7 @@ const periodicity = ref('SEMANAL')
 const datePattern = ref('LUNES')
 const numberPattern = ref(1)
 const tipoPatron = ref('DAILY_PATTERN')
+const includeWeekends = ref(true) // Para tareas DIARIAS: incluir fines de semana
 
 const PERIODICIDADES = [
   { value: 'DIARIA', label: 'Diaria', description: 'Todos los días' },
@@ -64,6 +65,13 @@ const necesitaDiaSemana = computed(() => {
 
 const necesitaDiaMes = computed(() => {
   return esRecurrente.value && tipoPatron.value === 'NUMERIC_PATTERN'
+})
+
+// Mostrar switch de fines de semana cuando es tarea recurrente DIARIA
+const mostrarSwitchFinDeSemana = computed(() => {
+  return esRecurrente.value && 
+         tipoPatron.value === 'DAILY_PATTERN' && 
+         periodicity.value === 'DIARIA'
 })
 
 const recurrenceType = computed(() => tipoPatron.value)
@@ -328,6 +336,10 @@ const crearTareaRecurrente = async () => {
     if (['SEMANAL', 'QUINCENAL'].includes(periodicity.value)) {
       tareaRecurrente.datePattern = datePattern.value
     }
+    // Para tareas DIARIAS: enviar si incluye fines de semana
+    if (periodicity.value === 'DIARIA') {
+      tareaRecurrente.includeWeekends = includeWeekends.value
+    }
   }
 
   console.log("Enviando tarea recurrente:", tareaRecurrente)
@@ -373,6 +385,7 @@ watch(esRecurrente, (nuevoValor) => {
     datePattern.value = 'LUNES'
     numberPattern.value = 1
     tipoPatron.value = 'DAILY_PATTERN'
+    includeWeekends.value = true // Resetear a valor por defecto
     // Limpiar fecha seleccionada del selector filtrado
     fechaSeleccionada.value = null
   }
@@ -389,6 +402,7 @@ watch(tipoPatron, (nuevoValor) => {
   // Limpiar fecha seleccionada cuando cambia el tipo de patrón
   fechaSeleccionada.value = null
   date.value = ''
+  includeWeekends.value = true // Resetear al cambiar tipo de patrón
 })
 
 // Cuando cambia el día del patrón, limpiar la fecha seleccionada
@@ -400,10 +414,14 @@ watch(datePattern, () => {
 })
 
 // Cuando cambia la periodicidad, limpiar la fecha seleccionada
-watch(periodicity, () => {
+watch(periodicity, (nuevaPeriodicidad) => {
   if (usarSelectorFechaFiltrado.value) {
     fechaSeleccionada.value = null
     date.value = ''
+  }
+  // Si cambia de DIARIA a otra periodicidad, resetear includeWeekends
+  if (nuevaPeriodicidad !== 'DIARIA') {
+    includeWeekends.value = true
   }
 })
 
@@ -615,6 +633,40 @@ onMounted(obtenerUsuarios)
                 </button>
               </div>
             </div>
+
+            <!-- Switch para incluir fines de semana (solo visible cuando periodicidad es DIARIA) -->
+            <Transition name="slide-fade">
+              <div class="form-group weekend-switch-group" v-if="mostrarSwitchFinDeSemana">
+                <div class="weekend-switch-container">
+                  <div class="weekend-switch-info">
+                    <label class="weekend-switch-label">                      
+                      Incluir fines de semana
+                    </label>
+                    <p class="weekend-switch-hint">
+                      {{ includeWeekends 
+                        ? 'La tarea se generará de lunes a domingo' 
+                        : 'La tarea se generará solo de lunes a viernes' 
+                      }}
+                    </p>
+                  </div>
+                  <div 
+                    class="switch-toggle weekend-toggle" 
+                    :class="{ active: includeWeekends }" 
+                    @click="includeWeekends = !includeWeekends"
+                  >
+                    <div class="switch-thumb"></div>
+                  </div>
+                </div>
+                <div class="weekend-preview">
+                  <span v-if="includeWeekends" class="weekend-badge all-days">
+                    Lun - Mar - Mié - Jue - Vie - <strong>Sáb</strong> - <strong>Dom</strong>
+                  </span>
+                  <span v-else class="weekend-badge weekdays-only">
+                    Lun - Mar - Mié - Jue - Vie
+                  </span>
+                </div>
+              </div>
+            </Transition>
           </template>
 
           <div class="form-group last-in-section" v-if="tipoPatron === 'NUMERIC_PATTERN'">
@@ -875,6 +927,7 @@ onMounted(obtenerUsuarios)
             <ul>
               <li><strong>Tipo:</strong> {{ esRecurrente ? 'Recurrente' : 'Individual' }}{{ esCompartida ? ' (Compartida)' : '' }}</li>
               <li v-if="esRecurrente && tipoPatron === 'DAILY_PATTERN'"><strong>Periodicidad:</strong> {{ periodicity }}</li>
+              <li v-if="mostrarSwitchFinDeSemana"><strong>Fines de semana:</strong> {{ includeWeekends ? 'Incluidos (Lun-Dom)' : 'Excluidos (Lun-Vie)' }}</li>
               <li v-if="necesitaDiaSemana"><strong>Día:</strong> {{ datePattern }}</li>
               <li v-if="necesitaDiaMes"><strong>Día del mes:</strong> {{ numberPattern }}</li>
               <li>
@@ -1876,5 +1929,126 @@ body.dark .titular-hint {
   .hora-selector {
     flex-wrap: wrap;
   }
+  
+  .weekend-switch-container {
+    flex-direction: column;
+    gap: 1rem;
+  }
+  
+  .weekend-toggle {
+    align-self: flex-start;
+  }
+}
+
+/* ===== SWITCH FINES DE SEMANA ===== */
+.weekend-switch-group {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px dashed #e5e7eb;
+}
+
+.weekend-switch-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1rem;
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  border-radius: 12px;
+  border: 1px solid #bae6fd;
+}
+
+.weekend-switch-info {
+  flex: 1;
+}
+
+.weekend-switch-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  color: #0369a1;
+  font-size: 0.95rem;
+}
+
+
+.weekend-switch-hint {
+  margin: 0.25rem 0 0 0;
+  font-size: 0.85rem;
+  color: #0284c7;
+}
+
+.weekend-toggle {
+  flex-shrink: 0;
+}
+
+.weekend-toggle.active {
+  background: #0ea5e9;
+}
+
+.weekend-preview {
+  margin-top: 0.75rem;
+  display: flex;
+  justify-content: center;
+}
+
+.weekend-badge {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  letter-spacing: 0.025em;
+}
+
+.weekend-badge.all-days {
+  background: linear-gradient(135deg, #dbeafe 0%, #e0f2fe 100%);
+  color: #1e40af;
+  border: 1px solid #93c5fd;
+}
+
+.weekend-badge.all-days strong {
+  color: #1d4ed8;
+  font-weight: 700;
+}
+
+.weekend-badge.weekdays-only {
+  background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+  color: #065f46;
+  border: 1px solid #6ee7b7;
+}
+
+/* Dark mode para switch de fines de semana */
+body.dark .weekend-switch-container {
+  background: linear-gradient(135deg, #0c4a6e 0%, #164e63 100%);
+  border-color: #0e7490;
+}
+
+body.dark .weekend-switch-label {
+  color: #7dd3fc;
+}
+
+body.dark .weekend-switch-hint {
+  color: #67e8f9;
+}
+
+body.dark .weekend-badge.all-days {
+  background: linear-gradient(135deg, #1e3a5f 0%, #164e63 100%);
+  color: #7dd3fc;
+  border-color: #0ea5e9;
+}
+
+body.dark .weekend-badge.all-days strong {
+  color: #38bdf8;
+}
+
+body.dark .weekend-badge.weekdays-only {
+  background: linear-gradient(135deg, #064e3b 0%, #065f46 100%);
+  color: #6ee7b7;
+  border-color: #10b981;
+}
+
+body.dark .weekend-switch-group {
+  border-top-color: #475569;
 }
 </style>
