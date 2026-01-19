@@ -111,8 +111,8 @@ onMounted(async () => {
           <h1 class="page-title">Tareas Recurrentes</h1>
           <p class="page-subtitle">
             {{ store.isSupervisor 
-              ? 'Tareas recurrentes de tu equipo y las asignadas a ti' 
-              : 'Tareas recurrentes asignadas a ti' 
+              ? 'Apartado de tareas del sector que se generan periódicamente' 
+              : 'Apartado de tareas que se generan periódicamente asignadas a tu usuario' 
             }}
           </p>
         </div>
@@ -157,7 +157,7 @@ onMounted(async () => {
 
 .recurrent-tasks-header {
   padding: 1.5rem;
-  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%, #000000 100%);
   border-radius: 0 0 20px 20px;
   margin-bottom: 0;
 }

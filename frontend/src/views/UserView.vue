@@ -106,7 +106,8 @@ const verTareasUsuario = (id) => {
 </script>
 
 <template>
-  <main class="users-container">
+    <div class="app-container">
+    <main class="main-content">
     <!-- Header -->
     <div class="users-header">
       <h2 class="page-title">Usuarios registrados</h2>
@@ -198,9 +199,15 @@ const verTareasUsuario = (id) => {
       <button v-if="searchQuery" class="btn-clear-filters" @click="clearSearch">Limpiar búsqueda</button>
     </div>
   </main>
+</div>
 </template>
 
 <style scoped>
+
+.app-container {
+  min-height: 100vh;
+}
+
 /* === CONTENEDOR PRINCIPAL === */
 .users-container {
   padding: 0;
@@ -208,6 +215,10 @@ const verTareasUsuario = (id) => {
   max-width: 100%;
   background-color: #f5f5f5;
   min-height: 100vh;
+}
+
+.main-content {
+  padding: 0;
 }
 
 /* === HEADER === */
@@ -468,30 +479,33 @@ const verTareasUsuario = (id) => {
 }
 
 .btn-tasks {
-  background: linear-gradient(135deg, #7b61ff, #6366f1);
+  background: linear-gradient(135deg, #6956ca);
   color: white;
 }
 
 .btn-tasks:hover {
-  background: linear-gradient(135deg, #684de0, #4f46e5);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(111, 62, 139, 0.4);
 }
 
 .btn-edit {
-  background: linear-gradient(135deg, #4cad73, #10b981);
+  background: linear-gradient(135deg, #4cad73);
   color: white;
 }
 
 .btn-edit:hover {
-  background: linear-gradient(135deg, #3c965f, #059669);
-}
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(60, 189, 129, 0.4);
+} 
 
 .btn-delete {
-  background: linear-gradient(135deg, #e16060, #ef4444);
+  background: linear-gradient(135deg, #dd4c4c);
   color: white;
 }
 
 .btn-delete:hover {
-  background: linear-gradient(135deg, #c84c4c, #dc2626);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(185, 55, 55, 0.4);
 }
 
 /* === ESTADO VACÍO === */

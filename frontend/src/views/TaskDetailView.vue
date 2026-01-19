@@ -335,7 +335,6 @@ const confirmDelete = (id) => {
 
             <!-- Info de recurrencia si aplica -->
             <div v-if="task.recurringTaskId" class="recurring-notice">
-                <span class="recurring-icon">🔄</span>
                 <span class="recurring-text">Esta tarea fue generada automáticamente por una tarea recurrente</span>
             </div>
 
@@ -487,7 +486,7 @@ const confirmDelete = (id) => {
     border-color: #ef4444;
 }
 
-/* Botón Editar */
+/* Botón Editar
 .btn-edit {
     width: 80px;
     height: 30px;
@@ -509,28 +508,52 @@ const confirmDelete = (id) => {
 .btn-edit:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(60, 114, 189, 0.4);
+} */
+/* Botón Editar */
+
+.btn-edit {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 20px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  background: linear-gradient(135deg, #4cad73);
+  color: white;
+  margin: 1rem 0rem 1rem auto;
 }
 
+.btn-edit:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(60, 189, 129, 0.4);
+} 
 /* Botón Editar */
 .btn-delete {
-    width: 80px;
-    height: 30px;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 1rem;
-    background: linear-gradient(135deg, #dd4c4c);
-    color: white;
-    border: none;
-    border-radius: 8px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 20px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  background: linear-gradient(135deg, #dd4c4c);
+  color: white;
 }
 
 .btn-delete:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(177, 55, 55, 0.4);
+    box-shadow: 0 4px 12px rgba(185, 55, 55, 0.4);
 }
 
 /* Notice de edición bloqueada

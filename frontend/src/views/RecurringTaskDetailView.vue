@@ -156,11 +156,11 @@ const getPatternDescription = computed(() => {
     }
     
     if (periodicity === "SEMANAL" && datePattern) {
-        return `Se repite cada semana los ${getDayLabel(datePattern)}`;
+        return `Se repite cada semana los días ${getDayLabel(datePattern)}`;
     }
     
     if (periodicity === "QUINCENAL" && datePattern) {
-        return `Se repite cada dos semanas los ${getDayLabel(datePattern)}`;
+        return `Se repite cada dos semanas los días ${getDayLabel(datePattern)}`;
     }
     
     if (periodicity === "MENSUAL" && numberPattern) {
@@ -203,7 +203,7 @@ const goBack = () => router.push("/recurrent");
             <div v-if="isDeactivated && task.deactivatedAt" class="deactivated-notice">
                 <span class="notice-icon">⚠️</span>
                 <span class="notice-text">
-                    Esta tarea fue desactivada el {{ formatDate(task.deactivatedAt) }}
+                    Esta tarea fue desactivada el {{ formatDate(task.deactivatedAt) }} y no puede reactivarse
                 </span>
             </div>
 
@@ -223,11 +223,6 @@ const goBack = () => router.push("/recurrent");
                 </p>
             </div>
 
-            <!-- Aviso si ya está desactivada (para supervisores) -->
-            <div v-else-if="canEdit && isDeactivated" class="already-deactivated-notice">
-                <span class="notice-icon">🔒</span>
-                <span class="notice-text">Esta tarea ya fue desactivada y no puede reactivarse</span>
-            </div>
             
             <!-- Leyenda si no es supervisor -->
             <div v-else-if="!userStore.isSupervisor" class="not-supervisor-notice">
@@ -524,10 +519,6 @@ const goBack = () => router.push("/recurrent");
     border: 1px solid #f59e0b;
     border-radius: 10px;
     margin-bottom: 1.5rem;
-}
-
-.deactivated-notice .notice-icon {
-    font-size: 1.2rem;
 }
 
 .deactivated-notice .notice-text {
