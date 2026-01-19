@@ -29,6 +29,15 @@ recurringTaskRouter.get(
 	RecurringTaskController.getMyTasks,
 );
 
+// Endpoint para obtener detalle de una tarea recurrente con validación de permisos
+// - Usuario normal: solo si está asignado a la tarea
+// - Supervisor: si hay algún usuario asignado de su mismo sector
+recurringTaskRouter.get(
+	"/recurring-tasks/detail/:id",
+	authByToken,
+	RecurringTaskController.getByIdForUser,
+);
+
 recurringTaskRouter.get(
 	"/recurring-tasks/:id",
 	authByToken,
@@ -36,10 +45,11 @@ recurringTaskRouter.get(
 	RecurringTaskController.getById,
 );
 
+// PUT para actualizar SOLO la lista de usuarios asignados (assignedTo)
+// Solo el titular (posición 0 del assignedTo) puede editar, independientemente de si es Supervisor
 recurringTaskRouter.put(
 	"/recurring-tasks/:id",
 	authByToken,
-	requireSupervisor,
 	RecurringTaskController.update,
 );
 
@@ -58,10 +68,10 @@ recurringTaskRouter.delete(
 );
 
 // PATCH para desactivar (cambio de estado, no eliminación)
+// Solo el titular de la tarea (posición 0 del assignedTo) puede desactivar
 recurringTaskRouter.patch(
 	"/recurring-tasks/:id/deactivate",
 	authByToken,
-	requireSupervisor,
 	RecurringTaskController.deactivate,
 );
 

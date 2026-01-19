@@ -127,14 +127,71 @@ export const RecurringTaskController = {
 		}
 	},
 
+	// GET /recurring-tasks/detail/:id
+	// Obtiene una tarea recurrente por id validando permisos:
+	// - Usuario normal: solo si está asignado a la tarea
+	// - Supervisor: si hay algún usuario asignado de su mismo sector
+	getByIdForUser: async (req, res) => {
+		try {
+			const { id } = req.params;
+			const { user } = req;
+			const task = await RecurringTaskRepository.getById(id);
+
+			if (!task) {
+				return res.status(404).json({
+					ok: false,
+					message: "Tarea recurrente no encontrada",
+					payload: null,
+				});
+			}
+
+			// Verificar permisos
+			const isAssigned = task.assignedTo.some(assigned => {
+				const assignedId = typeof assigned === 'object' 
+					? String(assigned._id || assigned.id) 
+					: String(assigned);
+				return assignedId === String(user.id);
+			});
+
+			const hasSameSectorUser = user.isSupervisor && task.assignedTo.some(assigned => {
+				if (typeof assigned === 'object' && assigned.sector) {
+					return assigned.sector === user.sector;
+				}
+				return false;
+			});
+
+			if (!isAssigned && !hasSameSectorUser) {
+				return res.status(403).json({
+					ok: false,
+					message: "No tiene permisos para ver esta tarea recurrente",
+					payload: null,
+				});
+			}
+
+			return res.status(200).json({
+				message: "Tarea recurrente encontrada",
+				payload: task,
+				ok: true,
+			});
+		} catch (error) {
+			console.error("Error al obtener tarea recurrente", error);
+			return res.status(500).json({
+				ok: false,
+				message: "No se pudo obtener la tarea recurrente",
+			});
+		}
+	},
+
 	// PUT /recurring-tasks/:id
-	// Actualiza título/descripción/assignedTo de la tarea recurrente y afecta tareas individuales
-	// Solo el titular (primer usuario en assignedTo) puede modificar
-	// NO permite reactivar una tarea desactivada
+	// Actualiza SOLO la lista de usuarios asignados (assignedTo) de la tarea recurrente
+	// Solo el titular (posición 0 en assignedTo) puede modificar, independientemente de si es Supervisor
+	// El titular no puede eliminarse a sí mismo de la tarea
+	// Las tareas pasadas NO se modifican, solo reciben una leyenda de modificación
+	// Las tareas futuras se actualizan con el nuevo assignedTo
 	update: async (req, res) => {
 		try {
 			const { id } = req.params;
-			const { title, description, assignedTo, active } = req.body;
+			const { assignedTo } = req.body;
 			const requestingUserId = req.user?.id;
 
 			if (!requestingUserId) {
@@ -144,20 +201,17 @@ export const RecurringTaskController = {
 				});
 			}
 
-			// Verificar si intentan reactivar una tarea desactivada
-			if (active === true) {
-				const existingTask = await RecurringTaskRepository.getById(id);
-				if (existingTask && (existingTask.active === false || existingTask.deactivatedAt)) {
-					return res.status(400).json({
-						ok: false,
-						message: "Una tarea recurrente desactivada no puede volver a activarse",
-					});
-				}
+			// Validar que se proporcione assignedTo
+			if (assignedTo === undefined) {
+				return res.status(400).json({
+					ok: false,
+					message: "Se debe proporcionar la lista de usuarios asignados (assignedTo)",
+				});
 			}
 
 			const result = await RecurringTaskService.update(
 				id,
-				{ title, description, assignedTo },
+				{ assignedTo },
 				requestingUserId
 			);
 
@@ -170,17 +224,36 @@ export const RecurringTaskController = {
 			}
 
 			return res.status(200).json({
-				message: "Tarea recurrente actualizada",
+				message: `Tarea recurrente actualizada. ${result.changeType}`,
 				payload: result,
 				ok: true,
 			});
 		} catch (error) {
 			console.error("Error al actualizar tarea recurrente", error);
 
-			// Handle specific authorization error
-			if (error.message === "Solo el titular de la tarea puede modificarla" ||
-				error.message === "El titular no puede quitarse a sí mismo ni cambiar su posición") {
+			// Handle specific authorization/validation errors
+			const forbiddenMessages = [
+				"Solo el titular de la tarea (posición 0 del assignedTo) puede modificarla",
+				"El titular no puede quitarse a sí mismo ni cambiar su posición",
+			];
+
+			const badRequestMessages = [
+				"Solo se permite modificar la lista de usuarios asignados (assignedTo)",
+				"Se debe proporcionar la lista de usuarios asignados (assignedTo)",
+				"assignedTo debe ser un array",
+				"La tarea debe tener al menos un usuario asignado",
+				"No se puede modificar una tarea recurrente desactivada",
+			];
+
+			if (forbiddenMessages.includes(error.message)) {
 				return res.status(403).json({
+					ok: false,
+					message: error.message,
+				});
+			}
+
+			if (badRequestMessages.includes(error.message)) {
+				return res.status(400).json({
 					ok: false,
 					message: error.message,
 				});
@@ -262,9 +335,43 @@ export const RecurringTaskController = {
 	// DEACTIVATE /recurring-tasks/:id
 	// Desactiva la tarea recurrente Y borra todas sus tareas individuales FUTURAS NO COMPLETADAS
 	// Una vez desactivada, NO se puede volver a activar
+	// Solo el titular (posición 0 del assignedTo) puede desactivar
 	deactivate: async (req, res) => {
 		try {
 			const { id } = req.params;
+			const { user } = req;
+
+			// Obtener la tarea para validar permisos
+			const task = await RecurringTaskRepository.getById(id);
+
+			if (!task) {
+				return res.status(404).json({
+					ok: false,
+					message: "Tarea recurrente no encontrada",
+					payload: null,
+				});
+			}
+
+			// Validar que el usuario sea el titular (posición 0 del assignedTo)
+			if (!task.assignedTo || task.assignedTo.length === 0) {
+				return res.status(403).json({
+					ok: false,
+					message: "La tarea no tiene usuarios asignados",
+				});
+			}
+
+			const titular = task.assignedTo[0];
+			const titularId = typeof titular === 'object' 
+				? String(titular._id || titular.id) 
+				: String(titular);
+			
+			if (titularId !== String(user.id)) {
+				return res.status(403).json({
+					ok: false,
+					message: "Solo el titular de la tarea puede desactivarla",
+				});
+			}
+
 			const result = await RecurringTaskService.deactivate(id);
 
 			if (!result) {

@@ -466,17 +466,20 @@ export const RecurringTaskService = {
 	},
 
 	/**
-	 * Updates a recurring task's title, description, and/or assignedTo
-	 * Updates future individual tasks and marks past tasks with modification legend
-	 * Only the task owner (first in assignedTo) can modify, and cannot remove themselves
+	 * Updates a recurring task's assignedTo list ONLY
+	 * - Only the task owner (position 0 in assignedTo) can modify
+	 * - The owner cannot remove themselves from the task
+	 * - If task is shared: can add/remove users (except owner) or make it non-shared
+	 * - If task is not shared: can make it shared and add users
+	 * - Future tasks are updated with new assignedTo
+	 * - Past tasks are NOT modified but receive a legend indicating modification date
 	 * @param {string} id - MongoDB ObjectId
-	 * @param {Object} updateData - Object containing title, description, and/or assignedTo
+	 * @param {Object} updateData - Object containing assignedTo array
 	 * @param {string} requestingUserId - ObjectId of the user making the request
 	 * @returns {Promise<Object>} Update result with recurring task and affected tasks count
 	 */
 	async update(id, updateData, requestingUserId) {
 		const modificationDate = new Date();
-		const MODIFICATION_LEGEND = " | Esta tarea tuvo modificaciones posteriores.";
 
 		// Get the current recurring task to validate ownership
 		const recurringTask = await RecurringTaskRepository.getById(id);
@@ -484,71 +487,94 @@ export const RecurringTaskService = {
 			return null;
 		}
 
+		// Verificar si la tarea está desactivada
+		if (recurringTask.active === false || recurringTask.deactivatedAt) {
+			throw new Error("No se puede modificar una tarea recurrente desactivada");
+		}
+
 		// Get the task owner (first in assignedTo array)
 		const taskOwner = recurringTask.assignedTo[0]._id
 			? recurringTask.assignedTo[0]._id.toString()
 			: recurringTask.assignedTo[0].toString();
 
-		// Verify the requesting user is the task owner
+		// Verify the requesting user is the task owner (position 0)
 		if (taskOwner !== requestingUserId) {
-			throw new Error("Solo el titular de la tarea puede modificarla");
+			throw new Error("Solo el titular de la tarea (posición 0 del assignedTo) puede modificarla");
 		}
 
-		// Track which fields are being modified for the legend
-		const modifiedFields = [];
-		if (updateData.title !== undefined) modifiedFields.push("título");
-		if (updateData.description !== undefined) modifiedFields.push("descripción");
-		if (updateData.assignedTo !== undefined) modifiedFields.push("usuarios asignados");
-
-		// Validate assignedTo modifications if provided
-		if (updateData.assignedTo !== undefined) {
-			if (!Array.isArray(updateData.assignedTo)) {
-				throw new Error("assignedTo debe ser un array");
-			}
-
-			if (updateData.assignedTo.length < 1) {
-				throw new Error("La tarea debe tener al menos un usuario asignado");
-			}
-
-			// Ensure the owner (first user) remains in first position
-			const newFirstUser = updateData.assignedTo[0].toString();
-			if (newFirstUser !== taskOwner) {
-				throw new Error("El titular no puede quitarse a sí mismo ni cambiar su posición");
-			}
+		// VALIDACIÓN: Solo se permite modificar assignedTo
+		if (updateData.title !== undefined || updateData.description !== undefined) {
+			throw new Error("Solo se permite modificar la lista de usuarios asignados (assignedTo)");
 		}
 
-		// Build modification legend text
-		const modificationsText = modifiedFields.length > 0
-			? ` Campos modificados: ${modifiedFields.join(", ")}.`
-			: "";
+		// Validate assignedTo is provided and is an array
+		if (updateData.assignedTo === undefined) {
+			throw new Error("Se debe proporcionar la lista de usuarios asignados (assignedTo)");
+		}
+
+		if (!Array.isArray(updateData.assignedTo)) {
+			throw new Error("assignedTo debe ser un array");
+		}
+
+		if (updateData.assignedTo.length < 1) {
+			throw new Error("La tarea debe tener al menos un usuario asignado");
+		}
+
+		// Ensure the owner (first user) remains in first position - cannot remove or change position
+		const newFirstUser = updateData.assignedTo[0].toString();
+		if (newFirstUser !== taskOwner) {
+			throw new Error("El titular no puede quitarse a sí mismo ni cambiar su posición");
+		}
+
+		// Determinar el tipo de cambio (para información en la respuesta)
+		const wasShared = recurringTask.assignedTo.length > 1;
+		const willBeShared = updateData.assignedTo.length > 1;
+		let changeType = "modificación de usuarios";
+
+		if (wasShared && !willBeShared) {
+			changeType = "tarea dejó de ser compartida";
+		} else if (!wasShared && willBeShared) {
+			changeType = "tarea ahora es compartida";
+		}
+
+		// Build modification legend for past tasks
+		const formattedDate = ArgentinaTime.formatDate(modificationDate);
+		const MODIFICATION_LEGEND = ` | La tarea recurrente fue modificada el ${formattedDate}.`;
+
+		// Only update assignedTo in the data to pass to repository
+		const sanitizedUpdateData = {
+			assignedTo: updateData.assignedTo,
+		};
 
 		// Callback to handle individual tasks update
 		const handleIndividualTasksUpdate = async (recurringTaskId, updates) => {
-			// Update future tasks (deadline >= now) with new data
-			await TaskModel.updateMany(
-				{
-					recurringTaskId: recurringTaskId,
-					date: { $gte: modificationDate },
-				},
-				{ $set: updates }
-			);
+			// ONLY update FUTURE tasks (date >= now) with new assignedTo
+			if (updates.assignedTo) {
+				await TaskModel.updateMany(
+					{
+						recurringTaskId: recurringTaskId,
+						date: { $gte: modificationDate },
+					},
+					{ $set: { assignedTo: updates.assignedTo } }
+				);
+			}
 
-			// Add legend to past tasks (deadline < now)
+			// Add legend to PAST tasks (date < now) - do NOT modify their assignedTo
 			const pastTasks = await TaskModel.find({
 				recurringTaskId: recurringTaskId,
 				date: { $lt: modificationDate },
 			});
 
 			for (const task of pastTasks) {
-				const hasLegend = task.description && task.description.includes("Esta tarea tuvo modificaciones posteriores");
+				const hasLegend = task.description && task.description.includes("La tarea recurrente fue modificada");
 				let updatedDescription;
 
 				if (!hasLegend) {
 					// First modification - add full legend
-					updatedDescription = (task.description || "") + MODIFICATION_LEGEND + modificationsText;
+					updatedDescription = (task.description || "") + MODIFICATION_LEGEND;
 				} else {
-					// Already has legend - append new modification info
-					updatedDescription = task.description + modificationsText;
+					// Already has legend - append new modification date
+					updatedDescription = task.description + ` Nueva modificación el ${formattedDate}.`;
 				}
 
 				await TaskModel.findByIdAndUpdate(task._id, {
@@ -559,7 +585,7 @@ export const RecurringTaskService = {
 
 		const updatedRecurringTask = await RecurringTaskRepository.updateById(
 			id,
-			updateData,
+			sanitizedUpdateData,
 			handleIndividualTasksUpdate
 		);
 
@@ -570,19 +596,21 @@ export const RecurringTaskService = {
 		// Get counts for response
 		const futureTasksCount = await TaskModel.countDocuments({
 			recurringTaskId: id,
-			deadline: { $gte: modificationDate },
+			date: { $gte: modificationDate },
 		});
 
 		const pastTasksCount = await TaskModel.countDocuments({
 			recurringTaskId: id,
-			deadline: { $lt: modificationDate },
+			date: { $lt: modificationDate },
 		});
 
 		return {
 			recurringTask: updatedRecurringTask,
 			futureTasksUpdated: futureTasksCount,
 			pastTasksMarked: pastTasksCount,
-			modifiedFields,
+			changeType,
+			isShared: willBeShared,
+			modificationDate: formattedDate,
 		};
 	},
 

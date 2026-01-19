@@ -33,8 +33,19 @@ export const getRecurringTaskById = async (id) => {
   return data.payload;
 };
 
-// Actualizar tarea recurrente (solo supervisores)
-// NOTA: No permite reactivar una tarea desactivada
+// Obtener detalle de tarea recurrente con validación de permisos (usuarios y supervisores)
+// - Usuario normal: solo si está asignado
+// - Supervisor: si hay usuarios de su sector asignados
+export const getRecurringTaskDetailById = async (id) => {
+  const { data } = await api.get(`/recurringTask/recurring-tasks/detail/${id}`);
+  return data.payload;
+};
+
+// Actualizar lista de usuarios asignados de la tarea recurrente
+// Solo el titular (posición 0 de assignedTo) puede modificar
+// Solo permite modificar assignedTo, no título ni descripción
+// Las tareas pasadas NO se modifican, solo reciben leyenda de modificación
+// Las tareas futuras se actualizan con el nuevo assignedTo
 export const updateRecurringTask = async (id, recurringTask) => {
   const { data } = await api.put(`/recurringTask/recurring-tasks/${id}`, recurringTask);
   return data;

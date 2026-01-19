@@ -143,6 +143,30 @@ const recurringDeactivatedAt = computed(() => {
     return recurringTaskInfo.value?.deactivatedAt || null;
 });
 
+// Detectar si la descripción tiene leyenda de modificación de tarea recurrente
+const hasRecurringModificationLegend = computed(() => {
+    if (!task.value?.description) return false;
+    return task.value.description.includes('La tarea recurrente fue modificada el');
+});
+
+// Extraer la fecha de modificación de la descripción
+const recurringModificationDate = computed(() => {
+    if (!hasRecurringModificationLegend.value) return null;
+    // Buscar patrón "La tarea recurrente fue modificada el DD/MM/YYYY"
+    const match = task.value.description.match(/La tarea recurrente fue modificada el (\d{2}\/\d{2}\/\d{4})/); 
+    return match ? match[1] : null;
+});
+
+// Descripción limpia (sin la leyenda de modificación)
+const cleanDescription = computed(() => {
+    if (!task.value?.description) return '';
+    // Remover la leyenda de modificación si existe
+    return task.value.description
+        .replace(/\s*\|\s*La tarea recurrente fue modificada el \d{2}\/\d{2}\/\d{4}\.?/g, '')
+        .replace(/\s*Nueva modificación el \d{2}\/\d{2}\/\d{4}\.?/g, '')
+        .trim();
+});
+
 // Formatear fechas
 const formatDate = (dateString) => {
     if (!dateString) return "No especificada";
@@ -263,6 +287,11 @@ const confirmDelete = (id) => {
                 </div>
             </div>
 
+            <!-- Aviso de tarea recurrente modificada (debajo del header) -->
+            <div v-if="hasRecurringModificationLegend && recurringModificationDate" class="recurring-modified-notice">                
+                <span class="notice-text">La tarea recurrente sufrió modificaciones el {{ recurringModificationDate }}</span>
+            </div>
+
             <!-- Switch para completar tarea (solo si puede) -->
             <div v-if="canComplete" class="complete-task-section">
                 <label class="complete-switch" :class="{ 'is-loading': updatingTask }">
@@ -288,7 +317,7 @@ const confirmDelete = (id) => {
             <!-- Descripción -->
             <div class="task-section">
                 <span class="section-label">DESCRIPCIÓN</span>
-                <p class="task-description">{{ task.description }}</p>
+                <p class="task-description">{{ cleanDescription || 'Sin descripción' }}</p>
             </div>
 
 
@@ -1037,6 +1066,29 @@ body:not(.dark) .switch-label {
 body:not(.dark) .not-assigned-notice {
     background: #f3f4f6;
     color: #6b7280;
+}
+
+/* ===== AVISO DE TAREA RECURRENTE MODIFICADA ===== */
+.recurring-modified-notice {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.6rem 1rem;
+    background: #fef3c7;
+    border: 1px solid #fcd34d;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    color: #92400e;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.recurring-modified-notice .notice-icon {
+    font-size: 1rem;
+}
+
+.recurring-modified-notice .notice-text {
+    color: #92400e;
 }
 
 /* Responsive */
