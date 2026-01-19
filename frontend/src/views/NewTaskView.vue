@@ -42,14 +42,18 @@ const PERIODICIDADES = [
 ]
 
 const DIAS_SEMANA = [
-  { value: 'LUNES', label: 'Lunes' },
-  { value: 'MARTES', label: 'Martes' },
-  { value: 'MIERCOLES', label: 'Miércoles' },
-  { value: 'JUEVES', label: 'Jueves' },
-  { value: 'VIERNES', label: 'Viernes' },
-  { value: 'SABADO', label: 'Sábado' },
-  { value: 'DOMINGO', label: 'Domingo' }
+  { value: 'LUNES', label: 'Lunes', jsDay: 1 },
+  { value: 'MARTES', label: 'Martes', jsDay: 2 },
+  { value: 'MIERCOLES', label: 'Miércoles', jsDay: 3 },
+  { value: 'JUEVES', label: 'Jueves', jsDay: 4 },
+  { value: 'VIERNES', label: 'Viernes', jsDay: 5 },
+  { value: 'SABADO', label: 'Sábado', jsDay: 6 },
+  { value: 'DOMINGO', label: 'Domingo', jsDay: 0 }
 ]
+
+// Estado para selector de fecha filtrado
+const fechaSeleccionada = ref(null) // Objeto Date seleccionado
+const horaInicio = ref('09:00') // Hora por defecto
 
 // ===== COMPUTED =====
 const puedeAsignarOtros = computed(() => store.isSupervisor)
@@ -63,6 +67,53 @@ const necesitaDiaMes = computed(() => {
 })
 
 const recurrenceType = computed(() => tipoPatron.value)
+
+// ===== SELECTOR DE FECHAS FILTRADO POR DÍA =====
+// Determina si debe usar el selector de fechas filtrado
+const usarSelectorFechaFiltrado = computed(() => {
+  return esRecurrente.value && 
+         tipoPatron.value === 'DAILY_PATTERN' && 
+         ['SEMANAL', 'QUINCENAL'].includes(periodicity.value)
+})
+
+// Obtiene las próximas fechas disponibles para el día seleccionado
+const proximasFechasDisponibles = computed(() => {
+  if (!usarSelectorFechaFiltrado.value) return []
+  
+  const diaConfig = DIAS_SEMANA.find(d => d.value === datePattern.value)
+  if (!diaConfig) return []
+  
+  const targetDay = diaConfig.jsDay
+  const fechas = []
+  const hoy = new Date()
+  hoy.setHours(0, 0, 0, 0)
+  
+  let fecha = new Date(hoy)
+  
+  // Encontrar el próximo día que coincida
+  while (fecha.getDay() !== targetDay) {
+    fecha.setDate(fecha.getDate() + 1)
+  }
+  
+  // Generar las próximas 12 fechas disponibles
+  for (let i = 0; i < 12; i++) {
+    fechas.push(new Date(fecha))
+    fecha.setDate(fecha.getDate() + 7) // Siguiente semana
+  }
+  
+  return fechas
+})
+
+// Formatea una fecha para mostrar en el selector
+const formatearFechaSelector = (fecha) => {
+  const opciones = { 
+    weekday: 'long', 
+    day: 'numeric', 
+    month: 'long', 
+    year: 'numeric' 
+  }
+  return fecha.toLocaleDateString('es-AR', opciones)
+}
 
 // Lista de usuarios disponibles (sin el supervisor si es supervisor)
 const usuariosDisponibles = computed(() => {
@@ -322,6 +373,8 @@ watch(esRecurrente, (nuevoValor) => {
     datePattern.value = 'LUNES'
     numberPattern.value = 1
     tipoPatron.value = 'DAILY_PATTERN'
+    // Limpiar fecha seleccionada del selector filtrado
+    fechaSeleccionada.value = null
   }
   // Ya no limpiamos date/deadline porque se usan en ambos casos
 })
@@ -332,6 +385,60 @@ watch(tipoPatron, (nuevoValor) => {
     datePattern.value = 'LUNES'
   } else {
     numberPattern.value = 1
+  }
+  // Limpiar fecha seleccionada cuando cambia el tipo de patrón
+  fechaSeleccionada.value = null
+  date.value = ''
+})
+
+// Cuando cambia el día del patrón, limpiar la fecha seleccionada
+watch(datePattern, () => {
+  if (usarSelectorFechaFiltrado.value) {
+    fechaSeleccionada.value = null
+    date.value = ''
+  }
+})
+
+// Cuando cambia la periodicidad, limpiar la fecha seleccionada
+watch(periodicity, () => {
+  if (usarSelectorFechaFiltrado.value) {
+    fechaSeleccionada.value = null
+    date.value = ''
+  }
+})
+
+// Cuando se selecciona una fecha del selector filtrado, actualizar date
+watch(fechaSeleccionada, (nuevaFecha) => {
+  if (nuevaFecha && usarSelectorFechaFiltrado.value) {
+    const fecha = new Date(nuevaFecha)
+    const [horas, minutos] = horaInicio.value.split(':')
+    fecha.setHours(parseInt(horas), parseInt(minutos), 0, 0)
+    
+    // Formatear como datetime-local
+    const year = fecha.getFullYear()
+    const month = String(fecha.getMonth() + 1).padStart(2, '0')
+    const day = String(fecha.getDate()).padStart(2, '0')
+    const hours = String(fecha.getHours()).padStart(2, '0')
+    const mins = String(fecha.getMinutes()).padStart(2, '0')
+    
+    date.value = `${year}-${month}-${day}T${hours}:${mins}`
+  }
+})
+
+// Cuando cambia la hora, actualizar date si hay fecha seleccionada
+watch(horaInicio, (nuevaHora) => {
+  if (fechaSeleccionada.value && usarSelectorFechaFiltrado.value) {
+    const fecha = new Date(fechaSeleccionada.value)
+    const [horas, minutos] = nuevaHora.split(':')
+    fecha.setHours(parseInt(horas), parseInt(minutos), 0, 0)
+    
+    const year = fecha.getFullYear()
+    const month = String(fecha.getMonth() + 1).padStart(2, '0')
+    const day = String(fecha.getDate()).padStart(2, '0')
+    const hours = String(fecha.getHours()).padStart(2, '0')
+    const mins = String(fecha.getMinutes()).padStart(2, '0')
+    
+    date.value = `${year}-${month}-${day}T${hours}:${mins}`
   }
 })
 
@@ -532,7 +639,49 @@ onMounted(obtenerUsuarios)
         <div class="form-section">
           <h3 class="section-title">Fecha y Hora</h3>
           
-          <div class="form-group">
+          <!-- Selector de fecha FILTRADO (para tareas recurrentes con patrón diario semanal/quincenal) -->
+          <div v-if="usarSelectorFechaFiltrado" class="form-group">
+            <label>Fecha de inicio</label>
+            <p class="field-hint">
+              Seleccioná el {{ DIAS_SEMANA.find(d => d.value === datePattern)?.label || 'día' }} 
+              a partir del cual se generarán las tareas recurrentes
+            </p>
+            
+            <!-- Selector de fecha -->
+            <div class="fecha-filtrada-selector">
+              <select 
+                v-model="fechaSeleccionada" 
+                class="fecha-select"
+                required
+              >
+                <option :value="null" disabled>Seleccioná una fecha</option>
+                <option 
+                  v-for="fecha in proximasFechasDisponibles" 
+                  :key="fecha.getTime()" 
+                  :value="fecha"
+                >
+                  {{ formatearFechaSelector(fecha) }}
+                </option>
+              </select>
+              
+              <!-- Selector de hora -->
+              <div class="hora-selector">
+                <label class="hora-label">Hora:</label>
+                <input 
+                  type="time" 
+                  v-model="horaInicio" 
+                  class="hora-input"
+                />
+              </div>
+            </div>
+            
+            <p v-if="fechaSeleccionada" class="fecha-preview">
+              📅 Primera tarea: {{ formatearFechaSelector(fechaSeleccionada) }} a las {{ horaInicio }}hs
+            </p>
+          </div>
+          
+          <!-- Selector de fecha NORMAL (para tareas no recurrentes o con otros patrones) -->
+          <div v-else class="form-group">
             <label for="date">{{ esRecurrente ? 'Fecha de inicio' : 'Comienzo' }}</label>
             <p class="field-hint">{{ esRecurrente ? 'A partir de esta fecha se generarán las tareas recurrentes' : 'Establece cuando empezará la tarea' }}</p>
             <input
@@ -1117,6 +1266,71 @@ onMounted(obtenerUsuarios)
   color: white;
 }
 
+/* ===== SELECTOR DE FECHA FILTRADO ===== */
+.fecha-filtrada-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.fecha-select {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  font-size: 0.95rem;
+  border: 2px solid #e5e7eb;
+  border-radius: 10px;
+  background: white;
+  cursor: pointer;
+  transition: border-color 0.2s;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 1rem center;
+}
+
+.fecha-select:focus {
+  outline: none;
+  border-color: #4f83cc;
+  box-shadow: 0 0 0 3px rgba(79, 131, 204, 0.15);
+}
+
+.hora-selector {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.hora-label {
+  font-size: 0.9rem;
+  color: #374151;
+  font-weight: 500;
+}
+
+.hora-input {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.95rem;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  background: white;
+  width: auto;
+}
+
+.hora-input:focus {
+  outline: none;
+  border-color: #4f83cc;
+  box-shadow: 0 0 0 3px rgba(79, 131, 204, 0.15);
+}
+
+.fecha-preview {
+  margin-top: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: linear-gradient(135deg, #e0f2fe 0%, #dbeafe 100%);
+  border-radius: 8px;
+  font-size: 0.875rem;
+  color: #1e40af;
+  font-weight: 500;
+}
+
 /* ===== NÚMERO DEL MES ===== */
 .number-pattern-input {
   display: flex;
@@ -1653,6 +1867,14 @@ body.dark .titular-hint {
   .btn-secondary {
     width: 100%;
     justify-content: center;
+  }
+  
+  .fecha-filtrada-selector {
+    gap: 0.5rem;
+  }
+  
+  .hora-selector {
+    flex-wrap: wrap;
   }
 }
 </style>
