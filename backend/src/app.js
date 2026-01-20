@@ -11,18 +11,54 @@ import { parseDateFields } from "./middleware/dateParser.js";
 
 const app = express();
 
-// Middleware CORS
+/* =========================
+   CORS CONFIG (FIX DEFINITIVO)
+========================= */
+
+const allowedOrigins = [
+	"http://localhost:5173",
+	"http://127.0.0.1:5173",
+	"https://gestordetareasapp.onrender.com",
+];
+
 app.use(
 	cors({
-		origin: "http://localhost:5173", // URL de tu frontend en dev
+		origin: function (origin, callback) {
+			// Permitir requests sin origin (Postman, curl, Render healthchecks)
+			if (!origin) return callback(null, true);
+
+			if (allowedOrigins.includes(origin)) {
+				return callback(null, true);
+			} else {
+				return callback(new Error("Not allowed by CORS"));
+			}
+		},
 		credentials: true,
+		methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+		allowedHeaders: ["Content-Type", "Authorization"],
 	}),
 );
+
+app.use((req, res, next) => {
+	if (req.method === "OPTIONS") {
+		return res.sendStatus(200);
+	}
+	next();
+});
+
+
+/* =========================
+   MIDDLEWARES
+========================= */
 
 app.use(express.json());
 
 // Middleware para convertir fechas de Argentina a UTC automáticamente
 app.use(parseDateFields);
+
+/* =========================
+   ROUTES
+========================= */
 
 app.get("/", async (req, res) => {
 	return res.json({
@@ -37,22 +73,3 @@ app.use("/users", userRouter);
 app.use("/recurringTask", recurringTaskRouter);
 
 export default app;
-/*
-const startServer = async () => {
-	try {
-		await mongoConnectionInstance.connect();
-		app.listen(config.PORT, () => {
-			console.log(
-				`🫶🏻⚽🍕 Server is Running in http://${config.HOST}:${config.PORT} 😎🍔💪🏻`,
-			);
-		});
-	} catch (e) {
-		console.error("Server is not running properly.");
-		console.error(e);
-		console.log("URI:", config.MONGODB_URI);
-	console.log("Tipo:", typeof config.MONGODB_URI);
-	}
-};
-
-startServer();
-*/
