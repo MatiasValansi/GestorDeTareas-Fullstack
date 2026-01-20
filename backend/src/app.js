@@ -22,6 +22,15 @@ const allowedOrigins = [
 ];
 
 app.use(
+  cors({
+    origin: true,
+    credentials: true,
+  })
+);
+
+
+/*
+app.use(
 	cors({
 		origin: function (origin, callback) {
 			// Permitir requests sin origin (Postman, curl, Render healthchecks)
@@ -38,6 +47,7 @@ app.use(
 		allowedHeaders: ["Content-Type", "Authorization"],
 	}),
 );
+*/
 
 app.use((req, res, next) => {
 	if (req.method === "OPTIONS") {
