@@ -19,6 +19,7 @@ const allowedOrigins = [
   "http://localhost:5173",
   "http://127.0.0.1:5173",
   "https://gestordetareasapp.onrender.com",
+  "https://gestor-de-tareas-frontend-ecu.vercel.app"
 ];
 
 app.use(
