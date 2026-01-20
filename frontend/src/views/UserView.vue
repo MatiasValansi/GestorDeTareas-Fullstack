@@ -205,15 +205,25 @@ const verTareasUsuario = (id) => {
 <style scoped>
 
 .app-container {
-  min-height: 100vh;
+  background: #3bff0a;
+  width: 100%;
+  height: 100%;
+  padding: 1rem 1rem 1.5rem 1rem;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
 }
+
+
 
 /* === CONTENEDOR PRINCIPAL === */
 .users-container {
+  background: #3bff0a;
   padding: 0;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   max-width: 100%;
-  background-color: #f5f5f5;
+  background-color: #fbff05;
   min-height: 100vh;
 }
 

@@ -24,11 +24,6 @@ app.use(
   })
 );
 
-// 🔑 CLAVE ABSOLUTA: habilitar preflight global
-app.options("*", cors());
-
-
-
 /* =========================
    MIDDLEWARES
 ========================= */
