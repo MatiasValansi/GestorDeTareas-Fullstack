@@ -522,10 +522,11 @@ const goBack = () => router.push("/recurrent");
                     @click="deactivateTask"
                 >
                     <span v-if="updatingTask">Desactivando...</span>
-                    <span v-else>⏸ Desactivar tarea recurrente</span>
+                    <span class="icon" v-else>⏸</span>
+                    <span class="icon-text">Desactivar tarea</span>
                 </button>
                 <p class="deactivate-warning">
-                    ⚠️ Una vez desactivada, no se podrá volver a activar
+                    ⚠️ Esto pausará la creación de nuevas instancias de esta tarea. La desactivación es permanente.
                 </p>
             </div>
 
@@ -538,19 +539,6 @@ const goBack = () => router.push("/recurrent");
 
             <!-- Título -->
             <h1 class="task-title">{{ task.title }}</h1>
-
-            <!-- Badge de periodicidad -->
-            <div class="periodicity-badge-container">
-                <span class="periodicity-badge">
-                   {{ getPeriodicityLabel(task.periodicity) }}
-                </span>
-                <span v-if="task.datePattern" class="pattern-badge">
-                    {{ getDayLabel(task.datePattern) }}
-                </span>
-                <span v-else-if="task.numberPattern" class="pattern-badge">
-                    Día {{ task.numberPattern }}
-                </span>
-            </div>
 
             <!-- Descripción del patrón -->
             <div class="pattern-description">
@@ -879,30 +867,87 @@ const goBack = () => router.push("/recurrent");
 }
 
 .btn-deactivate {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    padding: 0.75rem 1.5rem;
-    background: linear-gradient(135deg, #ef4444, #dc2626);
-    color: white;
-    border: none;
-    border-radius: 10px;
-    font-weight: 600;
-    font-size: 1rem;
-    cursor: pointer;
-    transition: all 0.2s;
+display: flex;
+  align-items: center;
+  justify-content: flex-start;
+
+
+  width: 56px;
+  height: 56px;
+  padding-left: 16px;
+  padding-bottom: 5px;
+
+  background: linear-gradient(135deg, #dd4c4c);
+
+
+  color: white;
+  border: none;
+  border-radius: 999px;
+
+  font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+
+  overflow: hidden;
+  white-space: nowrap;
+
+  z-index: 9999;
+
+  transition:
+    width 0.25s ease,
+    background 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
-.btn-deactivate:hover:not(:disabled) {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4);
+.btn-deactivate:hover {
+  width: 170px;              /* 🔥 se expande */
+  background: #cc4646;
+  box-shadow: 0 4px 12px rgba(185, 55, 55, 0.4);
 }
 
-.btn-deactivate:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
+.btn-deactivate:hover .label {
+  opacity: 1;
+  transform: translateX(0);
 }
+
+.btn-deactivate:active {
+  background: #801515;
+}
+
+.btn-deactivate .icon {
+  width: 24px;
+  height: 24px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  font-size: 1.7rem;
+  font-weight: 700;
+  line-height: 1;
+
+
+  margin-top: -1px;
+
+  flex-shrink: 0;
+}
+
+.btn-deactivate .label {
+  font-size: 1.05rem;
+  font-weight: 600;
+  line-height: 1;
+  opacity: 0;
+  transform: translateX(-6px);
+  padding-left: 10px;
+  padding-top: 2.2px;
+
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
+}
+
 
 .btn-deactivate.is-loading {
     opacity: 0.7;
