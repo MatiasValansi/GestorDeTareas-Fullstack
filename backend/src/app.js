@@ -15,27 +15,38 @@ const app = express();
    CORS CONFIG (FIX DEFINITIVO)
 ========================= */
 
-const allowedOrigins = [
-  "http://localhost:5173",
-  "http://127.0.0.1:5173",
-  "https://gestordetareasapp.onrender.com",
-  "https://gestor-de-tareas-frontend-ecu.vercel.app"
-];
-
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin) return callback(null, true); // Postman / Render
+      // Permitir requests sin origin (Postman, Render healthcheck)
+      if (!origin) return callback(null, true);
 
-      if (allowedOrigins.includes(origin)) {
+      // Permitir localhost
+      if (
+        origin === "http://localhost:5173" ||
+        origin === "http://127.0.0.1:5173"
+      ) {
         return callback(null, true);
       }
 
-      return callback(null, false); // ❗ NO tirar Error
+      // Permitir cualquier dominio de Vercel
+      if (origin.endsWith(".vercel.app")) {
+        return callback(null, true);
+      }
+
+      // Permitir dominio del backend (opcional)
+      if (origin === "https://gestordetareasapp.onrender.com") {
+        return callback(null, true);
+      }
+
+      return callback(null, false);
     },
     credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
+
 
 
 /* =========================
