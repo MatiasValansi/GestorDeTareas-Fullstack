@@ -17,35 +17,15 @@ const app = express();
 
 app.use(
   cors({
-    origin: (origin, callback) => {
-      // Permitir requests sin origin (Postman, Render healthcheck)
-      if (!origin) return callback(null, true);
-
-      // Permitir localhost
-      if (
-        origin === "http://localhost:5173" ||
-        origin === "http://127.0.0.1:5173"
-      ) {
-        return callback(null, true);
-      }
-
-      // Permitir cualquier dominio de Vercel
-      if (origin.endsWith(".vercel.app")) {
-        return callback(null, true);
-      }
-
-      // Permitir dominio del backend (opcional)
-      if (origin === "https://gestordetareasapp.onrender.com") {
-        return callback(null, true);
-      }
-
-      return callback(null, false);
-    },
-    credentials: true,
+    origin: true,          // 🔑 refleja el Origin automáticamente
+    credentials: true,     // si usás cookies
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
+
+// 🔑 CLAVE ABSOLUTA: habilitar preflight global
+app.options("*", cors());
 
 
 
