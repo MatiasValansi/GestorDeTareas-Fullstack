@@ -560,7 +560,7 @@ watch(globalMonth, (newMonth) => {
   padding: 0;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   max-width: 100%;
-  height: 100%;
+  /* height: 100%; */
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -1042,7 +1042,7 @@ body.dark .filter-chip:hover {
 }
 
 /* === ESTADO VACÍO === */
-.empty-state {
+.empty-state {  
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1050,7 +1050,11 @@ body.dark .filter-chip:hover {
   padding: 4rem 2rem;
   color: #9ca3af;
   text-align: center;
+  
+}
 
+body.dark .empty-state {
+  background-color: #1F2937;;
 }
 
 .empty-icon {

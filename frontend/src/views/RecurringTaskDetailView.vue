@@ -513,22 +513,7 @@ const goBack = () => router.push("/recurrent");
                 </span>
             </div>
 
-            <!-- Botón para desactivar (solo supervisores y si está activa) -->
-            <div v-if="canEdit && !isDeactivated" class="deactivate-task-section">
-                <button 
-                    class="btn-deactivate"
-                    :class="{ 'is-loading': updatingTask }"
-                    :disabled="updatingTask"
-                    @click="deactivateTask"
-                >
-                    <span v-if="updatingTask">Desactivando...</span>
-                    <span class="icon" v-else>⏸</span>
-                    <span class="icon-text">Desactivar tarea</span>
-                </button>
-                <p class="deactivate-warning">
-                    ⚠️ Esto pausará la creación de nuevas instancias de esta tarea. La desactivación es permanente.
-                </p>
-            </div>
+            
 
             
             <!-- Leyenda si no es titular -->
@@ -731,6 +716,24 @@ const goBack = () => router.push("/recurrent");
                     </div>
                 </Transition>
             </div>
+
+            <!-- Botón para desactivar (solo supervisores y si está activa) -->
+            <div v-if="canEdit && !isDeactivated" class="deactivate-task-section">
+                
+                <button 
+                    class="btn-deactivate"
+                    :class="{ 'is-loading': updatingTask }"
+                    :disabled="updatingTask"
+                    @click="deactivateTask"
+                >
+                    <span v-if="updatingTask">Desactivando...</span>
+                    <span class="icon" v-else>⏸</span>
+                    <span class="label">Desactivar tarea</span>
+                </button>
+                <p class="deactivate-warning">
+                    La desactivación pausa la creación de nuevas instancias de estas tareas. Esta acción es permanente.
+                </p>
+            </div>
         </div>
     </div>
 </template>
@@ -854,46 +857,39 @@ const goBack = () => router.push("/recurrent");
     box-shadow: 0 4px 12px rgba(177, 55, 55, 0.4);
 }
 
-/* Deactivate Section */
 .deactivate-task-section {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 1.5rem;
-    background: #fef2f2;
-    border: 1px solid #fca5a5;
-    border-radius: 10px;
-    margin-bottom: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;      /* ✅ centra horizontal */
+  justify-content: center;  /* ✅ centra vertical */
+  gap: 0.75rem;
+  padding: 1rem;
+  border-radius: 12px;
+  margin-top: 2rem;         /* ⬅️ separación respecto al contenido */
 }
 
+
 .btn-deactivate {
-display: flex;
+  display: flex;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: center;
 
-
-  width: 56px;
+  width: 56px;              /* 🔑 IGUAL que add-task-btn */
   height: 56px;
-  padding-left: 16px;
-  padding-bottom: 5px;
+  padding-left: 0;
 
   background: linear-gradient(135deg, #dd4c4c);
-
-
   color: white;
   border: none;
   border-radius: 999px;
 
   font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-
   font-weight: 600;
   font-size: 1rem;
   cursor: pointer;
 
   overflow: hidden;
   white-space: nowrap;
-
-  z-index: 9999;
 
   transition:
     width 0.25s ease,
@@ -902,20 +898,24 @@ display: flex;
 }
 
 .btn-deactivate:hover {
-  width: 170px;              /* 🔥 se expande */
+  width: 170px;             /* 🔑 MISMO valor */
+  justify-content: flex-start;
+  padding-left: 16px;       /* 🔑 MISMO padding */
   background: #cc4646;
-  box-shadow: 0 4px 12px rgba(185, 55, 55, 0.4);
+  box-shadow: 0 10px 24px rgba(0,0,0,0.25);
 }
 
-.btn-deactivate:hover .label {
-  opacity: 1;
-  transform: translateX(0);
-}
 
 .btn-deactivate:active {
   background: #801515;
 }
 
+.btn-deactivate.is-loading {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* Ícono */
 .btn-deactivate .icon {
   width: 24px;
   height: 24px;
@@ -924,30 +924,49 @@ display: flex;
   align-items: center;
   justify-content: center;
 
-  font-size: 1.7rem;
+  font-size: 2.2rem;        /* 🔑 cercano al + visualmente */
   font-weight: 700;
   line-height: 1;
 
-
-  margin-top: -1px;
-
   flex-shrink: 0;
+
+  transform: translateY(-1px); /* 🔑 corrección óptica */
 }
+
+
 
 .btn-deactivate .label {
   font-size: 1.05rem;
   font-weight: 600;
   line-height: 1;
+
   opacity: 0;
   transform: translateX(-6px);
   padding-left: 10px;
   padding-top: 2.2px;
 
+  max-width: 0;
+  overflow: hidden;
+
   transition:
+    max-width 0.25s ease,
     opacity 0.2s ease,
     transform 0.2s ease;
 }
 
+.btn-deactivate:hover .label {
+  max-width: 140px;
+  opacity: 1;
+  transform: translateX(0);
+}
+
+
+/* Texto visible solo en hover */
+.btn-deactivate:hover .label {
+  max-width: 120px;
+  opacity: 1;
+  transform: translateX(0);
+}
 
 .btn-deactivate.is-loading {
     opacity: 0.7;
@@ -956,7 +975,7 @@ display: flex;
 .deactivate-warning {
     margin: 0.75rem 0 0 0;
     font-size: 0.8rem;
-    color: #991b1b;
+    color: #cc4646;
     text-align: center;
 }
 

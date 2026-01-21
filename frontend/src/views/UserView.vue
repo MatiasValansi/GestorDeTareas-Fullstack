@@ -106,13 +106,16 @@ const verTareasUsuario = (id) => {
 </script>
 
 <template>
-    <div class="app-container">
+  <div class="app-container">
     <main class="main-content">
-    <!-- Header -->
-    <div class="users-header">
-      <h2 class="page-title">Usuarios registrados</h2>
-      
-      <!-- Buscador -->
+      <div class="tasks-content">
+        <!-- Header de la vista -->
+        <div class="recurrent-tasks-header">
+          <h1 class="page-title">Usuarios</h1>
+          <p class="page-subtitle">Apartado de usuarios pertenecientes a tu sector</p>
+        </div>
+
+       <!-- Buscador -->
       <div class="search-container">
         <div class="search-input-wrapper">
           <input 
@@ -135,27 +138,26 @@ const verTareasUsuario = (id) => {
       <div class="users-count">
         <span class="count-badge">{{ usuariosFiltrados.length }} usuario{{ usuariosFiltrados.length !== 1 ? 's' : '' }}</span>
       </div>
-    </div>
+    
+              <!-- Botón agregar usuario (solo supervisores) -->
+        <button
+          v-if="store.isSupervisor"
+          class="add-user-btn"
+          @click="irANuevaVistaUsuario"
+        >
+          + Nuevo Usuario
+        </button>
 
-    <!-- Botón agregar usuario (solo supervisores) -->
-    <button
-      v-if="store.isSupervisor"
-      class="add-user-btn"
-      @click="irANuevaVistaUsuario"
-    >
-      + Nuevo Usuario
-    </button>
+            <!-- Loading state -->
+        <div v-if="cargando" class="loading-state">
+          <div class="spinner"></div>
+          <span>Cargando usuarios...</span>
+        </div>
 
-    <!-- Loading state -->
-    <div v-if="cargando" class="loading-state">
-      <div class="spinner"></div>
-      <span>Cargando usuarios...</span>
-    </div>
+        <!-- Error state -->
+        <p v-else-if="error" class="error-state">{{ error }}</p>
 
-    <!-- Error state -->
-    <p v-else-if="error" class="error-state">{{ error }}</p>
-
-    <!-- Lista de usuarios -->
+        <!-- Lista de usuarios -->
     <div v-else-if="usuariosFiltrados.length" class="user-list-modern">
       <div 
         v-for="usuario in usuariosFiltrados" 
@@ -191,82 +193,95 @@ const verTareasUsuario = (id) => {
       </div>
     </div>
 
-    <!-- Estado vacío -->
+        <!-- Estado vacío -->
     <div v-else class="empty-state">
       <div class="empty-icon">{{ searchQuery ? '🔍' : '👥' }}</div>
-      <p v-if="searchQuery">No se encontraron usuarios que coincidan con "{{ searchQuery }}"</p>
+      <p class="empty-text" v-if="searchQuery">No se encontraron usuarios que coincidan con "{{ searchQuery }}"</p>
       <p v-else>No hay usuarios registrados</p>
       <button v-if="searchQuery" class="btn-clear-filters" @click="clearSearch">Limpiar búsqueda</button>
     </div>
-  </main>
-</div>
+      </div>
+    </main>
+  </div>
 </template>
 
 <style scoped>
 
-.app-container {
-  background: #3bff0a;
-  width: 100%;
-  height: 100%;
-  padding: 1rem 1rem 1.5rem 1rem;
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  box-sizing: border-box;
-}
-
-
-
-/* === CONTENEDOR PRINCIPAL === */
-.users-container {
-  background: #3bff0a;
-  padding: 0;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  max-width: 100%;
-  background-color: #fbff05;
-  min-height: 100vh;
-}
 
 .main-content {
   padding: 0;
 }
 
-/* === HEADER === */
-.users-header {
-  background: white;
-  padding: 1rem 1.5rem;
-  border-bottom: 1px solid #e5e7eb;
-  position: sticky;
-  top: 0;
-  z-index: 10;
+.tasks-content {
+  min-height: 800px;
+}
+
+.recurrent-tasks-header {
+  padding: 1.5rem;
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%, #000000 100%);
+  border-radius: 0 0 20px 20px;
+  margin-bottom: 0;
 }
 
 .page-title {
-  font-size: 1.4rem;
+  font-size: 1.75rem;
   font-weight: 700;
-  color: #1f2937;
-  margin: 0 0 1rem 0;
-  text-align: center;
+  color: white;
+  margin: 0 0 0.5rem 0;
 }
 
-/* === BUSCADOR === */
+.page-subtitle {
+  font-size: 0.95rem;
+  color: rgba(255, 255, 255, 0.85);
+  margin: 0;
+}
+
+/* Loading y Error states */
+.loading-state,
+.error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  color: #6b7280;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #e5e7eb;
+  border-top-color: #8b5cf6;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-bottom: 1rem;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.error-state {
+  color: #dc2626;
+}
+
 .search-container {
   margin: 1rem 0;
   width: 100%;
   max-width: 500px;
   margin-left: auto;
   margin-right: auto;
+  margin-top: 32px;
 }
 
 .search-input-wrapper {
-  position: relative;
   display: flex;
-  align-items: center;
+  align-items: center; /* 🔥 esto sí centra vertical */
+  position: relative;
 }
 
 .search-input {
   width: 100%;
-  padding: 0.75rem 2.5rem 0.75rem 1rem;
   font-size: 1rem;
   border: 1px solid #d1d5db;
   border-radius: 25px;
@@ -275,6 +290,9 @@ const verTareasUsuario = (id) => {
   transition: all 0.2s ease;
   outline: none;
   text-align: left;
+  height: 48px;
+  padding: 0 2.5rem 0 0.75rem 1rem;
+  line-height: 48px;
 }
 
 .search-input:focus {
@@ -290,18 +308,22 @@ const verTareasUsuario = (id) => {
 .clear-search-btn {
   position: absolute;
   right: 0.75rem;
-  background: #e5e7eb;
-  border: none;
+  top: 50%;
+  transform: translateY(-50%);
+
   width: 24px;
   height: 24px;
+
+  background: #e5e7eb;
+  border: none;
   border-radius: 50%;
   cursor: pointer;
-  font-size: 0.75rem;
-  color: #6b7280;
+
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
+
+  font-size: 0.75rem;
 }
 
 .clear-search-btn:hover {
@@ -309,7 +331,20 @@ const verTareasUsuario = (id) => {
   color: #374151;
 }
 
-/* === CONTADOR === */
+/* Dark mode */
+body.dark .recurrent-tasks-header {
+  background: linear-gradient(135deg, #6d28d9 0%, #5b21b6 100%);
+}
+
+body.dark .loading-state {
+  color: #9ca3af;
+}
+
+body.dark .loading-state .spinner {
+  border-color: #374151;
+  border-top-color: #8b5cf6;
+}
+
 .users-count {
   text-align: center;
   margin-top: 0.5rem;
@@ -321,7 +356,6 @@ const verTareasUsuario = (id) => {
   font-weight: 500;
 }
 
-/* === BOTÓN AGREGAR USUARIO === */
 .add-user-btn {
   display: block;
   width: calc(100% - 2rem);
@@ -516,44 +550,6 @@ const verTareasUsuario = (id) => {
 .btn-delete:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(185, 55, 55, 0.4);
-}
-
-/* === ESTADO VACÍO === */
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 4rem 2rem;
-  color: #9ca3af;
-  text-align: center;
-}
-
-.empty-icon {
-  font-size: 4rem;
-  margin-bottom: 1rem;
-  opacity: 0.5;
-}
-
-.empty-state p {
-  font-size: 1.1rem;
-  margin: 0;
-}
-
-.btn-clear-filters {
-  margin-top: 1rem;
-  padding: 0.6rem 1.2rem;
-  background: #4f83cc;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 500;
-  transition: background 0.2s ease;
-}
-
-.btn-clear-filters:hover {
-  background: #3d6db5;
 }
 
 /* === DARK MODE === */
@@ -755,4 +751,42 @@ body.dark .btn-clear-filters:hover {
 body.dark .user-actions {
   border-top-color: #374151;
 }
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  color: #9ca3af;
+  text-align: center;
+}
+
+.empty-icon {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+  opacity: 0.5;
+}
+
+.empty-state p {
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.btn-clear-filters {
+  margin-top: 1rem;
+  padding: 0.6rem 1.2rem;
+  background: #4f83cc;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background 0.2s ease;
+}
+
+.btn-clear-filters:hover {
+  background: #3d6db5;
+}
+
 </style>

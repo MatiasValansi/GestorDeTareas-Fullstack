@@ -188,6 +188,15 @@ body.dark .user-bar {
   background-color: #22c55e;
 }
 
+.nav-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+}
+
+.toggle-button {
+  margin-right: 5px;
+}
+
 /* =======================
    MAIN LAYOUT
 ======================= */

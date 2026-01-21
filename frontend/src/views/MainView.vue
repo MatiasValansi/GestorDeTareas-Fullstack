@@ -184,9 +184,33 @@ body.dark .add-task-btn:hover {
   background: #22C55E;
 }
 
-  .tasks-content {
-    height: 800px;
-  }
+body.dark .tasks-content {
+  background-color: #1f2937;
+}
+
+/* html, body, #app {
+  height: 100%;
+  margin: 0;
+} */
+
+.app-container {
+  min-height: 100vh;
+  display: flex;
+}
+
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+
+}
+
+.tasks-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: 800px;
+}
 
 </style>
-
