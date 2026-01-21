@@ -867,8 +867,6 @@ const goBack = () => router.push("/recurrent");
   border-radius: 12px;
   margin-top: 2rem;         /* ⬅️ separación respecto al contenido */
 }
-
-
 .btn-deactivate {
   display: flex;
   align-items: center;
@@ -971,6 +969,7 @@ const goBack = () => router.push("/recurrent");
 .btn-deactivate.is-loading {
     opacity: 0.7;
 }
+
 
 .deactivate-warning {
     margin: 0.75rem 0 0 0;
