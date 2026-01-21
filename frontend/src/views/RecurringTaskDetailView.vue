@@ -680,11 +680,11 @@ const goBack = () => router.push("/recurrent");
 
             <!-- INFORMACIÓN TÉCNICA -->
             <div class="technical-section">
-                <div class="technical-header" @click="showTechnicalInfo = !showTechnicalInfo">
+                <!-- <div class="technical-header" @click="showTechnicalInfo = !showTechnicalInfo">
                     <span class="technical-icon">🔧</span>
                     <span class="technical-label">Información técnica</span>
                     <span class="expand-icon">{{ showTechnicalInfo ? '▼' : '▶' }}</span>
-                </div>
+                </div> -->
                 <Transition name="slide">
                     <div v-if="showTechnicalInfo" class="technical-content">
                         <div class="tech-row">
