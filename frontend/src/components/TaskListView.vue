@@ -664,7 +664,7 @@ watch(globalMonth, (newMonth) => {
   position: absolute;
   right: 0.75rem;
   top: 50%;
-  transform: translateY(-50%);
+  transform: translateY(-75%);
 
   width: 24px;
   height: 24px;
