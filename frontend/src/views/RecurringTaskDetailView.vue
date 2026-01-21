@@ -545,7 +545,7 @@ const goBack = () => router.push("/recurrent");
                     <div class="date-content">
                         <span class="date-label">FECHA DE INICIO</span>
                         <span class="date-value">{{ formatDate(task.date) }}</span>
-                        <span class="date-label">VENCIMIENTO (por instancia)</span>
+                        <span class="date-label">VENCIMIENTO (Primera Tarea)</span>
                         <span class="date-value">{{ formatDate(task.deadline) }}</span>
                         <span class="date-label">CREADA EL</span>
                         <span class="date-value">{{ formatDate(task.createdAt) }}</span>
@@ -719,7 +719,7 @@ const goBack = () => router.push("/recurrent");
 
             <!-- Botón para desactivar (solo supervisores y si está activa) -->
             <div v-if="canEdit && !isDeactivated" class="deactivate-task-section">
-                
+                <span class = "deactivate-title">Desactivar Tarea Recurrente</span>    
                 <button 
                     class="btn-deactivate"
                     :class="{ 'is-loading': updatingTask }"
@@ -728,7 +728,7 @@ const goBack = () => router.push("/recurrent");
                 >
                     <span v-if="updatingTask">Desactivando...</span>
                     <span class="icon" v-else>⏸</span>
-                    <span class="label">Desactivar tarea</span>
+                    <span class="label">Desactivar</span>
                 </button>
                 <p class="deactivate-warning">
                     La desactivación pausa la creación de nuevas instancias de estas tareas. Esta acción es permanente.
@@ -867,12 +867,23 @@ const goBack = () => router.push("/recurrent");
   border-radius: 12px;
   margin-top: 2rem;         /* ⬅️ separación respecto al contenido */
 }
+
+.deactivate-title {
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: #000000;
+}
+
+body.dark .deactivate-title {
+    color: #ffffff;
+}
+
 .btn-deactivate {
   display: flex;
   align-items: center;
   justify-content: center;
 
-  width: 56px;              /* 🔑 IGUAL que add-task-btn */
+  width: 56px;              
   height: 56px;
   padding-left: 0;
 
@@ -890,15 +901,14 @@ const goBack = () => router.push("/recurrent");
   white-space: nowrap;
 
   transition:
-    width 0.25s ease,
-    background 0.2s ease,
-    box-shadow 0.2s ease;
+  width 0.25s ease,
+  box-shadow 0.2s ease;
 }
 
 .btn-deactivate:hover {
-  width: 170px;             /* 🔑 MISMO valor */
+  width: 170px;             
   justify-content: flex-start;
-  padding-left: 16px;       /* 🔑 MISMO padding */
+  padding-left: 16px;     
   background: #cc4646;
   box-shadow: 0 10px 24px rgba(0,0,0,0.25);
 }
@@ -913,22 +923,22 @@ const goBack = () => router.push("/recurrent");
   cursor: not-allowed;
 }
 
-/* Ícono */
-.btn-deactivate .icon {
-  width: 24px;
-  height: 24px;
+.icon {
+  width: 20px;
+  height: 20px;
 
   display: flex;
   align-items: center;
   justify-content: center;
 
-  font-size: 2.2rem;        /* 🔑 cercano al + visualmente */
+  font-size: 1.75rem;      
   font-weight: 700;
   line-height: 1;
 
   flex-shrink: 0;
 
-  transform: translateY(-1px); /* 🔑 corrección óptica */
+  transform: translateX(+15px);
+  padding-bottom: 5px;
 }
 
 
@@ -937,6 +947,7 @@ const goBack = () => router.push("/recurrent");
   font-size: 1.05rem;
   font-weight: 600;
   line-height: 1;
+margin-left: 18px;
 
   opacity: 0;
   transform: translateX(-6px);
@@ -959,7 +970,6 @@ const goBack = () => router.push("/recurrent");
 }
 
 
-/* Texto visible solo en hover */
 .btn-deactivate:hover .label {
   max-width: 120px;
   opacity: 1;
@@ -969,7 +979,6 @@ const goBack = () => router.push("/recurrent");
 .btn-deactivate.is-loading {
     opacity: 0.7;
 }
-
 
 .deactivate-warning {
     margin: 0.75rem 0 0 0;
