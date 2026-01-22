@@ -109,9 +109,15 @@ const irANuevaVistaTarea = () => {
 .user-header {  
   box-shadow: 0 4px 15px rgba(79, 131, 204, 0.3);
   padding: 1.5rem 2rem;
-  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%, #000000 100%);
+  background: linear-gradient(135deg, #cfddf1 0%, #c4d0f0 100%);
   border-radius: 12px;
   margin-bottom: 1.5rem;
+  max-height: 90px;
+}
+
+body.dark .user-header {
+  background: linear-gradient(135deg, #1d3995 0%, #213cb6 100%);
+  box-shadow: 0 4px 15px rgba(21, 32, 65, 0.5);
 }
 
 .user-header-loading,
@@ -119,15 +125,15 @@ const irANuevaVistaTarea = () => {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  color: white;
+  color: #374151;
   font-size: 1rem;
 }
 
 .spinner-small {
   width: 20px;
   height: 20px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-top-color: white;
+  border: 2px solid rgba(55, 65, 81, 0.3);
+  border-top-color: #374151;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -138,25 +144,41 @@ const irANuevaVistaTarea = () => {
 
 .user-header-content {
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
 }
 
 .user-name {
   margin: 0;
-  font-size: 1.75rem;
+  font-size: 2rem;
   font-weight: 700;
-  color: white;
+  color: #2a21a8;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  translate: 0rem -1rem;
 }
 
 .user-email {
   margin: 0.5rem 0 0;
   font-size: 1rem;
-  color: rgba(255, 255, 255, 0.9);
+  color: #565194;
   font-weight: 400;
+  margin-top: 0rem;
+  translate: 0rem -1rem;
+
 }
 
 .tasks-content {
   height: 800px;
+}
+
+body.dark .user-name{
+  color: #ffffff;
+}
+
+body.dark .user-email{
+  color: #d4d4d4;
 }
 
 </style>

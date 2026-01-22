@@ -218,7 +218,7 @@ const verTareasUsuario = (id) => {
 
 .recurrent-tasks-header {
   padding: 1.5rem;
-  background: linear-gradient(135deg, #e8dff5 0%, #d4c4f0 100%);
+  background: linear-gradient(135deg, #cfddf1 0%, #c4d0f0 100%);
   border-radius: 0 0 20px 20px;
   margin-bottom: 0;
 }
@@ -226,13 +226,13 @@ const verTareasUsuario = (id) => {
 .page-title {
   font-size: 1.75rem;
   font-weight: 700;
-  color: #6b21a8;
+  color: #2a21a8;
   margin: 0 0 0.5rem 0;
 }
 
 .page-subtitle {
   font-size: 0.95rem;
-  color: #7c3aed;
+  color: #2a21a8;
   margin: 0;
 }
 
@@ -333,7 +333,9 @@ const verTareasUsuario = (id) => {
 
 /* Dark mode */
 body.dark .recurrent-tasks-header {
-  background: linear-gradient(135deg, #4c1d95 0%, #5b21b6 100%);
+  /* background: linear-gradient(135deg, #1d2595 0%, #5a21b6 100%); */
+    background: linear-gradient(135deg, #1d3995 0%, #213cb6 100%);
+
 }
 
 body.dark .recurrent-tasks-header .page-title {
@@ -365,14 +367,16 @@ body.dark .loading-state .spinner {
 }
 
 .add-user-btn {
-  display: block;
-  width: calc(100% - 2rem);
-  margin: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 400px;
+  margin: 1rem auto;
   padding: 0.9rem;
   background: #4f83cc;
   color: white;
   border: none;
-  border-radius: 12px;
+  border-radius: 20px;
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;

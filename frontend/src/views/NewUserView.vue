@@ -125,7 +125,7 @@ const volverAlMenu = () => {
             @click="showPassword = !showPassword"
             :title="showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'"
           >
-            {{ showPassword ? '🙈' : '👁️' }}
+            {{ showPassword ? 'Ocultar' : 'Ver' }}
           </button>
         </div>
         <div class="password-actions">

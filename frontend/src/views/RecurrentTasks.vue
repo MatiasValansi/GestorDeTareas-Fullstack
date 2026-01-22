@@ -103,7 +103,7 @@ onMounted(async () => {
           <template #custom-filters>
             <div class="filters-row recurring-filters">
               <button 
-                class="filter-chip"
+                class="filter-chip status-todas"
                 :class="{ active: filtroEstado === 'todas' }"
                 @click="filtroEstado = 'todas'"
               >
@@ -284,4 +284,10 @@ body.dark .loading-state .spinner {
   border-color: #374151;
   border-top-color: #8b5cf6;
 }
+
+body.dark .filter-chip.status-todas.active {
+  background: #9e9e9e!important;
+  border-color: #505050!important;
+}
+
 </style>
