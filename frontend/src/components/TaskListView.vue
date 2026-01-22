@@ -405,6 +405,9 @@ watch(globalMonth, (newMonth) => {
           </button>
         </div>
       </div>
+
+      <!-- Slot para filtros personalizados (usado por RecurrentTasks) -->
+      <slot name="custom-filters"></slot>
       
       <!-- Filtros de estado (ocultos si hideStatusFilters=true) -->
       <div v-if="!hideStatusFilters" class="filters-row">
@@ -493,7 +496,7 @@ watch(globalMonth, (newMonth) => {
           </div>
           
           <!-- Título de la tarea -->
-          <h3 class="task-title"><strong>{{ tarea.title }}</strong></h3>
+          <h3 class="task-title">{{ tarea.title }}</h3>
           
           <!-- Usuario asignado -->
           <p class="task-assignee">
@@ -826,8 +829,8 @@ body.dark .filter-chip:hover {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   cursor: pointer;
   transition: all 0.15s ease;
-  min-height: 110px;
-  overflow: hidden;
+  min-height: 100px;
+  overflow: visible;
 }
 
 .task-item:hover {
@@ -865,8 +868,9 @@ body.dark .filter-chip:hover {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 0.2rem;
+  gap: 0.25rem;
   min-width: 0;
+  overflow: hidden;
 }
 
 /* === FILA SUPERIOR (estado + fecha) === */
@@ -900,14 +904,16 @@ body.dark .filter-chip:hover {
 }
 
 /* === TÍTULO === */
-  .task-title {
-    font-size: 1rem;
-    font-weight: 700;
-    color: #1f2937;
-    margin: 0;
-  white-space: nowrap;
+.task-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+  line-height: 1.4;
 }
 
 /* === USUARIO ASIGNADO === */

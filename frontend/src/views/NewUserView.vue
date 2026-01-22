@@ -44,7 +44,7 @@ const agregarUsuario = async () => {
 
 // Volver al menú
 const volverAlMenu = () => {
-  router.push(`/task`)
+  router.push(`/users`)
 }
 </script>
 

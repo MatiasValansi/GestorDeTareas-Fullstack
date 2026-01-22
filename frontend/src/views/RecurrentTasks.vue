@@ -11,6 +11,9 @@ const recurringTasks = ref([])
 const cargando = ref(false)
 const error = ref('')
 
+// Filtro de estado: 'todas', 'activas', 'pausadas'
+const filtroEstado = ref('todas')
+
 // Cargar tareas recurrentes (el backend ya filtra según el rol del usuario)
 const cargarRecurringTasks = async () => {
   cargando.value = true
@@ -27,6 +30,24 @@ const cargarRecurringTasks = async () => {
     cargando.value = false
   }
 }
+
+// Tareas filtradas según el estado seleccionado
+const tareasFiltradas = computed(() => {
+  if (filtroEstado.value === 'activas') {
+    return recurringTasks.value.filter(t => t.active !== false)
+  }
+  if (filtroEstado.value === 'pausadas') {
+    return recurringTasks.value.filter(t => t.active === false)
+  }
+  return recurringTasks.value
+})
+
+// Contadores para los filtros
+const contadores = computed(() => ({
+  total: recurringTasks.value.length,
+  activas: recurringTasks.value.filter(t => t.active !== false).length,
+  pausadas: recurringTasks.value.filter(t => t.active === false).length
+}))
 
 // Mensaje para estado vacío según el rol
 const emptyStateMessage = computed(() => {
@@ -74,10 +95,39 @@ onMounted(async () => {
           v-else
           :hide-status-filters="true"
           mode="recurring"
-          :custom-items="recurringTasks"
+          :custom-items="tareasFiltradas"
           detail-route="/recurringTaskDetail"
           :empty-state-title="emptyStateMessage"
-        />
+        >
+          <!-- Filtros personalizados para tareas recurrentes -->
+          <template #custom-filters>
+            <div class="filters-row recurring-filters">
+              <button 
+                class="filter-chip"
+                :class="{ active: filtroEstado === 'todas' }"
+                @click="filtroEstado = 'todas'"
+              >
+                Todas ({{ contadores.total }})
+              </button>
+
+              <button
+                class="filter-chip status-activa"
+                :class="{ active: filtroEstado === 'activas' }"
+                @click="filtroEstado = filtroEstado === 'activas' ? 'todas' : 'activas'"
+              >
+                Activas ({{ contadores.activas }})
+              </button>
+
+              <button
+                class="filter-chip status-pausada"
+                :class="{ active: filtroEstado === 'pausadas' }"
+                @click="filtroEstado = filtroEstado === 'pausadas' ? 'todas' : 'pausadas'"
+              >
+                Pausadas ({{ contadores.pausadas }})
+              </button>
+            </div>
+          </template>
+        </TaskListView>
       </div>
     </main>
   </div>
@@ -98,7 +148,7 @@ onMounted(async () => {
 
 .recurrent-tasks-header {
   padding: 1.5rem;
-  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%, #000000 100%);
+  background: linear-gradient(135deg, #e8dff5 0%, #d4c4f0 100%);
   border-radius: 0 0 20px 20px;
   margin-bottom: 0;
 }
@@ -106,14 +156,72 @@ onMounted(async () => {
 .page-title {
   font-size: 1.75rem;
   font-weight: 700;
-  color: white;
+  color: #6b21a8;
   margin: 0 0 0.5rem 0;
 }
 
 .page-subtitle {
   font-size: 0.95rem;
-  color: rgba(255, 255, 255, 0.85);
+  color: #7c3aed;
   margin: 0;
+}
+
+/* Estilos para filtros dentro del slot (usando :deep para penetrar el scoped) */
+:deep(.recurring-filters) {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: center;
+  padding: 0 0 0.5rem 0;
+}
+
+:deep(.recurring-filters .filter-chip) {
+  margin-top: 0.25rem;
+  margin-bottom: 0.25rem;
+  background: #ffffff;
+  border: 2px solid #d1d5db;
+  border-radius: 999px;
+  padding: 0.5rem 1.05rem;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #374151;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+:deep(.recurring-filters .filter-chip:hover) {
+  background: #f3f4f6;
+  transform: translateY(-1px);
+}
+
+:deep(.recurring-filters .filter-chip.active) {
+  transform: translateY(-1px) scale(1.05);
+}
+
+:deep(.recurring-filters .filter-chip.active:not(.status-activa):not(.status-pausada)) {
+  background: #1f2937;
+  color: white;
+  border-color: #1f2937;
+}
+
+/* ACTIVAS */
+:deep(.recurring-filters .filter-chip.status-activa.active) {
+  background: #d1fae5;
+  color: #065f46;
+  border-color: #10b981;
+}
+
+/* PAUSADAS */
+:deep(.recurring-filters .filter-chip.status-pausada.active) {
+  background: #fef3c7;
+  color: #92400e;
+  border-color: #f59e0b;
+}
+
+/* Hover en filtros activos */
+:deep(.recurring-filters .filter-chip.active:hover) {
+  filter: brightness(0.95);
 }
 
 /* Loading y Error states */
@@ -147,7 +255,25 @@ onMounted(async () => {
 
 /* Dark mode */
 body.dark .recurrent-tasks-header {
-  background: linear-gradient(135deg, #6d28d9 0%, #5b21b6 100%);
+  background: linear-gradient(135deg, #4c1d95 0%, #5b21b6 100%);
+}
+
+body.dark .recurrent-tasks-header .page-title {
+  color: white;
+}
+
+body.dark .recurrent-tasks-header .page-subtitle {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+:deep(body.dark .recurring-filters .filter-chip) {
+  background: #1f2937;
+  color: #f1f5f9;
+  border-color: #374151;
+}
+
+:deep(body.dark .recurring-filters .filter-chip:hover) {
+  box-shadow: 0 6px 14px rgba(0,0,0,0.6);
 }
 
 body.dark .loading-state {

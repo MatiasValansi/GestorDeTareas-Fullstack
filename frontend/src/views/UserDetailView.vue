@@ -106,12 +106,12 @@ const irANuevaVistaTarea = () => {
 <style scoped>
 
 /* ENCABEZADO DEL USUARIO */
-.user-header {
-  background: linear-gradient(135deg, #4f83cc 0%, #3d6db5 100%);
+.user-header {  
+  box-shadow: 0 4px 15px rgba(79, 131, 204, 0.3);
   padding: 1.5rem 2rem;
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%, #000000 100%);
   border-radius: 12px;
   margin-bottom: 1.5rem;
-  box-shadow: 0 4px 15px rgba(79, 131, 204, 0.3);
 }
 
 .user-header-loading,
