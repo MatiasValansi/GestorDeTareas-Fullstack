@@ -85,6 +85,14 @@ const usuarioEspecificoEstaEnTarea = (tarea, targetUserId) => {
   })
 }
 
+// Remover caracteres de tachado combinante en títulos sin perder el texto
+const sanitizeTitle = (title) => {
+  if (title === null || title === undefined) return ''
+  const original = typeof title === 'string' ? title : String(title)
+  const cleaned = original.replace(/[\u0335\u0336\u0337\u0338]/g, '').trim()
+  return cleaned.length > 0 ? cleaned : original
+}
+
 // Label del mes actual
 const currentMonthLabel = computed(() => {
   return selectedMonth.value.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })
@@ -909,11 +917,7 @@ body.dark .filter-chip:hover {
   font-weight: 700;
   color: #1f2937;
   margin: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  width: 100%;
-  line-height: 1.4;
+ 
 }
 
 /* === USUARIO ASIGNADO === */
@@ -1206,6 +1210,7 @@ body.dark .task-item:active {
 
 body.dark .task-title {
   color: #f9fafb;
+  text-decoration: none !important;
 }
 
 body.dark .task-date,
@@ -1337,6 +1342,7 @@ body.dark .task-date-pattern {
   
   .task-title {
     font-size: 1rem;
+    text-decoration: none !important;
   }
 }
 </style>
