@@ -46,25 +46,79 @@ export const UserController = {
 
 	userCreateOne: async (req, res) => {
 		const { user } = req.body;
+		const creatorUser = req.user; // Usuario supervisor que está creando
 
 		try {
-			//const userResponse = await UserService.serviceUserCreation(user);
-			const userResponse = await mongoUser.createOne(user);
-			console.log("Controller User");
+			// Validaciones de seguridad
+			if (!user || !user.name || !user.email || !user.password) {
+				return res.status(400).json({
+					payload: null,
+					message: "Nombre, email y contraseña son requeridos",
+					ok: false,
+				});
+			}
 
-			console.log(userResponse);
+			// Validar longitud mínima de contraseña
+			if (user.password.length < 6) {
+				return res.status(400).json({
+					payload: null,
+					message: "La contraseña debe tener al menos 6 caracteres",
+					ok: false,
+				});
+			}
 
-			res.status(200).json({
+			// Verificar que el email no exista
+			const existingUser = await mongoUser.getByEmail(user.email);
+			if (existingUser) {
+				return res.status(409).json({
+					payload: null,
+					message: "Ya existe un usuario con ese email",
+					ok: false,
+				});
+			}
+
+			// Construir datos del usuario con sector del supervisor creador
+			// El password se hashea automáticamente en el modelo (pre-save hook)
+			const userData = {
+				name: user.name.trim(),
+				email: user.email.trim().toLowerCase(),
+				password: user.password, // Se hashea en el modelo con bcrypt
+				sector: creatorUser.sector, // Mismo sector que el supervisor
+				isSupervisor: Boolean(user.isSupervisor), // false por defecto
+			};
+
+			const userResponse = await mongoUser.createOne(userData);
+
+			// Respuesta sin exponer el password
+			const safeResponse = {
+				id: userResponse._id,
+				name: userResponse.name,
+				email: userResponse.email,
+				sector: userResponse.sector,
+				isSupervisor: userResponse.isSupervisor,
+			};
+
+			res.status(201).json({
 				message: "Success --> El usuario ha sido creado",
-				payload: { ...userResponse, usuario: userResponse.fullname },
+				payload: safeResponse,
 				ok: true,
 			});
 			return;
 		} catch (e) {
-			console.log({ error: e.message, mensaje: "Algo salió mal" });
-			res.status(404).json({
+			console.error("Error al crear usuario:", e.message);
+			
+			// Manejar error de duplicado de MongoDB
+			if (e.code === 11000) {
+				return res.status(409).json({
+					payload: null,
+					message: "Ya existe un usuario con ese email",
+					ok: false,
+				});
+			}
+
+			res.status(500).json({
 				payload: null,
-				message: "No se pudo crear el usuario",
+				message: e.message || "No se pudo crear el usuario",
 				ok: false,
 			});
 			return;
