@@ -2,6 +2,59 @@ import { RecurringTaskService } from "../services/recurring.task.service.js";
 import { RecurringTaskRepository } from "../repository/recurring.task.repository.js";
 
 export const RecurringTaskController = {
+	// POST /recurring-tasks/my-task
+	// Crea una tarea recurrente asignada al propio usuario (cualquier usuario autenticado)
+	// El usuario que crea la tarea se asigna automáticamente como único asignado
+	createForSelf: async (req, res) => {
+		try {
+			const {
+				title,
+				description,
+				recurrenceType,
+				periodicity,
+				datePattern,
+				numberPattern,
+				date,
+				deadline,
+				includeWeekends,
+			} = req.body;
+
+			// Forzar que el único asignado sea el usuario autenticado
+			const userId = req.user?.id;
+			if (!userId) {
+				return res.status(401).json({
+					ok: false,
+					message: "Usuario no autenticado",
+				});
+			}
+
+			const result = await RecurringTaskService.create({
+				title,
+				description,
+				assignedTo: [userId], // Solo el usuario autenticado
+				recurrenceType,
+				periodicity,
+				datePattern,
+				numberPattern,
+				date,
+				deadline,
+				includeWeekends,
+			});
+
+			return res.status(201).json({
+				message: "Tarea recurrente creada correctamente",
+				payload: result,
+				ok: true,
+			});
+		} catch (error) {
+			console.error("Error al crear tarea recurrente para usuario", error);
+			return res.status(400).json({
+				ok: false,
+				message: error.message || "No se pudo crear la tarea recurrente",
+			});
+		}
+	},
+
 	// POST /recurring-tasks
 	// Crea una tarea recurrente (solo la definición, sin tareas individuales)
 	create: async (req, res) => {

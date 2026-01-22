@@ -3,7 +3,7 @@ import { ref, onMounted, computed, watch, inject } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { getCalendarTasks, updateTask } from '@/services/tasks'
-import { getAllUsers } from '@/services/users'
+import { getAllUsers, getUsersBySector } from '@/services/users'
 
 const router = useRouter()
 const store = useUserStore()
@@ -227,10 +227,14 @@ const cargarTareas = async () => {
   }
 }
 
-// Cargar usuarios
+// Cargar usuarios - supervisor usa getAllUsers, usuario normal usa getUsersBySector
 const cargarUsuarios = async () => {
   try {
-    usuarios.value = await getAllUsers()
+    if (store.isSupervisor) {
+      usuarios.value = await getAllUsers()
+    } else {
+      usuarios.value = await getUsersBySector()
+    }
   } catch (err) {
     console.error('Error al cargar usuarios', err)
   }

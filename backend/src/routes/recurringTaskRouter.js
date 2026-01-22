@@ -5,7 +5,15 @@ import { requireSupervisor } from "../middleware/authorization.js";
 
 const recurringTaskRouter = Router();
 
-// Todas las operaciones sobre tareas recurrentes requieren supervisor autenticado
+// Endpoint para que cualquier usuario autenticado pueda crear una tarea recurrente
+// asignándose a sí mismo (sin poder asignar a otros usuarios)
+recurringTaskRouter.post(
+	"/recurring-tasks/my-task",
+	authByToken,
+	RecurringTaskController.createForSelf,
+);
+
+// Crear tarea recurrente con asignación a otros usuarios (solo supervisores)
 recurringTaskRouter.post(
 	"/recurring-tasks",
 	authByToken,

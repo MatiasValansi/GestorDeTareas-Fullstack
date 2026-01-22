@@ -6,7 +6,7 @@ import { useUserStore } from '@/stores/user'
 // Services
 import { getUsersBySector } from '@/services/users'
 import { createTask } from '@/services/tasks'
-import { createRecurringTask } from '@/services/recurringTasks'
+import { createRecurringTask, createRecurringTaskForSelf } from '@/services/recurringTasks'
 
 const router = useRouter()
 const store = useUserStore()
@@ -343,7 +343,13 @@ const crearTareaRecurrente = async () => {
   }
 
   console.log("Enviando tarea recurrente:", tareaRecurrente)
-  await createRecurringTask(tareaRecurrente)
+  
+  // Supervisores usan el endpoint completo, usuarios normales usan el endpoint para sí mismos
+  if (store.isSupervisor) {
+    await createRecurringTask(tareaRecurrente)
+  } else {
+    await createRecurringTaskForSelf(tareaRecurrente)
+  }
 }
 
 const enviarFormulario = async () => {

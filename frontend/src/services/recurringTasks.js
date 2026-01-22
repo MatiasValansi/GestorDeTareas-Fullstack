@@ -13,6 +13,13 @@ export const createRecurringTask = async (recurringTask) => {
   return data;
 };
 
+// Crear una tarea recurrente asignada al propio usuario (cualquier usuario autenticado)
+// Usa el endpoint /recurring-tasks/my-task que no requiere ser supervisor
+export const createRecurringTaskForSelf = async (recurringTask) => {
+  const { data } = await api.post("/recurringTask/recurring-tasks/my-task", recurringTask);
+  return data;
+};
+
 // Obtener todas las tareas recurrentes (solo supervisores)
 export const getAllRecurringTasks = async () => {
   const { data } = await api.get("/recurringTask/recurring-tasks");
