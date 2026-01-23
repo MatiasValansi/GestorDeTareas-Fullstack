@@ -308,7 +308,8 @@ const crearTareaIndividual = async () => {
   }
 
   console.log("Enviando tarea individual:", tarea)
-  await createTask(tarea)
+  const response = await createTask(tarea)
+  return response
 }
 
 // Crear tarea recurrente
@@ -370,8 +371,9 @@ const enviarFormulario = async () => {
       const mensaje = response.message || `Tarea recurrente "${titulo.value}" creada con éxito`
       alert(mensaje)
     } else {
-      await crearTareaIndividual()
-      alert(`Tarea "${titulo.value}" creada con éxito`)
+      const response = await crearTareaIndividual()
+      const mensaje = response.message || `Tarea "${titulo.value}" creada con éxito`
+      alert(mensaje)
     }
     
     router.push('/main')

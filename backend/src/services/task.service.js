@@ -264,19 +264,36 @@ class TaskServiceClass {
             status: status || "PENDIENTE",
         };
 
+        // 1) Crear la tarea SIEMPRE (aunque falle el mail)
         const createdTask = await this.taskRepository.createOne(newTaskData);
-        const emails  = await userRepository.getUsersEmails(assignedTo);
-
-        if (emails.length > 0) {
-            await sendTaskAssignedEmail({ to: emails, task: createdTask });
-            console.log("MAIL ENVIADO");            
-        }else{
-            console.log("NO SE ENVIO MAIL - NO HAY EMAILS");
-        }
-
-        return typeof createdTask?.toObject === "function"
+        const createdTaskObj = typeof createdTask?.toObject === "function"
             ? createdTask.toObject()
             : createdTask;
+
+        // 2) Intentar enviar notificación por email (best-effort)
+        let emailSent = false;
+        let emailError = null;
+
+        try {
+            const emails = await this.userRepository.getUsersEmails(validatedAssignees);
+
+            if (emails.length > 0) {
+                await sendTaskAssignedEmail({ to: emails, task: createdTaskObj });
+                emailSent = true;
+                console.log("✅ MAIL ENVIADO");
+            } else {
+                console.log("⚠️ NO SE ENVIO MAIL - NO HAY EMAILS");
+            }
+        } catch (mailError) {
+            console.error("❌ Error enviando mail de tarea:", mailError);
+            emailError = mailError?.message || "Error desconocido al enviar email";
+        }
+
+        return {
+            task: createdTaskObj,
+            emailSent,
+            emailError,
+        };
     }
 
     /**

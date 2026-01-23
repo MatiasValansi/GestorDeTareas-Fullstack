@@ -45,9 +45,22 @@ export const TaskController = {
                 isSupervisor: !!req.user.isSupervisor,
             };
 
-            const createdTask = await TaskService.createTask(task, creator);
+            const result = await TaskService.createTask(task, creator);
 
-            return res.status(201).json({ message: "Tarea creada", payload: createdTask, ok: true });
+            // Construir mensaje según si se envió el email o no
+            let message = "Tarea creada";
+            if (result.emailSent) {
+                message += ". Se envió notificación por email.";
+            } else if (result.emailError) {
+                message += ". No se pudo enviar el email de notificación.";
+            }
+
+            return res.status(201).json({
+                message,
+                payload: result,
+                ok: true,
+                emailSent: result.emailSent,
+            });
         } catch (error) {
             console.error("Error al crear tarea:", error);
 
