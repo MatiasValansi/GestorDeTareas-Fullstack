@@ -2,6 +2,7 @@ import { RecurringTaskRepository } from "../repository/recurring.task.repository
 import { TaskModel } from "../model/Task.js";
 import { ArgentinaTime } from "../utils/argentinaTime.js";
 import { MongoUserRepository } from "../repository/user.mongo.repository.js";
+import { sendRecurringTaskCreatedEmail } from "./email.service.js";
 
 // Maps Spanish day names to JavaScript getDay() values (0 = Sunday, 1 = Monday, etc.)
 const DAY_MAP = {
@@ -110,22 +111,42 @@ export const RecurringTaskService = {
 			includeWeekends: includeWeekends !== undefined ? includeWeekends : true,
 		};
 
+		// Primero crear la tarea recurrente en la base de datos
+		const createdRecurringTask = await RecurringTaskRepository.create(recurringTaskData);
+		console.log("✅ Tarea recurrente creada:", createdRecurringTask._id);
+
+		// Luego enviar emails a los usuarios asignados
+		let emailSent = false;
+		let emailError = null;
+
 		try {
-			const emails = await MongoUserRepository.getUsersEmails(recurringTaskData.assignedTo);
+			console.log("📧 Intentando enviar email a usuarios:", assignedTo);
+			const userRepository = new MongoUserRepository();
+			const emails = await userRepository.getUsersEmails(assignedTo);
+			console.log("📧 Emails obtenidos:", emails);
 
 			if (emails.length > 0) {
+				console.log("📧 Enviando email a:", emails);
 				await sendRecurringTaskCreatedEmail({
-				to: emails,
-				recurringTask: createdRecurringTask,
+					to: emails,
+					recurringTask: createdRecurringTask,
 				});
+				emailSent = true;
+				console.log("✅ Email enviado correctamente");
+			} else {
+				console.log("⚠️ No hay emails para enviar (lista vacía)");
 			}
-			} catch (mailError) {
-			console.error("⚠️ Error enviando mail de tarea recurrente", mailError);
-			// NO throw
-			}
-		
+		} catch (mailError) {
+			console.error("❌ Error enviando mail de tarea recurrente:", mailError);
+			emailError = mailError.message || "Error desconocido al enviar email";
+			// No lanzamos error para no bloquear la creación de la tarea
+		}
 
-		return { recurringTask: createdRecurringTask };
+		return { 
+			recurringTask: createdRecurringTask,
+			emailSent,
+			emailError
+		};
 	},
 
 	/**

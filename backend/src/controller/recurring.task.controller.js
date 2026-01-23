@@ -41,10 +41,19 @@ export const RecurringTaskController = {
 				includeWeekends,
 			});
 
+			// Construir mensaje según si se envió el email o no
+			let message = "Tarea recurrente creada correctamente";
+			if (result.emailSent) {
+				message += ". Se envió notificación por email.";
+			} else if (result.emailError) {
+				message += ". No se pudo enviar el email de notificación.";
+			}
+
 			return res.status(201).json({
-				message: "Tarea recurrente creada correctamente",
+				message,
 				payload: result,
 				ok: true,
+				emailSent: result.emailSent,
 			});
 		} catch (error) {
 			console.error("Error al crear tarea recurrente para usuario", error);
@@ -86,11 +95,19 @@ export const RecurringTaskController = {
 				includeWeekends,
 			});
 
+			// Construir mensaje según si se envió el email o no
+			let message = "Tarea recurrente creada correctamente";
+			if (result.emailSent) {
+				message += ". Se envió notificación por email a los usuarios asignados.";
+			} else if (result.emailError) {
+				message += ". No se pudo enviar el email de notificación.";
+			}
 
 			return res.status(201).json({
-				message: "Tarea recurrente creada correctamente",
+				message,
 				payload: result,
 				ok: true,
+				emailSent: result.emailSent,
 			});
 		} catch (error) {
 			console.error("Error al crear tarea recurrente", error);

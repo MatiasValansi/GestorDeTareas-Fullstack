@@ -2,6 +2,7 @@ import { MongoTaskRepository } from "../repository/task.mongo.repository.js";
 import { MongoUserRepository } from "../repository/user.mongo.repository.js";
 import { ArgentinaTime } from "../utils/argentinaTime.js";
 import { RecurringTaskService } from "./recurring.task.service.js";
+import { sendTaskAssignedEmail } from "./email.service.js";
 
 /**
  * TaskService - Capa de lógica de negocio para tareas
@@ -264,6 +265,14 @@ class TaskServiceClass {
         };
 
         const createdTask = await this.taskRepository.createOne(newTaskData);
+        const emails  = await userRepository.getUsersEmails(assignedTo);
+
+        if (emails.length > 0) {
+            await sendTaskAssignedEmail({ to: emails, task: createdTask });
+            console.log("MAIL ENVIADO");            
+        }else{
+            console.log("NO SE ENVIO MAIL - NO HAY EMAILS");
+        }
 
         return typeof createdTask?.toObject === "function"
             ? createdTask.toObject()

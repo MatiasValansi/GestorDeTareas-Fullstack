@@ -345,11 +345,14 @@ const crearTareaRecurrente = async () => {
   console.log("Enviando tarea recurrente:", tareaRecurrente)
   
   // Supervisores usan el endpoint completo, usuarios normales usan el endpoint para sí mismos
+  let response
   if (store.isSupervisor) {
-    await createRecurringTask(tareaRecurrente)
+    response = await createRecurringTask(tareaRecurrente)
   } else {
-    await createRecurringTaskForSelf(tareaRecurrente)
+    response = await createRecurringTaskForSelf(tareaRecurrente)
   }
+  
+  return response
 }
 
 const enviarFormulario = async () => {
@@ -362,8 +365,10 @@ const enviarFormulario = async () => {
 
   try {
     if (esRecurrente.value) {
-      await crearTareaRecurrente()
-      alert(`Tarea recurrente "${titulo.value}" creada con éxito`)
+      const response = await crearTareaRecurrente()
+      // El mensaje del backend incluye info sobre si se envió el mail o no
+      const mensaje = response.message || `Tarea recurrente "${titulo.value}" creada con éxito`
+      alert(mensaje)
     } else {
       await crearTareaIndividual()
       alert(`Tarea "${titulo.value}" creada con éxito`)
