@@ -111,6 +111,7 @@ export const RecurringTaskService = {
 
 		const createdRecurringTask = await RecurringTaskRepository.create(recurringTaskData);
 
+
 		return { recurringTask: createdRecurringTask };
 	},
 
