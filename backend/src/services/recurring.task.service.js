@@ -1,6 +1,7 @@
 import { RecurringTaskRepository } from "../repository/recurring.task.repository.js";
 import { TaskModel } from "../model/Task.js";
 import { ArgentinaTime } from "../utils/argentinaTime.js";
+import { MongoUserRepository } from "../repository/user.mongo.repository.js";
 
 // Maps Spanish day names to JavaScript getDay() values (0 = Sunday, 1 = Monday, etc.)
 const DAY_MAP = {
@@ -109,8 +110,20 @@ export const RecurringTaskService = {
 			includeWeekends: includeWeekends !== undefined ? includeWeekends : true,
 		};
 
-		const createdRecurringTask = await RecurringTaskRepository.create(recurringTaskData);
+		try {
+			const emails = await MongoUserRepository.getUsersEmails(recurringTaskData.assignedTo);
 
+			if (emails.length > 0) {
+				await sendRecurringTaskCreatedEmail({
+				to: emails,
+				recurringTask: createdRecurringTask,
+				});
+			}
+			} catch (mailError) {
+			console.error("⚠️ Error enviando mail de tarea recurrente", mailError);
+			// NO throw
+			}
+		
 
 		return { recurringTask: createdRecurringTask };
 	},

@@ -38,4 +38,19 @@ export class MongoUserRepository {
 	async getBySector(sector) {
 		return await UserModel.find({ sector }).exec();
 	}
+
+	async getUserEmail(id) {
+		const user = await UserModel.findById(id).exec();
+		return user ? user.email : null;
+	}
+
+	async getUsersEmails(ids) {
+  const users = await UserModel.find({
+    _id: { $in: ids },
+  }).select("email");
+
+  return users
+    .map(u => u.email)
+    .filter(Boolean);
+}
 }
