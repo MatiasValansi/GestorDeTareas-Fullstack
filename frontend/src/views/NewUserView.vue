@@ -170,6 +170,21 @@ const volverAlMenu = () => {
 </template>
 
 <style scoped>
+
+.titulo-tarea-modern {
+  text-align: center;
+  font-size: 1.8rem;
+  font-weight: bold;
+  margin: 1.5rem auto;
+  padding: 1rem 1.8rem;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  color: #1f2937;
+  border-radius: 16px;
+  border: 1px solid #d1d5db;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  max-width: 500px;
+}
+
 main {
   max-width: 500px;
   margin: 0 auto;
@@ -398,11 +413,18 @@ button[type="submit"]:disabled {
   text-align: left;
   cursor: pointer;
   font-weight: bold;
+  padding-bottom: 25px;
+  transform: translateX(-25px);
 }
 
 .volver-texto {
-  color: #6f7a8b;
-  text-decoration: underline;
+  color: #6b7280;
+  font-weight: 500;
+  transition: color 0.2s;
+}
+
+.volver-texto:hover {
+  color: #4f83cc;
 }
 
 .volver-link:hover .volver-texto {
