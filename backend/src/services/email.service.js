@@ -1,6 +1,8 @@
 import nodemailer from "nodemailer";
 import {ArgentinaTime} from "../utils/argentinaTime.js";
 
+const isProd = process.env.NODE_ENV === "production";
+
 const transporter = nodemailer.createTransport({
   host: "smtp-relay.brevo.com",
   port: 587,
@@ -9,6 +11,7 @@ const transporter = nodemailer.createTransport({
     user: "a07708001@smtp-brevo.com",
     pass: process.env.BREVO_API_KEY,
   },
+  ...(isProd ? {} : { tls: { rejectUnauthorized: false } }),
 });
 
 export async function sendTaskAssignedEmail({ to, task }) {
@@ -98,8 +101,9 @@ Descripción: ${description || "-"}
 
 Frecuencia: ${recurrenceDescription}
 
-Comienza a partir de: ${ArgentinaTime.format(date)}
-Las instancias tendrán vencimiento relativo a: ${ArgentinaTime.format(deadline)}
+La primera tarea comienza a partir de: ${ArgentinaTime.format(date)}
+El vencimiento de la primera tarea es: ${ArgentinaTime.format(deadline)}
+Se generarán tareas futuras manteniendo la periodicidad, tanto en fechas como en vencimientos.
 
 IMPORTANTE:
 Las tareas individuales NO se crean todas juntas.
