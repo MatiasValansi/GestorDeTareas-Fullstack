@@ -426,6 +426,8 @@ body.dark .loading-state .spinner {
   gap: 0;
   background: white;
   margin: 0;
+  max-height: 450px;
+  overflow-y: auto;
 }
 
 /* === ITEM DE USUARIO === */

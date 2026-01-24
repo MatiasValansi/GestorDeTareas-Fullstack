@@ -136,14 +136,17 @@ onMounted(async () => {
 <style scoped>
 .app-container {
   min-height: 100vh;
+  display: flex;
 }
 
 .main-content {
-  padding: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 .tasks-content {
-  min-height: 800px;
+  min-height: 800px;  
 }
 
 .recurrent-tasks-header {
@@ -152,6 +155,8 @@ onMounted(async () => {
   border-radius: 0 0 20px 20px;
   margin-bottom: 0;
 }
+
+
 
 .page-title {
   font-size: 1.75rem;

@@ -579,6 +579,8 @@ watch(globalMonth, (newMonth) => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  height: 670px;
+  border-radius: 12px;
 }
 
 /* === HEADER CON SELECTOR DE MES Y FILTROS === */
@@ -822,14 +824,11 @@ body.dark .filter-chip:hover {
 .task-list-modern {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;  
-  margin: 0;
+  gap: 0.5rem;
   padding: 0.75rem;
-  flex: 1;
-  overflow-y: auto;
+  flex: 1;             /* 🔑 ocupa TODO lo disponible */
   min-height: 0;
-  max-height: 505px;
-  overflow-y: auto;
+  overflow-y: auto;    /* 🔑 scroll real */
 }
 
 /* === ITEM DE TAREA === */
@@ -1348,5 +1347,7 @@ body.dark .task-date-pattern {
     font-size: 1rem;
     text-decoration: none !important;
   }
+
+
 }
 </style>

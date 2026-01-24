@@ -47,7 +47,10 @@ const irANuevaVistaTarea = () => {
 
     
       <!-- CONTENIDO PRINCIPAL DE TAREAS -->
-      <div class="tasks-content">
+      <div
+        class="tasks-content"
+        :class="{ 'list-mode': viewMode === 'lista' }"
+      >
 
         <!-- TOOLBAR (MES + SWITCH + FILTRO SUPERVISOR) -->
         <TasksToolbar
@@ -91,6 +94,20 @@ const irANuevaVistaTarea = () => {
   </div>
 </template>
 <style scoped>
+
+.view-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: calc(800px - 180px); /* 👈 altura real disponible */
+  overflow-y: auto;
+  margin-bottom: 7px;
+}
+
+.view-container > * {
+  flex: 1;
+  min-height: 0;
+}
 
 .add-task-btn {
   position: fixed;
@@ -202,15 +219,16 @@ body.dark .tasks-content {
   flex: 1;
   display: flex;
   flex-direction: column;
-
 }
 
 .tasks-content {
-  flex: 1;
   display: flex;
   flex-direction: column;
-  min-height: 0;
-  max-height: 800px;
+  height: 800px;
+}
+
+.tasks-content.list-mode {
+  padding-bottom: 0px; /* ajustá el valor a gusto */
 }
 
 </style>
