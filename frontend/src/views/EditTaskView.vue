@@ -284,10 +284,21 @@ async function editarTarea() {
             payload.assignedTo = construirListaAsignados();
         }
 
-        await updateTask(route.params.id, payload);
-        successMsg.value = "Tarea actualizada correctamente";
+        const response = await updateTask(route.params.id, payload);
         
-        setTimeout(() => router.push("/main"), 1500);
+        // Construir mensaje de éxito con info del email
+        let msg = "✅ Tarea actualizada correctamente";
+        const data = response?.payload || response;
+        if (data?.newUsersNotified > 0) {
+            if (data?.emailSent) {
+                msg += `. Se envió notificación por email a ${data.emailsSentCount} usuario(s) agregado(s)`;
+            } else if (data?.emailError) {
+                msg += `. ⚠️ No se pudo enviar el email de notificación`;
+            }
+        }
+        successMsg.value = msg;
+        
+        setTimeout(() => router.push("/main"), 2000);
     } catch (e) {
         errorMsg.value = e?.response?.data?.message || e?.message || "Error al actualizar";
         console.error("Error al editar:", e);

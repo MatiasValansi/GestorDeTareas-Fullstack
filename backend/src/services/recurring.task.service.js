@@ -2,7 +2,7 @@ import { RecurringTaskRepository } from "../repository/recurring.task.repository
 import { TaskModel } from "../model/Task.js";
 import { ArgentinaTime } from "../utils/argentinaTime.js";
 import { MongoUserRepository } from "../repository/user.mongo.repository.js";
-import { sendRecurringTaskCreatedEmail } from "./email.service.js";
+import { sendRecurringTaskCreatedEmail, sendRecurringTaskAddUser } from "./email.service.js";
 
 // Maps Spanish day names to JavaScript getDay() values (0 = Sunday, 1 = Monday, etc.)
 const DAY_MAP = {
@@ -639,6 +639,39 @@ export const RecurringTaskService = {
 			date: { $lt: modificationDate },
 		});
 
+		// Detectar usuarios nuevos agregados y enviarles email
+		const originalAssignedIds = recurringTask.assignedTo.map(u => 
+			u._id ? u._id.toString() : u.toString()
+		);
+		const newAssignedIds = updateData.assignedTo.map(id => id.toString());
+		const newUsersToNotify = newAssignedIds.filter(id => !originalAssignedIds.includes(id));
+
+		let emailSent = false;
+		let emailError = null;
+		let emailsSentCount = 0;
+
+		if (newUsersToNotify.length > 0) {
+			try {
+				const userRepository = new MongoUserRepository();
+				const emails = await userRepository.getUsersEmails(newUsersToNotify);
+				
+				if (emails.length > 0) {
+					// Enviar email de asignación a nuevos usuarios usando sendRecurringTaskAddUser
+					await sendRecurringTaskAddUser({
+						to: emails,
+						recurringTask: updatedRecurringTask,
+					});
+					emailSent = true;
+					emailsSentCount = emails.length;
+					console.log(`✅ EMAIL ENVIADO a ${emails.length} usuario(s) agregado(s) a tarea recurrente`);
+				}
+			} catch (mailError) {
+				// No fallar la actualización si el email falla
+				emailError = mailError.message || "Error desconocido al enviar email";
+				console.error("❌ Error enviando email a nuevos usuarios de tarea recurrente:", mailError);
+			}
+		}
+
 		return {
 			recurringTask: updatedRecurringTask,
 			futureTasksUpdated: futureTasksCount,
@@ -646,6 +679,10 @@ export const RecurringTaskService = {
 			changeType,
 			isShared: willBeShared,
 			modificationDate: formattedDate,
+			emailSent,
+			emailError,
+			emailsSentCount,
+			newUsersNotified: newUsersToNotify.length,
 		};
 	},
 

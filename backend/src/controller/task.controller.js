@@ -107,13 +107,33 @@ export const TaskController = {
             if (deadline !== undefined) updateData.deadline = deadline;
             if (assignedTo !== undefined) updateData.assignedTo = assignedTo;
 
-            const taskUpdated = await TaskService.updateTask(id, updateData, requestingUser);
+            const result = await TaskService.updateTask(id, updateData, requestingUser);
 
-            if (!taskUpdated) {
+            if (!result) {
                 return res.status(404).json({ payload: null, message: `Tarea ${id} no encontrada`, ok: false });
             }
 
-            return res.status(200).json({ message: "Tarea actualizada", payload: taskUpdated, ok: true });
+            // Construir mensaje con info del email
+            let message = "Tarea actualizada correctamente";
+            if (result.newUsersNotified > 0) {
+                if (result.emailSent) {
+                    message += `. Se envió notificación por email a ${result.emailsSentCount} usuario(s) agregado(s)`;
+                } else if (result.emailError) {
+                    message += `. No se pudo enviar el email: ${result.emailError}`;
+                }
+            }
+
+            return res.status(200).json({ 
+                message, 
+                payload: {
+                    task: result.task,
+                    emailSent: result.emailSent,
+                    emailError: result.emailError,
+                    emailsSentCount: result.emailsSentCount,
+                    newUsersNotified: result.newUsersNotified,
+                }, 
+                ok: true 
+            });
         } catch (error) {
             console.error("Error al actualizar tarea:", error);
 

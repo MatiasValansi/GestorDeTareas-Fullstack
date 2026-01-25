@@ -113,3 +113,53 @@ Este es un mensaje informativo.
     `.trim(),
   });
 }
+
+export async function sendRecurringTaskAddUser({ to, recurringTask }) {
+  const {
+    title,
+    description,
+    periodicity,
+    datePattern,
+    numberPattern,
+    date,
+    deadline,
+    includeWeekends,
+  } = recurringTask;
+
+  // Texto descriptivo de la recurrencia
+  let recurrenceDescription = "";
+
+  if (periodicity === "DIARIA") {
+    recurrenceDescription = includeWeekends
+      ? "Todos los días (incluye fines de semana)"
+      : "Todos los días hábiles (lunes a viernes)";
+  } else if (periodicity === "SEMANAL") {
+    recurrenceDescription = `Semanal, cada ${datePattern}`;
+  } else if (periodicity === "QUINCENAL") {
+    recurrenceDescription = `Quincenal, cada ${datePattern}`;
+  } else if (periodicity === "MENSUAL") {
+    recurrenceDescription = `Mensual, el día ${numberPattern}`;
+  }
+
+  return transporter.sendMail({
+    from: `"${process.env.MAIL_FROM_NAME}" <${process.env.MAIL_FROM_EMAIL}>`,
+    to, // string o array
+    subject: `Se te agregó a una tarea recurrente: ${title}`,
+    text: `
+Se te agregó a una nueva tarea recurrente en el sistema.
+
+Título: ${title}
+Descripción: ${description || "-"}
+
+Frecuencia: ${recurrenceDescription}
+
+Se generarán tareas futuras manteniendo la periodicidad, tanto en fechas como en vencimientos.
+
+IMPORTANTE:
+Las tareas individuales NO se crean todas juntas.
+Las instancias se generarán automáticamente cuando se consulte el calendario correspondiente.
+
+Este es un mensaje informativo.
+    `.trim(),
+  });
+}

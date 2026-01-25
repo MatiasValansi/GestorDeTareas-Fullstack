@@ -419,6 +419,10 @@ class TaskServiceClass {
         }
 
         // Procesar actualización de assignedTo si se proporciona
+        // Guardar los IDs originales antes de validar
+        const originalAssignedIds = (currentTask.assignedTo || []).map(id => this._toIdString(id));
+        let newUsersToNotify = [];
+
         if (updateData.assignedTo !== undefined) {
             const validatedAssignedTo = await this._validateAndProcessAssignedToUpdate(
                 currentTask, 
@@ -430,6 +434,11 @@ class TaskServiceClass {
                 delete updateData.assignedTo;
             } else {
                 updateData.assignedTo = validatedAssignedTo;
+                
+                // Detectar usuarios nuevos agregados (para notificación)
+                newUsersToNotify = validatedAssignedTo.filter(
+                    id => !originalAssignedIds.includes(id)
+                );
             }
         }
 
@@ -438,7 +447,43 @@ class TaskServiceClass {
             throw new Error("No hay cambios para guardar");
         }
 
-        return this.taskRepository.updateOne(taskId, updateData);
+        // Actualizar la tarea
+        const updatedTask = await this.taskRepository.updateOne(taskId, updateData);
+
+        // Variables para tracking de email
+        let emailSent = false;
+        let emailError = null;
+        let emailsSentCount = 0;
+
+        // Enviar email a los usuarios nuevos agregados
+        if (newUsersToNotify.length > 0 && updatedTask) {
+            try {
+                const emails = await this.userRepository.getUsersEmails(newUsersToNotify);
+                
+                if (emails.length > 0) {
+                    const taskObj = typeof updatedTask?.toObject === "function"
+                        ? updatedTask.toObject()
+                        : updatedTask;
+                    
+                    await sendTaskAssignedEmail({ to: emails, task: taskObj });
+                    emailSent = true;
+                    emailsSentCount = emails.length;
+                    console.log(`✅ EMAIL ENVIADO a ${emails.length} usuario(s) agregado(s) a tarea editada`);
+                }
+            } catch (mailError) {
+                // No fallar la actualización si el email falla
+                emailError = mailError.message || "Error desconocido al enviar email";
+                console.error("❌ Error enviando email a nuevos usuarios:", mailError);
+            }
+        }
+
+        return {
+            task: updatedTask,
+            emailSent,
+            emailError,
+            emailsSentCount,
+            newUsersNotified: newUsersToNotify.length,
+        };
     }
 
     /**

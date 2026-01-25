@@ -688,6 +688,10 @@ const confirmDelete = (id) => {
     color: #f1f5f9;
 }
 
+body.dark .switch-label {
+    color: #666666;
+}
+
 .complete-switch.is-loading .switch-slider::before {
     animation: pulse 1s ease-in-out infinite;
 }
@@ -737,7 +741,7 @@ const confirmDelete = (id) => {
 
 .section-label {
     font-size: 0.8rem;
-    color: #3b3d41;
+    color: #9ca3af;
     text-transform: uppercase;
     letter-spacing: 0.05em;
 }

@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useUserStore } from "@/stores/user";
 import { getRecurringTaskDetailById, deactivateRecurringTask, updateRecurringTask } from "@/services/recurringTasks";
@@ -12,16 +12,19 @@ const userStore = useUserStore();
 const task = ref(null);
 const loading = ref(true);
 const error = ref("");
+const successMsg = ref("");
 const showTechnicalInfo = ref(false);
 const updatingTask = ref(false);
 
 // ===== GESTIÓN DE USUARIOS =====
-const showUserManagementModal = ref(false);
 const availableUsers = ref([]);
 const selectedUsersToAdd = ref([]);
 const loadingUsers = ref(false);
 const savingUsers = ref(false);
 const isSharedTask = ref(false);
+const esCompartida = ref(false);
+const esCompartidaOriginal = ref(false);
+const usuariosSeleccionados = ref([]);
 
 // Helper para obtener el ID del usuario actual
 const getCurrentUserId = () => {
@@ -117,6 +120,54 @@ const initialAssignedUsers = ref([]);
 // Usuarios a remover (desmarcados)
 const usersToRemove = ref([]);
 
+// ===== COMPUTED PARA ESTILO INLINE (como EditTaskView) =====
+
+// ID del titular (posición 0)
+const titularId = computed(() => {
+    if (!task.value?.assignedTo?.length) return null;
+    const first = task.value.assignedTo[0];
+    if (typeof first === 'object') {
+        return String(first._id || first.id);
+    }
+    return String(first);
+});
+
+// Info del titular
+const titularInfo = computed(() => {
+    if (!titularId.value) return null;
+    return availableUsers.value.find(u => String(u._id || u.id) === titularId.value);
+});
+
+// Usuarios disponibles para asignar (excluyendo al titular)
+const usuariosDisponibles = computed(() => {
+    if (!titularId.value) return [];
+    return availableUsers.value
+        .filter(u => String(u._id || u.id) !== titularId.value)
+        .sort((a, b) => (a.nombre || a.name || '').localeCompare(b.nombre || b.name || '', 'es', { sensitivity: 'base' }));
+});
+
+// Verificar si hay cambios en asignados
+const hayaCambiosEnAsignados = computed(() => {
+    if (!initialAssignedUsers.value.length) return false;
+    
+    const currentAssigned = construirListaAsignados();
+    
+    if (initialAssignedUsers.value.length !== currentAssigned.length) return true;
+    
+    const originalSorted = [...initialAssignedUsers.value].sort();
+    const currentSorted = [...currentAssigned].sort();
+    
+    return originalSorted.some((id, idx) => id !== currentSorted[idx]);
+});
+
+// Validación: si se activa compartida sin agregar usuarios, no permitir guardar
+const compartidaSinCambios = computed(() => {
+    if (!esCompartidaOriginal.value && esCompartida.value) {
+        return usuariosSeleccionados.value.length === 0;
+    }
+    return false;
+});
+
 // Usuarios disponibles para agregar (no asignados actualmente)
 const usersToAdd = computed(() => {
     const assignedIds = getAssignedUserIds();
@@ -139,38 +190,32 @@ const isUserCurrentlyAssigned = (user) => {
 
 // Verificar si hay cambios pendientes
 const hasChanges = computed(() => {
-    return selectedUsersToAdd.value.length > 0 || usersToRemove.value.length > 0;
+    return hayaCambiosEnAsignados.value;
 });
 
-// Manejar cambio en checkbox de usuario
+// Manejar cambio en checkbox de usuario (mantenido por compatibilidad)
 const handleUserCheckboxChange = (user, event) => {
     const userId = String(user._id || user.id);
     const isChecked = event.target.checked;
     const isCurrentlyAssigned = getAssignedUserIds().includes(userId);
     
     if (isChecked) {
-        // Si se marca
         if (isCurrentlyAssigned) {
-            // Quitar de la lista de usuarios a remover
             const removeIndex = usersToRemove.value.indexOf(userId);
             if (removeIndex !== -1) {
                 usersToRemove.value.splice(removeIndex, 1);
             }
         } else {
-            // Agregar a la lista de usuarios a añadir
             if (!selectedUsersToAdd.value.includes(userId)) {
                 selectedUsersToAdd.value.push(userId);
             }
         }
     } else {
-        // Si se desmarca
         if (isCurrentlyAssigned) {
-            // Agregar a la lista de usuarios a remover
             if (!usersToRemove.value.includes(userId)) {
                 usersToRemove.value.push(userId);
             }
         } else {
-            // Quitar de la lista de usuarios a añadir
             const addIndex = selectedUsersToAdd.value.indexOf(userId);
             if (addIndex !== -1) {
                 selectedUsersToAdd.value.splice(addIndex, 1);
@@ -179,24 +224,46 @@ const handleUserCheckboxChange = (user, event) => {
     }
 };
 
-// Aplicar todos los cambios
-const applyChanges = async () => {
+// ===== MÉTODOS PARA ESTILO INLINE (como EditTaskView) =====
+
+// Toggle para seleccionar/deseleccionar usuario
+const toggleUsuario = (userId) => {
+    // No permitir quitar al titular
+    if (userId === titularId.value) return;
+    
+    const index = usuariosSeleccionados.value.indexOf(userId);
+    if (index === -1) {
+        usuariosSeleccionados.value.push(userId);
+    } else {
+        usuariosSeleccionados.value.splice(index, 1);
+    }
+};
+
+// Construir lista de asignados para enviar al backend
+const construirListaAsignados = () => {
+    const titular = titularId.value;
+    if (!titular) return [];
+    
+    // Si no es compartida, solo el titular
+    if (!esCompartida.value) {
+        return [titular];
+    }
+    
+    // Si es compartida: titular + seleccionados
+    return [titular, ...usuariosSeleccionados.value];
+};
+
+// Guardar cambios de usuarios
+const guardarCambiosUsuarios = async () => {
     if (!hasChanges.value || savingUsers.value) return;
+    
+    error.value = "";
+    successMsg.value = "";
     
     try {
         savingUsers.value = true;
         
-        // Construir el nuevo array de assignedTo
-        let newAssignedTo = getAssignedUserIds();
-        
-        // Remover usuarios desmarcados (pero nunca el titular - posición 0)
-        const titularId = newAssignedTo[0];
-        newAssignedTo = newAssignedTo.filter(id => 
-            id === titularId || !usersToRemove.value.includes(id)
-        );
-        
-        // Agregar nuevos usuarios
-        newAssignedTo = [...newAssignedTo, ...selectedUsersToAdd.value];
+        const newAssignedTo = construirListaAsignados();
         
         const response = await updateRecurringTask(task.value._id, {
             assignedTo: newAssignedTo
@@ -206,53 +273,57 @@ const applyChanges = async () => {
         const updatedTask = await getRecurringTaskDetailById(route.params.id);
         task.value = updatedTask;
         
-        // Limpiar selecciones
-        selectedUsersToAdd.value = [];
-        usersToRemove.value = [];
-        isSharedTask.value = task.value.assignedTo.length > 1;
+        // Actualizar estados
+        esCompartidaOriginal.value = updatedTask.assignedTo?.length > 1;
+        esCompartida.value = updatedTask.assignedTo?.length > 1;
+        isSharedTask.value = updatedTask.assignedTo?.length > 1;
         
-        // Cerrar modal
-        closeUserManagement();
+        // Reinicializar usuarios seleccionados
+        const allAssigned = getAssignedUserIds();
+        usuariosSeleccionados.value = allAssigned.filter(id => id !== titularId.value);
+        initialAssignedUsers.value = [...allAssigned];
+        
+        // Construir mensaje de éxito con info del email
+        let msg = "✅ Tarea recurrente actualizada correctamente";
+        const payload = response?.payload || response;
+        if (payload?.newUsersNotified > 0) {
+            if (payload?.emailSent) {
+                msg += `. Se envió notificación por email a ${payload.emailsSentCount} usuario(s) agregado(s)`;
+            } else if (payload?.emailError) {
+                msg += `. ⚠️ No se pudo enviar el email de notificación`;
+            }
+        }
+        successMsg.value = msg;
+        setTimeout(() => { successMsg.value = ''; }, 6000);
         
     } catch (err) {
-        console.error('Error al aplicar cambios:', err);
-        error.value = err?.response?.data?.message || 'Error al aplicar cambios';
+        console.error('Error al guardar cambios:', err);
+        error.value = err?.response?.data?.message || 'Error al guardar cambios';
         setTimeout(() => { error.value = ''; }, 5000);
     } finally {
         savingUsers.value = false;
     }
 };
 
-// Abrir modal de gestión de usuarios
-const openUserManagement = async () => {
-    if (!canEdit.value || isDeactivated.value) return;
-    
-    showUserManagementModal.value = true;
-    isSharedTask.value = task.value.assignedTo.length > 1;
-    selectedUsersToAdd.value = [];
-    usersToRemove.value = [];
-    initialAssignedUsers.value = [...getAssignedUserIds()];
-    
-    // Cargar usuarios del sector si no están cargados
-    if (availableUsers.value.length === 0) {
-        try {
-            loadingUsers.value = true;
-            availableUsers.value = await getUsersBySector();
-        } catch (err) {
-            console.error('Error al cargar usuarios:', err);
-            error.value = 'Error al cargar usuarios disponibles';
-            setTimeout(() => { error.value = ''; }, 3000);
-        } finally {
-            loadingUsers.value = false;
-        }
-    }
+// Aplicar todos los cambios (mantenido por compatibilidad)
+const applyChanges = async () => {
+    await guardarCambiosUsuarios();
 };
 
-// Cerrar modal
-const closeUserManagement = () => {
-    showUserManagementModal.value = false;
-    selectedUsersToAdd.value = [];
-    usersToRemove.value = [];
+// Cargar usuarios del sector
+const cargarUsuarios = async () => {
+    if (availableUsers.value.length > 0) return;
+    
+    try {
+        loadingUsers.value = true;
+        availableUsers.value = await getUsersBySector();
+    } catch (err) {
+        console.error('Error al cargar usuarios:', err);
+        error.value = 'Error al cargar usuarios disponibles';
+        setTimeout(() => { error.value = ''; }, 3000);
+    } finally {
+        loadingUsers.value = false;
+    }
 };
 
 // Toggle selección de usuario para agregar
@@ -393,14 +464,40 @@ const toggleSharedTask = async () => {
 onMounted(async () => {
     try {
         loading.value = true;
-        const data = await getRecurringTaskDetailById(route.params.id);
-        task.value = data;
-        isSharedTask.value = data?.assignedTo?.length > 1;
+        
+        // Cargar tarea y usuarios en paralelo
+        const [taskData, usersData] = await Promise.all([
+            getRecurringTaskDetailById(route.params.id),
+            getUsersBySector()
+        ]);
+        
+        task.value = taskData;
+        availableUsers.value = usersData;
+        
+        // Configurar estados iniciales
+        isSharedTask.value = taskData?.assignedTo?.length > 1;
+        esCompartidaOriginal.value = taskData?.assignedTo?.length > 1;
+        esCompartida.value = taskData?.assignedTo?.length > 1;
+        
+        // Inicializar usuarios seleccionados (excluyendo al titular)
+        const allAssigned = getAssignedUserIds();
+        const ownerIdVal = allAssigned[0];
+        usuariosSeleccionados.value = allAssigned.filter(id => id !== ownerIdVal);
+        initialAssignedUsers.value = [...allAssigned];
+        
     } catch (e) {
         error.value = e?.response?.data?.message || "Error al cargar la tarea recurrente";
         console.error("Error al cargar tarea recurrente:", e);
     } finally {
         loading.value = false;
+    }
+});
+
+// Watcher para esCompartida
+watch(esCompartida, (nuevoValor) => {
+    if (!nuevoValor) {
+        // Al desactivar compartida, limpiar usuarios seleccionados
+        usuariosSeleccionados.value = [];
     }
 });
 
@@ -498,6 +595,18 @@ const goBack = () => router.push("/recurrent");
 
         <!-- Contenido -->
         <div v-else-if="task" class="task-card">
+            <!-- Mensajes de alerta -->
+            <Transition name="fade">
+                <div v-if="error" class="message-box error">
+                    {{ error }}
+                </div>
+            </Transition>
+            <Transition name="fade">
+                <div v-if="successMsg" class="message-box success">
+                    {{ successMsg }}
+                </div>
+            </Transition>
+
             <!-- Header con estado -->
             <div class="task-header">
                 <span class="status-badge" :class="task.active !== false ? 'status-active' : 'status-inactive'">
@@ -553,124 +662,126 @@ const goBack = () => router.push("/recurrent");
                 </div>
             </div>
 
-            <!-- Usuarios asignados -->
-            <div class="task-section">
-                <div class="section-header">
-                    <span class="section-label">Usuarios asignados</span>
-                    <!-- Botón gestionar usuarios (solo titular y si no está desactivada) -->
-                    <button 
-                        v-if="canEdit && !isDeactivated"
-                        class="btn-manage-users"
-                        @click="openUserManagement"
-                    >
-                        Gestionar Usuarios
-                    </button>
-                </div>
-                
-                <div class="users-list">
-                    <div 
-                        v-for="(user, index) in task.assignedTo" 
-                        :key="user._id || user.id || index"
-                        class="user-item"
-                        :class="{ 'is-owner': isUserOwner(user, index) }"
-                    >
-                        <span class="user-name">
-                            {{ typeof user === 'object' ? (user.name || user.nombre || user.fullname || 'Usuario') : 'Usuario' }}
-                        </span>
-                        <span v-if="isUserOwner(user, index)" class="owner-badge">👑 Titular</span>
-                    </div>
+            <!-- ===== INFORMACIÓN DEL TITULAR ===== -->
+            <div class="form-section" v-if="titularInfo || titularId">
+                <h3 class="section-title">Titular de la tarea</h3>
+                <div class="titular-info">
+                    <span class="titular-badge">👑 Titular</span>
+                    <span class="titular-name" v-if="titularInfo">
+                        {{ titularInfo.nombre || titularInfo.name }}
+                        <span v-if="titularId === getCurrentUserId()" class="you-badge">(Tú)</span>
+                    </span>
+                    <span class="titular-hint">
+                        Solo el titular puede editar esta tarea
+                    </span>
                 </div>
             </div>
 
-            <!-- MODAL GESTIÓN DE USUARIOS -->
-            <Teleport to="body">
-                <Transition name="modal">
-                    <div v-if="showUserManagementModal" class="modal-overlay" @click.self="closeUserManagement">
-                        <div class="modal-content">
-                            <div class="modal-header">
-                                <h2>Asignación</h2>
-                                <button class="btn-close-modal" @click="closeUserManagement">✕</button>
+            <!-- ===== SWITCH DE COMPARTIDA (solo si puede editar y no está desactivada) ===== -->
+            <div class="switches-section" v-if="canEdit && !isDeactivated">
+                <div class="switch-group">
+                    <label class="switch-label">
+                        <span class="switch-text">Tarea Compartida</span>
+                        <div 
+                            class="switch-toggle" 
+                            :class="{ active: esCompartida }" 
+                            @click="esCompartida = !esCompartida"
+                        >
+                            <div class="switch-thumb"></div>
+                        </div>
+                    </label>
+                    <p class="switch-hint">
+                        {{ esCompartida ? 'Podés asignar a múltiples usuarios' : 'Asignada únicamente al titular' }}
+                    </p>
+                </div>
+            </div>
+
+            <!-- ===== ASIGNACIÓN DE USUARIOS (Solo si está habilitado compartir y puede editar) ===== -->
+            <Transition name="slide-fade">
+                <div class="form-section" v-if="esCompartida && canEdit && !isDeactivated">
+                    <h3 class="section-title">Usuarios Asignados</h3>
+                    
+                    <p class="field-hint" style="margin-bottom: 1rem;">
+                        Seleccioná otros usuarios para compartir la tarea. El titular no puede ser removido.
+                    </p>
+
+                    <div v-if="loadingUsers" class="loading-users">
+                        <div class="spinner-small"></div>
+                        <span>Cargando usuarios...</span>
+                    </div>
+
+                    <div v-else class="users-grid">
+                        <div 
+                            v-for="usuario in usuariosDisponibles" 
+                            :key="usuario._id || usuario.id"
+                            class="user-chip"
+                            :class="{ selected: usuariosSeleccionados.includes(String(usuario._id || usuario.id)) }"
+                            @click="toggleUsuario(String(usuario._id || usuario.id))"
+                        >
+                            <span class="user-avatar">{{ (usuario.nombre || usuario.name || 'U').charAt(0).toUpperCase() }}</span>
+                            <div class="user-info">
+                                <span class="user-name">{{ usuario.nombre || usuario.name }}</span>
+                                <span class="user-email">{{ usuario.email }}</span>
                             </div>
-
-                            <div class="modal-body">
-                                <!-- Checkbox titular (siempre marcado y deshabilitado) -->
-                                <div class="titular-checkbox-section">
-                                    <label class="user-checkbox-item titular-item">
-                                        <span class="checkbox-info">
-                                            <span class="checkbox-label">Incluirme en esta tarea (soy el titular)</span>
-                                        </span>
-                                        <input 
-                                            type="checkbox" 
-                                            :checked="true"
-                                            disabled
-                                            class="user-checkbox"
-                                        />
-                                    </label>
-                                </div>
-
-                                <!-- Sección Asignar a -->
-                                <div class="assign-section">
-                                    <h3 class="assign-title">Asignar a</h3>
-                                    <p class="assign-subtitle">Selecioná uno o más usuarios</p>
-                                    
-                                    <div v-if="loadingUsers" class="loading-users">
-                                        <div class="spinner-small"></div>
-                                        <span>Cargando usuarios...</span>
-                                    </div>
-                                    
-                                    <div v-else class="users-checkbox-list">
-                                        <label 
-                                            v-for="user in availableUsers.filter(u => String(u._id || u.id) !== getCurrentUserId())" 
-                                            :key="user._id || user.id"
-                                            class="user-checkbox-item"
-                                            :class="{ 'is-selected': isUserCurrentlyAssigned(user) || isUserSelected(user._id || user.id) }"
-                                        >
-                                            <div class="user-checkbox-info">
-                                                <span class="user-avatar-checkbox">{{ (user.name || user.nombre || 'U').charAt(0).toUpperCase() }}</span>
-                                                <div class="user-details">
-                                                    <span class="user-name-checkbox">{{ user.name || user.nombre || user.fullname || 'Usuario' }}</span>
-                                                    <span class="user-email-checkbox">{{ user.email || '' }}</span>
-                                                </div>
-                                            </div>
-                                            <input 
-                                                type="checkbox" 
-                                                :checked="isUserCurrentlyAssigned(user) || isUserSelected(user._id || user.id)"
-                                                @change="handleUserCheckboxChange(user, $event)"
-                                                :disabled="savingUsers"
-                                                class="user-checkbox"
-                                            />
-                                        </label>
-                                    </div>
-
-                                    <div v-if="availableUsers.filter(u => String(u._id || u.id) !== getCurrentUserId()).length === 0 && !loadingUsers" class="no-users-available">
-                                        <span>No hay usuarios disponibles en tu sector</span>
-                                    </div>
-                                </div>
-
-                                <!-- Info importante -->
-                                <div class="modal-info-notice">
-                                    <span class="info-icon">ℹ️</span>
-                                    <span class="info-text">
-                                        Los cambios se aplicarán a las tareas futuras. Las tareas pasadas conservarán sus usuarios originales.
-                                    </span>
-                                </div>
-                            </div>
-
-                            <div class="modal-footer">
-                                <button class="btn-cancel" @click="closeUserManagement">Cancelar</button>
-                                <button 
-                                    class="btn-apply-changes" 
-                                    :disabled="savingUsers || !hasChanges"
-                                    @click="applyChanges"
-                                >
-                                    <span v-if="savingUsers">Guardando...</span>
-                                    <span v-else>Aplicar cambios</span>
-                                </button>
-                            </div>
+                            <span class="check-icon" v-if="usuariosSeleccionados.includes(String(usuario._id || usuario.id))">✓</span>
                         </div>
                     </div>
-                </Transition>
-            </Teleport>
+
+                    <p class="field-hint" v-if="usuariosSeleccionados.length > 0" style="margin-top: 0.75rem;">
+                        {{ usuariosSeleccionados.length }} usuario(s) adicional(es) seleccionado(s)
+                    </p>
+
+                    <p v-if="compartidaSinCambios" class="validation-warning">
+                        ⚠️ Debes agregar al menos un usuario para convertir la tarea en compartida, o desactivar el switch
+                    </p>
+
+                    <!-- Info importante sobre cambios -->
+                    <div class="recurring-users-notice" style="margin-top: 1rem;">
+                        <span class="info-icon">ℹ️</span>
+                        <span class="info-text">
+                            Los cambios se aplicarán a las tareas futuras. Las tareas pasadas conservarán sus usuarios originales.
+                        </span>
+                    </div>
+
+                    <!-- Botones de acción -->
+                    <div class="users-actions" v-if="hasChanges">
+                        <button 
+                            class="btn-secondary"
+                            @click="() => { 
+                                const allAssigned = getAssignedUserIds(); 
+                                usuariosSeleccionados = allAssigned.filter(id => id !== titularId); 
+                                esCompartida = esCompartidaOriginal;
+                            }"
+                        >
+                            Cancelar
+                        </button>
+                        <button 
+                            class="btn-primary"
+                            :disabled="savingUsers || compartidaSinCambios"
+                            @click="guardarCambiosUsuarios"
+                        >
+                            <span v-if="savingUsers" class="btn-spinner"></span>
+                            {{ savingUsers ? "Guardando..." : "Guardar cambios" }}
+                        </button>
+                    </div>
+                </div>
+            </Transition>
+
+            <!-- ===== LISTA DE ASIGNADOS ACTUAL (solo lectura si no puede editar o está desactivada) ===== -->
+            <div class="form-section" v-if="(!canEdit || isDeactivated || !esCompartida) && task.assignedTo?.length > 0">
+                <h3 class="section-title">Usuarios Asignados</h3>
+                <div class="assigned-list">
+                    <div 
+                        v-for="(user, index) in task.assignedTo" 
+                        :key="user._id || user.id || index"
+                        class="assigned-chip"
+                        :class="{ 'is-owner': isUserOwner(user, index) }"
+                    >
+                        <span class="titular-chip-badge" v-if="isUserOwner(user, index)">👑 Titular</span>
+                        {{ typeof user === 'object' ? (user.name || user.nombre || user.fullname || 'Usuario') : 'Usuario' }}
+                    </div>
+                </div>
+            </div>
 
             <!-- Info de recurrencia -->
             <div class="recurring-info-notice">
@@ -766,6 +877,46 @@ const goBack = () => router.push("/recurrent");
     gap: 1rem;
     padding: 3rem;
     color: #6b7280;
+}
+
+/* Message boxes */
+.message-box {
+    padding: 1rem 1.25rem;
+    border-radius: 10px;
+    margin-bottom: 1rem;
+    font-size: 0.95rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.message-box.error {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #dc2626;
+}
+
+.message-box.success {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    color: #16a34a;
+}
+
+.message-box.warning {
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    color: #d97706;
+}
+
+/* Fade transition */
+.fade-enter-active,
+.fade-leave-active {
+    transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+    opacity: 0;
 }
 
 .spinner {
@@ -1610,8 +1761,8 @@ body:not(.dark) .recurring-text {
 
 .user-info {
     display: flex;
-    align-items: center;
-    gap: 0.75rem;
+    align-items: left;
+    gap: 0.1rem;
 }
 
 .user-avatar {
@@ -2052,5 +2203,519 @@ body:not(.dark) .recurring-text {
         width: 100%;
         justify-content: center;
     }
+
+    .users-actions {
+        flex-direction: column;
+    }
+
+    .users-actions .btn-primary,
+    .users-actions .btn-secondary {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+/* ===== ESTILOS INLINE PARA USUARIOS (como EditTaskView) ===== */
+
+/* Secciones del formulario */
+.form-section {
+    background: #ffffff;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1.25rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.section-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+/* Información del titular */
+.titular-info {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 1rem;
+    padding: 1rem;
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    border: 2px solid #f59e0b;
+    border-radius: 10px;
+}
+
+.titular-badge {
+    background: #f59e0b;
+    color: white;
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.titular-name {
+    font-weight: 600;
+    color: #92400e;
+}
+
+.you-badge {
+    font-size: 0.85rem;
+    color: #b45309;
+    font-weight: normal;
+}
+
+.titular-hint {
+    width: 100%;
+    font-size: 0.8rem;
+    color: #b45309;
+}
+
+/* Switches */
+.switches-section {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+    padding: 1.25rem 1.5rem;
+    background: #ffffff;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.switch-group {
+    background: #f9fafb;
+    padding: 1rem;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+}
+
+.switch-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+}
+
+.switch-text {
+    font-weight: 600;
+    color: #374151;
+}
+
+.switch-toggle {
+    width: 50px;
+    height: 26px;
+    background: #d1d5db;
+    border-radius: 13px;
+    position: relative;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.switch-toggle.active {
+    background: #8b5cf6;
+}
+
+.switch-thumb {
+    width: 22px;
+    height: 22px;
+    background: white;
+    border-radius: 50%;
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    transition: transform 0.3s;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.switch-toggle.active .switch-thumb {
+    transform: translateX(24px);
+}
+
+.switch-hint {
+    margin-top: 0.5rem;
+    font-size: 0.85rem;
+    color: #6b7280;
+}
+
+/* ===== USERS GRID ===== */
+.users-grid {
+    display: grid;
+    gap: 0.5rem;
+    max-height: 220px;
+    overflow-y: auto;
+    padding: 0.5rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    background: #fafafa;
+}
+
+.user-chip {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.75rem;
+    border: 2px solid #e5e7eb;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    background: white;
+}
+
+.user-chip:hover {
+    border-color: #4f83cc;
+    background: #f8fafc;
+}
+
+.user-chip.selected {
+    border-color: #4f83cc;
+    background: #f0f7ff;
+}
+
+.user-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #4f83cc, #6366f1);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 0.9rem;
+    flex-shrink: 0;
+}
+
+.user-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.user-name {
+    font-weight: 600;
+    color: #1f2937;
+    font-size: 0.85rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.user-email {
+    font-size: 0.7rem;
+    color: #6b7280;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.check-icon {
+    width: 20px;
+    height: 20px;
+    background: #4f83cc;
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    flex-shrink: 0;
+}
+
+/* ===== LISTA DE ASIGNADOS (solo lectura) ===== */
+.assigned-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.assigned-chip {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: #f3f4f6;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    color: #374151;
+}
+
+.titular-chip-badge {
+    background: #f59e0b;
+    color: white;
+    font-size: 0.65rem;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 600;
+}
+
+/* Field hints */
+.field-hint {
+    margin-top: 0;
+    margin-bottom: 0.5rem;
+    font-size: 0.8rem;
+    color: #9ca3af;
+}
+
+.validation-warning {
+    color: #dc2626;
+    font-size: 0.85rem;
+    margin-top: 0.75rem;
+    padding: 0.5rem;
+    background: #fef2f2;
+    border-radius: 6px;
+}
+
+/* Notice para info de recurrencia en usuarios */
+.recurring-users-notice {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 1rem;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 8px;
+}
+
+.recurring-users-notice .info-icon {
+    flex-shrink: 0;
+}
+
+.recurring-users-notice .info-text {
+    font-size: 0.85rem;
+    color: #1e40af;
+    line-height: 1.5;
+}
+
+/* Botones de acción de usuarios */
+.users-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-end;
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid #e5e7eb;
+}
+
+.btn-primary,
+.btn-secondary {
+    padding: 0.75rem 1.5rem;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #4f83cc, #6366f1);
+    color: white;
+    border: none;
+}
+
+.btn-primary:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(79, 131, 204, 0.4);
+}
+
+.btn-primary:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.btn-secondary {
+    background: #f3f4f6;
+    color: #4b5563;
+    border: 1px solid #d1d5db;
+}
+
+.btn-secondary:hover {
+    background: #e5e7eb;
+}
+
+.btn-spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+/* Lista de asignados (solo lectura) */
+.assigned-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.assigned-chip {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: #f3f4f6;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    color: #374151;
+}
+
+.assigned-chip.is-owner {
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    border: 1px solid #f59e0b;
+}
+
+.titular-chip-badge {
+    background: #f59e0b;
+    color: white;
+    font-size: 0.65rem;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 600;
+}
+
+/* Transiciones */
+.slide-fade-enter-active {
+    transition: opacity 0.4s ease, transform 0.4s ease, max-height 0.5s ease;
+}
+
+.slide-fade-leave-active {
+    transition: opacity 0.35s ease, transform 0.35s ease, max-height 0.4s ease;
+}
+
+.slide-fade-enter-from {
+    transform: translateY(-8px);
+    opacity: 0;
+    max-height: 0;
+    overflow: hidden;
+}
+
+.slide-fade-enter-to,
+.slide-fade-leave-from {
+    transform: translateY(0);
+    opacity: 1;
+    max-height: 500px;
+    overflow: hidden;
+}
+
+.slide-fade-leave-to {
+    transform: translateY(-8px);
+    opacity: 0;
+    max-height: 0;
+    overflow: hidden;
+}
+
+/* Dark mode overrides para estilos inline */
+body.dark .form-section,
+body.dark .switches-section {
+    background: #1e293b;
+    border-color: #374151;
+}
+
+body.dark .section-title {
+    color: #f1f5f9;
+    border-bottom-color: #374151;
+}
+
+body.dark .switch-group {
+    background: #374151;
+    border-color: #4b5563;
+}
+
+body.dark .switch-text {
+    color: #f1f5f9;
+}
+
+body.dark .switch-hint {
+    color: #9ca3af;
+}
+
+body.dark .users-grid {
+    background: #0f172a;
+    border-color: #374151;
+}
+
+body.dark .user-chip {
+    background: #1e293b;
+    border-color: #374151;
+}
+
+body.dark .user-chip:hover {
+    background: #334155;
+    border-color: #8b5cf6;
+}
+
+body.dark .user-chip.selected {
+    background: #312e81;
+    border-color: #8b5cf6;
+}
+
+body.dark .user-chip .user-name {
+    color: #f1f5f9;
+}
+
+body.dark .user-email {
+    color: #9ca3af;
+}
+
+body.dark .field-hint {
+    color: #9ca3af;
+}
+
+body.dark .validation-warning {
+    background: rgba(220, 38, 38, 0.2);
+}
+
+body.dark .recurring-users-notice {
+    background: #1e3a5f;
+    border-color: #3b82f6;
+}
+
+body.dark .recurring-users-notice .info-text {
+    color: #93c5fd;
+}
+
+body.dark .users-actions {
+    border-top-color: #374151;
+}
+
+body.dark .btn-secondary {
+    background: #374151;
+    color: #e5e7eb;
+    border-color: #4b5563;
+}
+
+body.dark .btn-secondary:hover {
+    background: #4b5563;
+}
+
+body.dark .assigned-chip {
+    background: #374151;
+    color: #f1f5f9;
+}
+
+body.dark .assigned-chip.is-owner {
+    background: linear-gradient(135deg, #422006 0%, #78350f 100%);
+}
+
+body.dark .titular-info {
+    background: linear-gradient(135deg, #422006 0%, #78350f 100%);
+}
+
+body.dark .titular-name {
+    color: #fde68a;
+}
+
+body.dark .titular-hint {
+    color: #fcd34d;
 }
 </style>
