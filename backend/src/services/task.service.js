@@ -13,7 +13,7 @@ import { sendTaskAssignedEmail } from "./email.service.js";
  * 3. No se pueden editar tareas VENCIDAS ni RECURRENTES
  * 4. Si supervisor no se incluye en la tarea, debe especificar titularId
  */
-class TaskServiceClass {
+export class TaskServiceClass {
     constructor(taskRepository, userRepository) {
         this.taskRepository = taskRepository;
         this.userRepository = userRepository;
