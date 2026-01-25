@@ -288,19 +288,20 @@ const guardarCambiosUsuarios = async () => {
         const payload = response?.payload || response;
         if (payload?.newUsersNotified > 0) {
             if (payload?.emailSent) {
-                msg += `. Se envió notificación por email a ${payload.emailsSentCount} usuario(s) agregado(s)`;
+                msg += `.\n\nSe enviaron los correos correspondientes a ${payload.emailsSentCount || payload.newUsersNotified} usuario(s) agregado(s).`;
             } else if (payload?.emailError) {
-                msg += `. ⚠️ No se pudo enviar el email de notificación`;
+                msg += `.\n\n⚠️ No se pudo enviar el email de notificación.`;
             }
         }
-        successMsg.value = msg;
-        setTimeout(() => { successMsg.value = ''; }, 6000);
+        
+        // Mostrar alerta y redirigir inmediatamente
+        alert(msg);
+        router.push("/recurrent");
         
     } catch (err) {
         console.error('Error al guardar cambios:', err);
         error.value = err?.response?.data?.message || 'Error al guardar cambios';
         setTimeout(() => { error.value = ''; }, 5000);
-    } finally {
         savingUsers.value = false;
     }
 };
@@ -579,6 +580,16 @@ const goBack = () => router.push("/recurrent");
 
 <template>
     <div class="task-detail-container">
+        <!-- Overlay de loading mientras se guarda -->
+        <Transition name="fade">
+            <div v-if="savingUsers" class="saving-overlay">
+                <div class="saving-content">
+                    <div class="spinner-large"></div>
+                    <span class="saving-text">Guardando cambios...</span>
+                </div>
+            </div>
+        </Transition>
+
         <div class="back-link" @click="goBack">← Volver a tareas recurrentes</div>
 
         <!-- Loading -->
@@ -917,6 +928,60 @@ const goBack = () => router.push("/recurrent");
 .fade-enter-from,
 .fade-leave-to {
     opacity: 0;
+}
+
+/* ===== OVERLAY DE GUARDADO ===== */
+.saving-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.saving-content {
+    background: white;
+    padding: 2rem 3rem;
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+}
+
+.spinner-large {
+    width: 48px;
+    height: 48px;
+    border: 4px solid #e5e7eb;
+    border-top-color: #8b5cf6;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+.saving-text {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #374151;
+}
+
+body.dark .saving-content {
+    background: #1e293b;
+}
+
+body.dark .saving-text {
+    color: #f1f5f9;
+}
+
+body.dark .spinner-large {
+    border-color: #334155;
+    border-top-color: #8b5cf6;
 }
 
 .spinner {

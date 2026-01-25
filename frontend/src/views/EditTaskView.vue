@@ -291,18 +291,18 @@ async function editarTarea() {
         const data = response?.payload || response;
         if (data?.newUsersNotified > 0) {
             if (data?.emailSent) {
-                msg += `. Se envió notificación por email a ${data.emailsSentCount} usuario(s) agregado(s)`;
+                msg += `.\n\nSe enviaron los correos correspondientes a ${data.emailsSentCount || data.newUsersNotified} usuario(s) agregado(s).`;
             } else if (data?.emailError) {
-                msg += `. ⚠️ No se pudo enviar el email de notificación`;
+                msg += `.\n\n⚠️ No se pudo enviar el email de notificación.`;
             }
         }
-        successMsg.value = msg;
         
-        setTimeout(() => router.push("/main"), 2000);
+        // Mostrar alerta y redirigir inmediatamente
+        alert(msg);
+        router.push("/main");
     } catch (e) {
         errorMsg.value = e?.response?.data?.message || e?.message || "Error al actualizar";
         console.error("Error al editar:", e);
-    } finally {
         loading.value = false;
     }
 }
@@ -329,6 +329,16 @@ watch(esCompartida, (nuevoValor) => {
         </div>
 
         <main class="formulario-container">
+            <!-- Overlay de loading mientras se guarda -->
+            <Transition name="fade">
+                <div v-if="loading" class="saving-overlay">
+                    <div class="saving-content">
+                        <div class="spinner-large"></div>
+                        <span class="saving-text">Guardando cambios...</span>
+                    </div>
+                </div>
+            </Transition>
+
             <!-- Loading state -->
             <div v-if="cargando" class="loading-state">
                 <div class="spinner"></div>
@@ -339,9 +349,6 @@ watch(esCompartida, (nuevoValor) => {
                 <!-- Mensajes -->
                 <div v-if="errorMsg" class="message-box error">
                     {{ errorMsg }}
-                </div>
-                <div v-if="successMsg" class="message-box success">
-                    {{ successMsg }}
                 </div>
 
                 <!-- Aviso de bloqueo -->
@@ -1079,6 +1086,71 @@ watch(esCompartida, (nuevoValor) => {
     border-top-color: white;
     border-radius: 50%;
     animation: spin 1s linear infinite;
+}
+
+/* ===== OVERLAY DE GUARDADO ===== */
+.saving-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.saving-content {
+    background: white;
+    padding: 2rem 3rem;
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+}
+
+.spinner-large {
+    width: 48px;
+    height: 48px;
+    border: 4px solid #e5e7eb;
+    border-top-color: #4f83cc;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+.saving-text {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #374151;
+}
+
+/* Transición fade para overlay */
+.fade-enter-active,
+.fade-leave-active {
+    transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+    opacity: 0;
+}
+
+body.dark .saving-content {
+    background: #1e293b;
+}
+
+body.dark .saving-text {
+    color: #f1f5f9;
+}
+
+body.dark .spinner-large {
+    border-color: #334155;
+    border-top-color: #4f83cc;
 }
 
 /* ===== DARK MODE ===== */
