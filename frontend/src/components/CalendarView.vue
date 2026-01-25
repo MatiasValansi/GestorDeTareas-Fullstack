@@ -1,9 +1,10 @@
 <script setup>
-import { ref, computed, watch, inject, onMounted } from 'vue'
+import { ref, computed, watch, inject, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { getCalendarTasks } from '@/services/tasks'
 import { ArgentinaTime } from '@/utils/argentinaTime'
+import { calendarBus, CALENDAR_EVENTS } from '@/utils/calendar.bus.js'
 
 const router = useRouter()
 const store = useUserStore()
@@ -20,6 +21,21 @@ const filterUserId = inject('filterUserId', ref(null))
 // Estado local
 const calendarTasks = ref([])
 const loadingTasks = ref(false)
+
+
+// Escuchar evento de recarga del calendario
+const onRefreshCalendar = () => {
+  console.log('RECEIVED refresh')
+  loadCalendarTasks()
+}
+
+onMounted(() => {
+  calendarBus.on(CALENDAR_EVENTS.REFRESH, onRefreshCalendar)
+})
+
+onUnmounted(() => {
+  calendarBus.off(CALENDAR_EVENTS.REFRESH, onRefreshCalendar)
+})
 
 // ================== HELPERS ==================
 

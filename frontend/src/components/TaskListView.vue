@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { getCalendarTasks, updateTask } from '@/services/tasks'
 import { getAllUsers, getUsersBySector } from '@/services/users'
+import { calendarBus, CALENDAR_EVENTS } from '@/utils/calendar.bus.js'
 
 const router = useRouter()
 const store = useUserStore()
@@ -326,7 +327,10 @@ const marcarComoCompletada = async (tarea, event) => {
         status: 'COMPLETADA',
         completada: true
       }
-    }
+    }    
+    await cargarTareas()
+    console.log('EMIT refresh')
+    calendarBus.emit(CALENDAR_EVENTS.REFRESH)
   } catch (err) {
     console.error('Error al marcar tarea como completada:', err)
     error.value = 'Error al actualizar la tarea'
