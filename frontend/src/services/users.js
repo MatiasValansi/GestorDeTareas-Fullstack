@@ -48,13 +48,15 @@ export const getUserById = async (id) => {
 
 export const getAllUsers = async () => {
   const { data } = await api.get('/users/allUsers');
-  return data.payload.map(userAdapter);
+  const users = data?.payload || [];
+  return users.map(userAdapter);
 };
 
 // Obtener usuarios del mismo sector (accesible para cualquier usuario autenticado)
 export const getUsersBySector = async () => {
   const { data } = await api.get('/users/sector');
-  return data.payload.map(userAdapter);
+  const users = data?.payload || [];
+  return users.map(userAdapter);
 };
 
 // Crear usuario

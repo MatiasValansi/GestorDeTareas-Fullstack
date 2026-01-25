@@ -17,15 +17,28 @@ const searchQuery = ref('')
 const mostrarUsuariosYTareas = async () => {
   cargando.value = true
   error.value = ""
+  
   try {
-    const [resUsuarios, resTareas] = await Promise.all([
-      getAllUsers(),
-      getAllTasks()
-    ])
+    // Obtener usuarios - esta es la llamada principal para esta vista
+    const resUsuarios = await getAllUsers()
+    
+    // Obtener tareas de forma independiente (no bloquea si falla)
+    let resTareas = []
+    try {
+      resTareas = await getAllTasks()
+    } catch (taskErr) {
+      // Si falla la carga de tareas (ej: 404 cuando no hay tareas), continuamos sin ellas
+      console.warn('No se pudieron cargar las tareas:', taskErr?.response?.status || taskErr.message)
+    }
 
+    // Mapear usuarios con sus estadísticas de tareas
     usuarios.value = resUsuarios.map(usuario => {
-      const tareasDelUsuario = resTareas.filter(t => t.userId == usuario.id)
-      const completadas = tareasDelUsuario.filter(t => t.completada).length
+      const userId = usuario.id || usuario._id
+      const tareasDelUsuario = resTareas.filter(t => {
+        const taskUserId = t.userId || t.assignedTo?.[0]?.id || t.assignedTo?.[0]?._id || t.assignedTo?.[0]
+        return taskUserId == userId
+      })
+      const completadas = tareasDelUsuario.filter(t => t.completada || t.status === 'COMPLETADA').length
       return {
         ...usuario,
         cantTareas: tareasDelUsuario.length,
@@ -33,8 +46,16 @@ const mostrarUsuariosYTareas = async () => {
       }
     })
   } catch (err) {
-    error.value = 'Error al cargar usuarios y tareas.'
-    console.error(err)
+    // Error al cargar usuarios (la llamada principal)
+    const status = err?.response?.status
+    if (status === 403) {
+      error.value = 'No tienes permisos para ver los usuarios. Se requiere rol de supervisor.'
+    } else if (status === 401) {
+      error.value = 'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.'
+    } else {
+      error.value = 'Error al cargar usuarios.'
+    }
+    console.error('Error cargando usuarios:', err)
   } finally {
     cargando.value = false
   }

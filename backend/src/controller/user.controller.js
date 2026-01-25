@@ -5,22 +5,24 @@ const mongoUser = new MongoUserRepository();
 
 export const UserController = {
 	userAll: async (req, res) => {
-		const users = await mongoUser.getAll();
-
-		if (users.length == 0) {
-			res.status(404).json({
+		try {
+			const users = await mongoUser.getAll();
+			// Devolver array vacío con 200 OK es mejor práctica REST que 404
+			return res.status(200).json({
+				message: users.length > 0 
+					? "Success ---> Los usuarios fueron hallados correctamente" 
+					: "No hay usuarios registrados",
+				payload: users || [],
+				ok: true,
+			});
+		} catch (error) {
+			console.error("Error al obtener usuarios:", error);
+			return res.status(500).json({
 				payload: null,
-				message: "No se encontró ninguna tarea",
+				message: error.message,
 				ok: false,
 			});
-			return;
 		}
-
-		res.status(200).json({
-			message: "Success ---> Las tareas fueron halladas correctamente",
-			payload: users,
-			ok: true,
-		});
 	},
 
 	userValidation: async (req, res) => {
@@ -49,6 +51,19 @@ export const UserController = {
 		const creatorUser = req.user; // Usuario supervisor que está creando
 
 		try {
+			// Si el endpoint se llama sin JWT, permitimos bootstrap SOLO si la BD está vacía
+			// (caso típico: borraron todos los usuarios y no se puede iniciar sesión).
+			if (!creatorUser) {
+				const totalUsers = await mongoUser.count();
+				if (totalUsers > 0) {
+					return res.status(401).json({
+						payload: null,
+						message: "Requiere autenticación para crear usuarios",
+						ok: false,
+					});
+				}
+			}
+
 			// Validaciones de seguridad
 			if (!user || !user.name || !user.email || !user.password) {
 				return res.status(400).json({
@@ -79,11 +94,21 @@ export const UserController = {
 
 			// Construir datos del usuario con sector del supervisor creador
 			// El password se hashea automáticamente en el modelo (pre-save hook)
+			const sectorToUse = creatorUser?.sector || user.sector;
+			if (!sectorToUse) {
+				return res.status(400).json({
+					payload: null,
+					message:
+						"El sector es requerido (en bootstrap envíalo como user.sector)",
+					ok: false,
+				});
+			}
+
 			const userData = {
 				name: user.name.trim(),
 				email: user.email.trim().toLowerCase(),
 				password: user.password, // Se hashea en el modelo con bcrypt
-				sector: creatorUser.sector, // Mismo sector que el supervisor
+				sector: sectorToUse, // Mismo sector que el supervisor (o bootstrap)
 				isSupervisor: Boolean(user.isSupervisor), // false por defecto
 			};
 

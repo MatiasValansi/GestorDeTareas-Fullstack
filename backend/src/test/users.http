@@ -63,19 +63,42 @@ Content-Type: application/json
 
 ### TESTS NUEVOS CON MONGODB Y JWT
 
-### TEST SUPERVISOR
-POST http://127.0.0.1:3004/users/user
+### BOOTSTRAP (si borraste todos los usuarios): crear supervisor inicial SIN JWT
+POST http://localhost:3004/users/user
 Content-Type: application/json
 
 {
   "user": {
-    "name": "Supervisor Demo",
-    "email": "supervisor@example.com",
+    "name": "Supervisor Test",
+    "email": "supervisor@test.com",
     "password": "123456",
     "sector": "TECNOLOGIA_INFORMATICA",
     "isSupervisor": true
   }
 }
+
+### Login (Auth v2)
+POST http://localhost:3004/auth/login
+Content-Type: application/json
+
+{
+  "email": "supervisor@test.com",
+  "password": "123456"
+}
+
+### TEST SUPERVISOR
+POST http://127.0.0.1:3004/users/user
+Content-Type: application/json
+
+{
+  "name": "Supervisor Demo",
+  "email": "supervisor@example.com",
+  "password": "123456",
+  "sector": "TECNOLOGIA_INFORMATICA",
+  "isSupervisor": true
+}
+
+
 
 ###
 POST http://localhost:3004/auth/login
@@ -106,9 +129,10 @@ Content-Type: application/json
     "email": "usuario@gmail.com",
     "password": "123456",
     "sector": "TECNOLOGIA_INFORMATICA",
-    "isSupervisor": false
+    "isSupervisor": true
   }
 }
+
 
 ###
 POST http://localhost:3004/auth/login

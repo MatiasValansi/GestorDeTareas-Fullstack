@@ -4,10 +4,12 @@ export const TaskController = {
     taskAll: async (req, res) => {
         try {
             const tasks = await TaskService.getAllTasks();
-            if (tasks.length === 0) {
-                return res.status(404).json({ payload: null, message: "No se encontró ninguna tarea", ok: false });
-            }
-            return res.status(200).json({ message: "Tareas obtenidas", payload: tasks, ok: true });
+            // Devolver array vacío con 200 OK es mejor práctica REST que 404
+            return res.status(200).json({ 
+                message: tasks.length > 0 ? "Tareas obtenidas" : "No hay tareas registradas", 
+                payload: tasks || [], 
+                ok: true 
+            });
         } catch (error) {
             console.error("Error al obtener tareas:", error);
             return res.status(500).json({ payload: null, message: error.message, ok: false });

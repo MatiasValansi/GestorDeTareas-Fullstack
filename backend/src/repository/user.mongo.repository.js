@@ -1,6 +1,10 @@
 import { UserModel } from "../model/User.js";
 
 export class MongoUserRepository {
+	async count() {
+		return await UserModel.countDocuments({}).exec();
+	}
+
 	async getAll() {
 		return await UserModel.find().exec();
 	}

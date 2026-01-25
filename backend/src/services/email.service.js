@@ -37,15 +37,10 @@ export async function sendTaskReminderEmail({ to, tasks }) {
   if (!tasks || tasks.length === 0) return;
 
   const tasksList = tasks
-    .map((task, index) => {
-      const start = ArgentinaTime.format(task.date);
-      const end = ArgentinaTime.format(task.deadline);
-
-      return `
+    .map((task, index) => `
 ${index + 1}. ${task.title}
-comienza hoy: ${start} - vence: ${end}
-      `.trim();
-    })
+comienza hoy: ${task.date ? ArgentinaTime.format(task.date) : "Sin inicio"} - vence: ${task.deadline ? ArgentinaTime.format(task.deadline) : "Sin vencimiento"}
+    `.trim())
     .join("\n\n");
 
   return transporter.sendMail({
