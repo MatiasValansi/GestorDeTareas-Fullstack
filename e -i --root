@@ -1,0 +1,98 @@
+[33m8a14f29b[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m Se corrigió bug que no se actuliazaba una tarea al completar.
+[33m82a64d25[m Se realizaron los tests de las funcionalidades restantes.
+[33m583035a9[m Se realizaron tests para Recurring Task.
+[33m08bc78ef[m Se diseñaron test para Task Repository. Testeamos y funciona correctamente.
+[33m8b13fa93[m Se solucionó un bug que cuando no había tareas creadas, no me permitía ver los usuarios reigstrados.
+[33m70a30e3c[m Se implementaron alertas al agregar a un nuevo usuario a una tarea y a una tarea recurrente.
+[33m067f837b[m Se ajustó el diseño de "Usuarios Asignados" para Recurring Task Detail View.
+[33mdb3543c0[m Cambios en variables para compatibilizar servicio de mailing con TLS
+[33m21de017d[m Nuevo ajuste botones
+[33mc52b1ddd[m Se adecuaron vistas varias
+[33m9c171b4e[m Se añadió la alerta al crear la tarea en Task Controller.
+[33m8203d7e4[m Se añadió la funcionalidad para que al crear una Task o RecurringTask, un mail notifique a los usuarios de la tarea creada.
+[33m106f7d2e[m Implementacion de envio de email en tareas recurrentes
+[33ma281b95f[m Metodo de envio de mail para tarea automatica
+[33m45790d53[m chore: add gitignore and remove env file
+[33meb6ad978[m Cambios en vistas varias
+[33m40cf4f92[m Se agregó la funcionalidad de que un SuoerVisor pueda establecer la contraseña del Usuario que creará.
+[33m1cc9436b[m Se solucionaron bugs al estar logueado como Usuario
+[33md4ce1bc1[m Se ajustó el CSS de la vista UserView con el estilo de RecurrentTaskView.
+[33mc7bc224e[m Se corrigiío el bug al mostrar el título de las tareas recurrentes.
+[33mf63294ee[m Se añadió un filtro para las Recurrent Tasks.
+[33mc6eb82c8[m Se ajustó el la posición del clear-search en todas las barras de búsqueda.
+[33m78578710[m Se ocultó la Información Técnica de las vistas de Tarea y Tarea Recurrente.
+[33me6e0ca2c[m Se ajustó el CSS para el botón de Desactivar Tarea.
+[33m65364a03[m Adaptando estilos en RecurringTaskDetail.vue.
+[33meae8032d[m Se implementaron correción de estilos CSS en todo el proyecto.
+[33m754c67ac[m Se modificó CSS de UserView
+[33m50a03252[m Test
+[33m06baef78[m Corrigiendo bug de Vercel con Back para que permita las peticiones y no lance CORS
+[33m98582aa7[m Añadí el dominió del deploy del Front para que me permita hacerle peticiones al back sin que CORS lo bloquee.
+[33mca41c472[m Se forzó la versión Node 18 en package.json del Front.
+[33m0ec56f8c[m Test con CORS definitivo.
+[33m4965bf40[m Otra prueba
+[33m98589195[m Testeando como resolver error de CORS.
+[33mb027664c[m Se ajustó app.js y server.js del backend para evitar problemas con Cors.
+[33m05464dbc[m Se eliminó package.json dentro de Frontend
+[33m1404a7b5[m Se creó el vercel.json
+[33mf47bb892[m Se removió "Node_Modules" del Front añadiendolo al .gitIgnore.
+[33m3655a883[m Se implementaron reglas de negocio en RecurringTask para que puedan ser editadas.
+[33mc4691951[m Se arregló para que un Usuario pueda ver sus tareas recurrentes desde su vista.
+[33m6e9fcac1[m Cambios en vistas varias para unidad estetica entre secciones
+[33m102248d1[m Se actualizó la vista UserView.vue.
+[33mce8a43f7[m Se optimizó para que al crear una tarea recurrente de un día específico, se pueda establecer el atributo Date sobre ese día.
+[33mef16454c[m Se añadió la funcionalidad de mostrar las tareas de cada Usuario para el Supervisor y se ajustó el horariod e las tareas recurrentes.
+[33ma6b8cf6f[m Modificaciones en vista UserDetail
+[33m9711d536[m Se dockerizó el proyecto.
+[33madaebe13[m Se actualizó la hora del calendario para que se muestre correctamente las tareas en el calendario con la hora Argentina
+[33me4094f6d[m Se modificó para desactivar una Tarea Recurente.
+[33mcff0da48[m Vista de recurring task incluida
+[33m08d78338[m Se ajustó la funcionalidad de EditTaskView.vue
+[33meadb849f[m Se solucionó bug en la vista NewTask para un Usuario
+[33me577ea97[m Se agregaron los atributos Date y Deadline a RecurringTask y se modificó la vista para que los muestre adecuadamente.
+[33m46d1d102[m Modificacion en vista main
+[33mb44e9a65[m Se añadieron filtros a la hora de mostrar el Calendario.
+[33me2efa227[m Se actualizaron y optimizaron detalles de los componentes del FrontEnd para que cumplan con la lógica del negocio.
+[33m24afb545[m Ajustes de CSS en vistas varias
+[33macc694d3[m Modificacion en vistas, funcionalidad de delete agregada
+[33m829723cf[m Se modificó y actualizó el botón "+ Nueva Tarea"
+[33m59f076b0[m Se implementaron casos de uso en la lógica de negocio y se testearon correctamente en la vista EditTaskView.vue
+[33m821dcef5[m Se ajustó para que un SuperUsuario pueda editar una tarea autoasignada
+[33mfff8eb8b[m Se actualizaron las vistas EditTask y TaskDetail para mostrar la entidad Task actualizada
+[33m32c3d213[m Se añadió el atributo Date en la clase Task.js
+[33m677928da[m Logica de recurringTask con backend idempotente
+[33mbc64731f[m Vistas adaptadas, modificaciones en ruteo al nuevo Main
+[33m898af358[m Cambios visuales CSS
+[33md66eeffe[m Se mejoró la interfaz del LogIn
+[33ma73f4923[m Se agregó una barra de búsqueda para poder filtrar las tareas
+[33md9e905ac[m Se optmizó la vista de la lista de tareas y la vista de los detalles de cada tarea.
+[33me72de2ad[m Se optmizó la vista de tareas incluyendo una LIsta Ordenada para filtrarlas
+[33ma8f6583b[m Se solucionó la excepción que se lanzaba al crear una Task desde Supervisor
+[33m0b26fa11[m Vista de nueva tarea adaptada a los requerimientos
+[33m8bf60dbd[m Consistencia horaria en huso UTC-3. Refresh de tareas segun consulta mensual
+[33mdaae9819[m Se incluye calendario interactivo en la vista de inicio. Modificaciones en logica de negocio de Task
+[33m29cc73ec[m Estructuracion mensual, adecuacion de CRUD de recurringTask
+[33mbf652020[m Se fixeó la petición POST del Regenerate y funciona correctamente.
+[33mb0470809[m Se añadió el Controller para la entidad RecurrentTask y se testeó que funcionan las peticiiones correctamente.
+[33mc59bf391[m Se realizó una prueba unitaria para testear que funciona correctamente el Repository de RecurretnTask
+[33m9c9952c9[m Se ajustó el Front para las distintas visualizaciones y funciones para diferenciar entre Supervisor y Usuario
+[33m3c7e742b[m Se vinculó la pantalla del LogIn LoginView.vue del front con el Login del back.
+[33m85084381[m Se actualizarón los tests unitarios para poder testear correctamente con el Log In implementado y el modelo User actualizado.
+[33m82b3703f[m Se generó el Log In en el backend mediante Autenticación JWT y bcrypt para ocultar la contraseña. Se testeó correctamente en user.http
+[33m798054bb[m Se testeó que funciona el CRUD de la entidad Task con las nuevas implementaciones
+[33mc965a1dd[m commit por error previo en git
+[33m187a7780[m inclusión de recurring task service
+[33mf96e8595[m Modificación de los modelos task y user, inclusión de tareas recurrentes
+[33md0809765[m Se modificó para que al presionar el Toggle, impacte el estado en tiempo real en la BD.
+[33mf5844637[m Se adaptó el EditTaskView.vue
+[33m1fec474d[m Se adaptó la vista CreateTaskView.vue
+[33mf939d091[m Se ajustó la capa EditUserView.vue para que al editar un usuario, los datos editados se guarden en la base de datos.
+[33m3c84df3b[m Se adaptó la vista UserDetailView.vue para que muestre los detalles del usuario seleccionado.
+[33m19a58a2b[m Se agregó la funcionalidad para que al agregar un nuevo usuario en el front, se realiza el POST en la base de datos con la información ingresada.
+[33m6e20676f[m Vista TaskView.vue conectada con los métodos getAllTasks, deleteTask, getAllUsers
+[33m27141ff2[m Método EliminarUsuario de vista  UserView funcionando correctamente
+[33m44a74363[m Vista UserViews.vue vinculada con nuestra API. Muestra los Users que tenemos en la BD
+[33m2e4e6c64[m Users.js y Tasks.js creados en el service del frontend
+[33m0d2dc6aa[m Añadimos CORS en el Back para que pueda comunicarse con el Front y modificamos para que el /login sea un POST como buena práctica  y NO un GET. Log In funcionando correctamente con las iniciales correctas
+[33m8142ca94[m Commit inicial unificando backend y frontend en un solo repo
+[33m9f448409[m Primer Commit - Gestor de Tareas Fullstack
